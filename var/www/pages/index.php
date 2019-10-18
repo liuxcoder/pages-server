@@ -18,9 +18,8 @@ if (preg_match("/\/[a-zA-Z0-9_ +\-\/\.]+\z/", $request_url) != 1) {
 
 $parts = explode("/", $request_url);
 array_shift($parts); # remove empty first
-
-$git_root = "/data/git/gitea-repositories/" . array_shift($parts) . "/pages.git";
-
+$owner = strtolower(array_shift($parts));
+$git_root = "/data/git/gitea-repositories/$owner/pages.git";
 $file_url = implode("/", $parts);
 
 if (!is_dir($git_root)) {
@@ -37,6 +36,8 @@ if ($retval != 0) {
 }
 
 $ext = pathinfo($file_url, PATHINFO_EXTENSION);
+$ext = strtolower($ext);
+
 if ($ext == "svg") {
     header("Content-Type: image/svg+xml");
 } elseif ($ext == "jpg") {
