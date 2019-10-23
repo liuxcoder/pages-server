@@ -15,17 +15,14 @@ if ($request_url === "/") {
 		<title>Codeberg Pages</title>
 	</head>
 	<body>
-		<h1>Codeberg Pages. Static Pages for your Project.</h1>
-		<p>
-			Create a repo called 'pages' to your user account or org, push static content including HTML+CSS styles, fonts, images.
-
-		</p>
-		<p>
-			Access your rendered pages via:
-		<pre>
-			https://" . $_SERVER["HTTP_HOST"] . "/&lt;username&gt;/
-		</pre>
-		</p>
+		<div style='height: 100%; display: flex; align-items: center; justify-content: center;'>
+			<center>
+				<h1>Codeberg Pages. Static Pages for your Projects.</h1>
+				<p>Create a repo named 'pages' in your user account or org, push static content, HTML, style, fonts, images.</p>
+				<p>Share your rendered content via: <pre>https://" . $_SERVER["HTTP_HOST"] . "/&lt;username&gt;/</pre></p>
+				<p>Welcome to <a href='https://codeberg.org'>Codeberg.org</a>!</p>
+			</center>
+		</div>
 	</body>
 </html>
 ");
