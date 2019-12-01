@@ -10,6 +10,7 @@ $request_url = filter_var($_SERVER["PHP_SELF"], FILTER_SANITIZE_URL);
 
 if ($request_url === "/") {
     send_response(200, "
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <html>
 	<head>
 		<title>Codeberg Pages</title>
