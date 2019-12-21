@@ -77,7 +77,10 @@ $mime_types = array(
     "js" => "application/javascript",
     "html" => "text/html",
     "css" => "text/css",
-    "ico" => "image/x-icon"
+    "ico" => "image/x-icon",
+    "woff" => "font/woff",
+    "woff2" => "font/woff2",
+    "ttf" => "font/ttf"
 );
 
 $ext = pathinfo($file_url, PATHINFO_EXTENSION);
@@ -93,6 +96,3 @@ header("Content-Type: " . $mime_type);
 
 ## If we could directly implode+echo raw output from above, we wouldn't need to execute command twice:
 passthru($command);
-
-?>
-
