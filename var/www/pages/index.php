@@ -65,7 +65,13 @@ $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
 ## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
 exec($command, $output, $retval);
 if ($retval != 0) {
-    send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+    # check for a 404.html before we return an error. TODO: return 404 as response code
+    $file_url = "404.html";
+    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
+    exec($command, $output, $retval);
+    if ($retval != 0) {
+        send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+    }
 }
 
 $mime_types = array(
