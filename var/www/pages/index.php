@@ -59,20 +59,8 @@ if (sizeof($parts) === 0 || strpos(end($parts), ".") === false) {
 
 $file_url = implode("/", $parts);
 
-$command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
-
-## We are executing command twice (first for send_response-checking, then for actual raw output to stream),
-## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
-exec($command, $output, $retval);
-if ($retval != 0) {
-    # check for a 404.html before we return an error. TODO: return 404 as response code
-    $file_url = "404.html";
-    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
-    exec($command, $output, $retval);
-    if ($retval != 0) {
-        send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
-    }
-}
+$ext = pathinfo($file_url, PATHINFO_EXTENSION);
+$ext = strtolower($ext);
 
 $mime_types = array(
     "svg" => "image/svg+xml",
@@ -89,9 +77,6 @@ $mime_types = array(
     "ttf" => "font/ttf"
 );
 
-$ext = pathinfo($file_url, PATHINFO_EXTENSION);
-$ext = strtolower($ext);
-
 if (array_key_exists($ext, $mime_types)) {
     $mime_type = $mime_types[$ext];
 } else {
@@ -100,5 +85,22 @@ if (array_key_exists($ext, $mime_types)) {
 
 header("Content-Type: " . $mime_type);
 
-## If we could directly implode+echo raw output from above, we wouldn't need to execute command twice:
+$command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
+
+## We are executing command twice (first for send_response-checking, then for actual raw output to stream),
+## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
+exec($command, $output, $retval);
+if ($retval != 0) {
+    # Render user-provided 404.html if exists.
+    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:404.html'\"";
+    exec($command, $output, $retval);
+    if ($retval != 0) {
+        send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+    }
+    http_response_code(404);
+    header("Content-Type: text/html");
+}
+
+## If we could directly exec+echo raw output from above, we wouldn't need to execute command twice:
 passthru($command);
+
