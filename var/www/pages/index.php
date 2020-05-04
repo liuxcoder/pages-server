@@ -36,18 +36,16 @@ if (preg_match("/^\/[a-zA-Z0-9_ +\-\/\.]+\$/", $request_url) != 1) {
 
 $git_prefix = "/data/git/gitea-repositories";
 $parts = explode("/", $request_url);
-array_shift($parts); # remove empty first
+
+# Remove empty first, potentially empty parts between //. If URL ends on "/", last entry in array is empty too. Remove it:
+$parts = array_filter($parts, function($p) { return strlen($p) > 0; });
+
 $owner = strtolower(array_shift($parts));
 $git_root = realpath("$git_prefix/$owner/pages.git");
 
 # Ensure that only files within the user's pages repository are accessed:
 if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix) {
     send_response(404, "this user/organization does not have codeberg pages");
-}
-
-# If URL ends on "/", last entry in array is empty. Remove it:
-if (end($parts) === "") {
-    array_pop($parts);
 }
 
 $file_url = implode("/", $parts);
