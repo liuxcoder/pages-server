@@ -51,7 +51,7 @@ $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > 
 exec($command, $output, $retval);
 if ($retval === 0) {
     if (substr($request_url, -1) !== "/") {
-        $h = "Location: https://" . $_SERVER["HTTP_HOST"] . "/" . $owner . "/" . $file_url . "/";
+        $h = "Location: $request_url/";
 	if ($_SERVER['QUERY_STRING'] !== "")
 	    $h .= "?" . $_SERVER['QUERY_STRING'];
         header($h);
