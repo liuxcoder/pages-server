@@ -47,17 +47,11 @@ if (end($parts) === '') {
     array_shift($parts);
 }
 
-if (sizeof($parts) === 0 || strpos(end($parts), ".") === false) {
-    $h = "Location: https://" . $_SERVER["HTTP_HOST"] . $_SERVER["REQUEST_URI"];
-    if (substr($h, -1) != "/") {
-        $h .= "/";
-    }
-    $h .= "index.html";
-    header($h);
-    exit();
-}
-
 $file_url = implode("/", $parts);
+
+if ($file_url === "") {
+    $file_url = "index.html";
+}
 
 $ext = pathinfo($file_url, PATHINFO_EXTENSION);
 $ext = strtolower($ext);
@@ -91,14 +85,19 @@ $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
 ## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
 exec($command, $output, $retval);
 if ($retval != 0) {
-    # Render user-provided 404.html if exists.
-    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:404.html'\"";
+    # Try to append index.html to path, in case it was an abbreviated folder. Whatever happens from now on, we will always render HTML:
+    header("Content-Type: text/html");
+    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url/index.html'\"";
     exec($command, $output, $retval);
     if ($retval != 0) {
-        send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+        # Render user-provided 404.html if exists, generic 404 message if not:
+        $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:404.html'\"";
+        exec($command, $output, $retval);
+        if ($retval != 0) {
+            send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+        }
+        http_response_code(404);
     }
-    http_response_code(404);
-    header("Content-Type: text/html");
 }
 
 ## If we could directly exec+echo raw output from above, we wouldn't need to execute command twice:
