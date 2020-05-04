@@ -41,7 +41,7 @@ $owner = strtolower(array_shift($parts));
 $git_root = realpath("$git_prefix/$owner/pages.git");
 $file_url = implode("/", $parts);
 
-# Ensure that only files within the user's pages repository are accessed:
+# Ensure that only files within $git_root are accessed:
 if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix) {
     send_response(404, "this user/organization does not have codeberg pages");
 }
