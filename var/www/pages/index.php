@@ -52,44 +52,45 @@ $file_url = implode("/", $parts);
 # If this is a folder or just empty, we add 'index.html' to the URL:
 $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > /dev/null\"";
 exec($command, $output, $retval);
-if ($retval == 0) {
-    if ($file_url == "" ) {
-        $file_url = "index.html";
-    } else {
-	$file_url .= "/index.html";
-    }
+if ($retval === 0) {
+    if ($file_url !== '') {
+	    $file_url .= '/';
+    $file_url .= "index.html";
 }
 
 $ext = pathinfo($file_url, PATHINFO_EXTENSION);
 $ext = strtolower($ext);
 
 $mime_types = array(
-    "svg" => "image/svg+xml",
-    "png" => "image/png",
+    "css" => "text/css",
+    "csv" => "text/csv",
+    "gif" => "image/gif",
+    "html" => "text/html",
+    "ico" => "image/x-icon",
+    "ics" => "text/calendar",
     "jpg" => "image/jpeg",
     "jpeg" => "image/jpeg",
-    "gif" => "image/gif",
     "js" => "application/javascript",
-    "html" => "text/html",
-    "css" => "text/css",
-    "ico" => "image/x-icon",
+    "json" => "application/json",
+    "pdf" => "application/pdf",
+    "png" => "image/png",
+    "svg" => "image/svg+xml",
+    "ttf" => "font/ttf",
+    "txt" => "text/plain",
     "woff" => "font/woff",
     "woff2" => "font/woff2",
-    "ttf" => "font/ttf"
+    "xml" => "text/xml"
 );
 
 if (array_key_exists($ext, $mime_types)) {
-    $mime_type = $mime_types[$ext];
+    header("Content-Type: " . $mime_types[$ext]);
 } else {
-    $mime_type = "text/plain";
+    header("Content-Type: application/octet-stream");
 }
-
-header("Content-Type: " . $mime_type);
-
-$command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
 
 ## We are executing command twice (first for send_response-checking, then for actual raw output to stream),
 ## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
+$command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
 exec($command . " > /dev/null", $output, $retval);
 if ($retval != 0) {
     # Render user-provided 404.html if exists, generic 404 message if not:
