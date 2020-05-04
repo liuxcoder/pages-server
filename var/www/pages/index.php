@@ -53,7 +53,7 @@ $file_url = implode("/", $parts);
 $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > /dev/null\"";
 exec($command, $output, $retval);
 if ($retval === 0) {
-    if ($file_url !== '') {
+    if ($file_url !== '')
 	    $file_url .= '/';
     $file_url .= "index.html";
 }
@@ -98,9 +98,8 @@ if ($retval != 0) {
     header("Content-Type: text/html");
     $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:404.html'\"";
     exec($command . " > /dev/null", $output, $retval);
-    if ($retval != 0) {
+    if ($retval != 0)
         send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
-    }
 }
 
 ## If we could directly exec+echo raw output from above, we wouldn't need to execute command twice:
