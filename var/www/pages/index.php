@@ -43,7 +43,7 @@ if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix) {
     send_response(404, "this user/organization does not have codeberg pages");
 }
 
-if (end($parts) === '') {
+if (end($parts) === "") {
     array_pop($parts);
 }
 
@@ -53,8 +53,8 @@ $file_url = implode("/", $parts);
 $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > /dev/null\"";
 exec($command, $output, $retval);
 if ($retval === 0) {
-    if ($file_url !== '')
-	    $file_url .= '/';
+    if ($file_url !== "")
+	    $file_url .= "/";
     $file_url .= "index.html";
 }
 
