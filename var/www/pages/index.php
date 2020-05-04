@@ -36,26 +36,29 @@ if (preg_match("/^\/[a-zA-Z0-9_ +\-\/\.]+\$/", $request_url) != 1) {
 
 $git_prefix = "/data/git/gitea-repositories";
 $parts = explode("/", $request_url);
-
-# Remove empty first, potentially empty parts between //. If URL ends on "/", last entry in array is empty too. Remove it:
-$parts = array_diff($parts, array(""));
-
+$parts = array_diff($parts, array("")); # Remove empty parts in URL
 $owner = strtolower(array_shift($parts));
 $git_root = realpath("$git_prefix/$owner/pages.git");
+$file_url = implode("/", $parts);
 
 # Ensure that only files within the user's pages repository are accessed:
 if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix) {
     send_response(404, "this user/organization does not have codeberg pages");
 }
 
-$file_url = implode("/", $parts);
-
-# If this is a folder or just empty, we add 'index.html' to the URL:
+# If this is a folder, we explicitly redirect to folder URL, otherwise browsers will construct invalid relative links:
 $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > /dev/null\"";
 exec($command, $output, $retval);
 if ($retval === 0) {
+    if (substr($request_url, -1) !== "/") {
+        $h = "Location: https://" . $_SERVER["HTTP_HOST"] . "/" . $owner . "/" . $file_url . "/";
+	if ($_SERVER['QUERY_STRING'] !== "")
+	    $h .= "?" . $_SERVER['QUERY_STRING'];
+        header($h);
+        exit();
+    }
     if ($file_url !== "")
-	    $file_url .= "/";
+	$file_url .= "/";
     $file_url .= "index.html";
 }
 
