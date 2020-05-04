@@ -49,6 +49,7 @@ if (end($parts) === '') {
 
 $file_url = implode("/", $parts);
 
+# If this is a folder or just empty, we add 'index.html' to the URL:
 $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > /dev/null\"";
 exec($command, $output, $retval);
 if ($retval == 0) {
