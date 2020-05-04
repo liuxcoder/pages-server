@@ -38,7 +38,7 @@ $git_prefix = "/data/git/gitea-repositories";
 $parts = explode("/", $request_url);
 
 # Remove empty first, potentially empty parts between //. If URL ends on "/", last entry in array is empty too. Remove it:
-$parts = array_filter($parts, function($p) { return strlen($p) > 0; });
+$parts = array_diff($parts, array(""));
 
 $owner = strtolower(array_shift($parts));
 $git_root = realpath("$git_prefix/$owner/pages.git");
