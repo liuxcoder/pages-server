@@ -12,19 +12,19 @@ if ($request_url === "/") {
     send_response(200, "
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <html>
-	<head>
-		<title>Codeberg Pages</title>
-	</head>
-	<body>
-		<div style='height: 100%; display: flex; align-items: center; justify-content: center;'>
-			<center>
-				<h1>Codeberg Pages. Static Pages for your Projects.</h1>
-				<p>Create a repo named 'pages' in your user account or org, push static content, HTML, style, fonts, images.</p>
-				<p>Share your rendered content via: <pre>https://" . $_SERVER["HTTP_HOST"] . "/&lt;username&gt;/</pre></p>
-				<p>Welcome to <a href='https://codeberg.org'>Codeberg.org</a>!</p>
-			</center>
-		</div>
-	</body>
+        <head>
+                <title>Codeberg Pages</title>
+        </head>
+        <body>
+                <div style='height: 100%; display: flex; align-items: center; justify-content: center;'>
+                        <center>
+                                <h1>Codeberg Pages. Static Pages for your Projects.</h1>
+                                <p>Create a repo named 'pages' in your user account or org, push static content, HTML, style, fonts, images.</p>
+                                <p>Share your rendered content via: <pre>https://" . $_SERVER["HTTP_HOST"] . "/&lt;username&gt;/</pre></p>
+                                <p>Welcome to <a href='https://codeberg.org'>Codeberg.org</a>!</p>
+                        </center>
+                </div>
+        </body>
 </html>
 ");
 }
@@ -51,14 +51,14 @@ $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > 
 exec($command, $output, $retval);
 if ($retval === 0) {
     if (substr($request_url, -1) !== "/") {
-        $h = "Location: $request_url/";
-	if ($_SERVER['QUERY_STRING'] !== "")
-	    $h .= "?" . $_SERVER['QUERY_STRING'];
+        $h = "Location: " . $request_url . "/";
+        if ($_SERVER['QUERY_STRING'] !== "")
+            $h .= "?" . $_SERVER['QUERY_STRING'];
         header($h);
         exit();
     }
     if ($file_url !== "")
-	$file_url .= "/";
+        $file_url .= "/";
     $file_url .= "index.html";
 }
 
