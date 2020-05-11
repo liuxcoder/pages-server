@@ -97,13 +97,18 @@ if (array_key_exists($ext, $mime_types)) {
 $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
 exec($command . " > /dev/null", $output, $retval);
 if ($retval != 0) {
-    # Render user-provided 404.html if exists, generic 404 message if not:
-    http_response_code(404);
-    header("Content-Type: text/html");
-    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:404.html'\"";
+    # Try adding '.html' suffix, if this does not work either, report error
+    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url.html'\"";
     exec($command . " > /dev/null", $output, $retval);
-    if ($retval != 0)
-        send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+    header("Content-Type: text/html");
+    if ($retval != 0) {
+        # Render user-provided 404.html if exists, generic 404 message if not:
+        http_response_code(404);
+        $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:404.html'\"";
+        exec($command . " > /dev/null", $output, $retval);
+        if ($retval != 0)
+            send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+    }
 }
 
 ## If we could directly exec+echo raw output from above, we wouldn't need to execute command twice:
