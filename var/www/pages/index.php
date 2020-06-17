@@ -8,7 +8,7 @@ function send_response($code, $message) {
 
 $request_url = filter_var($_SERVER["PHP_SELF"], FILTER_SANITIZE_URL);
 
-if ($request_url === "/") {
+if ($request_url === "/" and $_SERVER["HTTP_HOST"] === "codeberg.eu") {
     send_response(200, "
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <html>
@@ -20,7 +20,7 @@ if ($request_url === "/") {
                         <center>
                                 <h1>Codeberg Pages. Static Pages for your Projects.</h1>
                                 <p>Create a repo named 'pages' in your user account or org, push static content, HTML, style, fonts, images.</p>
-                                <p>Share your rendered content via: <pre>https://" . $_SERVER["HTTP_HOST"] . "/&lt;username&gt;/</pre></p>
+                                <p>Share your rendered content via: <pre>https://&lt;username&gt;." . $_SERVER["HTTP_HOST"] . "</pre></p>
                                 <p>Welcome to <a href='https://codeberg.org'>Codeberg.org</a>!</p>
                         </center>
                 </div>
@@ -30,14 +30,21 @@ if ($request_url === "/") {
 }
 
 # Restrict allowed characters in request URI:
-if (preg_match("/^\/[a-zA-Z0-9_ +\-\/\.]+\$/", $request_url) != 1) {
+if (preg_match("/^\/[a-zA-Z0-9_ +\-\/\.]*\$/", $request_url) != 1) {
     send_response(404, "invalid request URL");
 }
 
 $git_prefix = "/data/git/gitea-repositories";
 $parts = explode("/", $request_url);
 $parts = array_diff($parts, array("")); # Remove empty parts in URL
-$owner = strtolower(array_shift($parts));
+
+$parts_dot = explode(".",$_SERVER["HTTP_HOST"]);
+if (count($parts_dot) != 3)
+{
+    send_response(404, "invalid subdomain");
+}
+$owner = $parts_dot[0];
+
 $git_root = realpath("$git_prefix/$owner/pages.git");
 $file_url = implode("/", $parts);
 
