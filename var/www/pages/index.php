@@ -54,7 +54,7 @@ if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix) {
 }
 
 # If this is a folder, we explicitly redirect to folder URL, otherwise browsers will construct invalid relative links:
-$command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'master:$file_url' > /dev/null\"";
+$command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'HEAD:$file_url' > /dev/null\"";
 exec($command, $output, $retval);
 if ($retval === 0) {
     if (substr($request_url, -1) !== "/") {
@@ -101,17 +101,17 @@ if (array_key_exists($ext, $mime_types)) {
 
 ## We are executing command twice (first for send_response-checking, then for actual raw output to stream),
 ## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
-$command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url'\"";
+$command = "sh -c \"cd '$git_root' && /usr/bin/git show 'HEAD:$file_url'\"";
 exec($command . " > /dev/null", $output, $retval);
 if ($retval != 0) {
     # Try adding '.html' suffix, if this does not work either, report error
-    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:$file_url.html'\"";
+    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'HEAD:$file_url.html'\"";
     exec($command . " > /dev/null", $output, $retval);
     header("Content-Type: text/html");
     if ($retval != 0) {
         # Render user-provided 404.html if exists, generic 404 message if not:
         http_response_code(404);
-        $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'master:404.html'\"";
+        $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'HEAD:404.html'\"";
         exec($command . " > /dev/null", $output, $retval);
         if ($retval != 0)
             send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
