@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="description" content="Create your own free website for you and your projects using Codeberg Pages.">
+    <meta name="keywords" content="Codeberg, Website, Pages, Free, Hosting, Git, Repository">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="shortcut icon" href="https://codeberg.org/img/favicon.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Kavivanar&family=Open+Sans:wght@300&family=Passion+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <title>Codeberg Pages - Static pages for your projects.</title>
+
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+        background: #fcfcfc;
+      }
+
+      code {
+        display: inline-block;
+        margin: 5px 0 5px 0;
+        padding: 2px 8px 2px 8px;
+        border-radius: 3px;
+        background: #393e46;
+        word-break: break-all;
+        color: white;
+      }
+
+      .container {
+        margin-top: 50px;
+        font-family: 'Open Sans', sans-serif;
+        color: #404040;
+      }
+
+      .container .logo {
+        width: 220px;
+        margin-bottom: 40px;
+        mix-blend-mode: multiply;
+      }
+
+      .container .header {
+        margin-bottom: 60px;
+      }
+
+      .container .header .name {
+        font-family: 'Passion One', cursive;
+        font-size: 50px;
+        color: #2185d0;
+      }
+
+      .container .header .description {
+        font-size: 20px;
+      }
+
+      .cards {
+        display: flex;
+        align-items: top;
+        justify-content: center;
+      }
+
+      .card {
+        display: inline-block;
+        margin: 0 10px 0 10px;
+        max-width: 200px;
+      }
+
+      .card .card-icon {
+        display: inline-block;
+        padding: 12px;
+        border-radius: 30px;
+        background: black;
+        box-shadow: 0px 4px 16px -10px rgba(0,0,0,0.75);
+      }
+
+      .card-icon .material-icons {
+        display: block;
+        color: white;
+      }
+
+      .card .card-header {
+        margin-top: 15px;
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      .card .card-description {
+        margin-top: 5px;
+        font-size: 14px;
+      }
+
+      .elevated {
+        display: block;
+        padding: 45px 5px 45px 5px;
+        background: #fafafa;
+        box-shadow: inset 0px 0px 10px 0px rgba(0,0,0,0.10);
+      }
+    </style>
+  </head>
+  <body>
+    <center>
+      <div class="container">
+        <img class="logo" src="https://codeberg.org/img/logo.svg"><br>
+
+        <div class="header">
+          <div class="name">Codeberg Pages.</div>
+          <div class="description">Static pages for your projects.</div>
+        </div>
+
+        <div class="elevated">
+          <div class="cards">
+            <div class="card">
+              <div style="background: #efb960;" class="card-icon"><i class="material-icons">add</i></div>
+              <div class="card-header">Create a repository.</div>
+              <div class="card-description">Create a repo named 'pages' in your user account or organisation.</div>
+            </div>
+
+            <div class="card">
+              <div style="background: #0a97b0;" class="card-icon"><i class="material-icons">cloud_upload</i></div>
+              <div class="card-header">Push your content.</div>
+              <div class="card-description">Push your static content, HTML, style, fonts or images.</div>
+            </div>
+
+            <div class="card">
+              <div style="background: #6c5b7b;" class="card-icon"><i class="material-icons">emoji_flags</i></div>
+              <div class="card-header">You're done!</div>
+              <div class="card-description">Access your content via <code>https://pages.codeberg.org/&lt;username&gt;/</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </center>
+  </body>
+</html>

@@ -9,24 +9,7 @@ function send_response($code, $message) {
 $request_url = filter_var($_SERVER["PHP_SELF"], FILTER_SANITIZE_URL);
 
 if ($request_url === "/" and $_SERVER["HTTP_HOST"] === "codeberg.eu") {
-    send_response(200, "
-<meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<html>
-        <head>
-                <title>Codeberg Pages</title>
-        </head>
-        <body>
-                <div style='height: 100%; display: flex; align-items: center; justify-content: center;'>
-                        <center>
-                                <h1>Codeberg Pages. Static Pages for your Projects.</h1>
-                                <p>Create a repo named 'pages' in your user account or org, push static content, HTML, style, fonts, images.</p>
-                                <p>Share your rendered content via: <pre>https://&lt;username&gt;." . $_SERVER["HTTP_HOST"] . "</pre></p>
-                                <p>Welcome to <a href='https://codeberg.org'>Codeberg.org</a>!</p>
-                        </center>
-                </div>
-        </body>
-</html>
-");
+    send_response(200, file_get_contents("./default-page.html"));
 }
 
 # Restrict allowed characters in request URI:
@@ -120,4 +103,3 @@ if ($retval != 0) {
 
 ## If we could directly exec+echo raw output from above, we wouldn't need to execute command twice:
 passthru($command);
-
