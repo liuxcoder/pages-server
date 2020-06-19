@@ -21,17 +21,22 @@
 
       code {
         display: inline-block;
-        margin: 5px 0 5px 0;
-        padding: 2px 8px 2px 8px;
+        margin: 5px;
+        padding: 2px 6px 2px 6px;
         font-size: 14px;
         border-radius: 3px;
         background: #393e46;
-        word-break: break-all;
         color: white;
+        box-shadow: 0px 4px 10px -2px rgb(0, 0, 0, 0.3);
+      }
+
+      code:hover {
+        box-shadow: 0px 4px 10px 1px rgb(0, 0, 0, 0.3);
+		    transition: box-shadow 0.2s ease-in-out;
       }
 
       .container {
-        margin-top: 50px;
+        margin: 50px 0 50px 0;
         font-family: 'Tajawal', sans-serif;
         font-weight: 300;
         color: #404040;
@@ -43,13 +48,10 @@
         mix-blend-mode: multiply;
       }
 
-      .container .header {
-        margin-bottom: 60px;
-      }
-
       .container .header .name {
         font-size: 50px;
         font-weight: 900;
+        line-height: 1;
         color: #2185d0;
       }
 
@@ -89,11 +91,13 @@
       }
 
       .card .card-description {
+        margin-top: 2px;
         font-size: 16px;
       }
 
       .elevated {
         display: block;
+        margin-top: 60px;
         padding: 50px 5px 50px 5px;
         background: #fafafa;
         box-shadow: inset 0px 0px 10px 0px rgba(0,0,0,0.10);
@@ -108,6 +112,7 @@
         <div class="header">
           <div class="name">Codeberg Pages.</div>
           <div class="description">Static pages for your projects.</div>
+          <code style="margin-top: 15px;">https://&lt;your_username&gt;.codeberg.eu/</code>
         </div>
 
         <div class="elevated">
@@ -115,7 +120,7 @@
             <div class="card">
               <div style="background: #efb960;" class="card-icon"><i class="material-icons">add</i></div>
               <div class="card-header">Create a repository.</div>
-              <div class="card-description">Create a repo named 'pages' in your user account or organisation.</div>
+              <div class="card-description">Create a repo named 'pages' in your user account or organization.</div>
             </div>
 
             <div class="card">
@@ -127,7 +132,7 @@
             <div class="card">
               <div style="background: #6c5b7b;" class="card-icon"><i class="material-icons">emoji_flags</i></div>
               <div class="card-header">You're done!</div>
-              <div class="card-description">Access your content via <code>https://&lt;username&gt;/codeberg.eu/</code></div>
+              <div class="card-description">You should now be able to access your content using the link shown above.</div>
             </div>
           </div>
         </div>
