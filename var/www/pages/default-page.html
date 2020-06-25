@@ -7,7 +7,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="shortcut icon" href="https://codeberg.org/img/favicon.png" />
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        /* From https://github.com/google/material-design-icons under the Apache-2.0 License */
+        @font-face {
+            font-family: 'Material Icons';
+            font-style: normal;
+            font-weight: 400;
+            src: url('../fonts/material-icons/tajawal-v3-latin_arabic-300.eot');
+            src: url('../fonts/material-icons/MaterialIcons-Regular.eot');
+            src: local('Material Icons'), local('MaterialIcons-Regular'),
+                url('../fonts/material-icons/tajawal-v3-latin_arabic-300.eot?#iefix') format('embedded-opentype'),
+                url('../fonts/material-icons/MaterialIcons-Regular.woff2') format('woff2'),
+                url('../fonts/material-icons/MaterialIcons-Regular.woff') format('woff'),
+                url('../fonts/material-icons/MaterialIcons-Regular.ttf') format('truetype');
+        }
+    </style>
+    <style>
+        /* From https://github.com/googlefonts/tajawal under the OFL-1.1 License */
+        /* tajawal-300 - latin_arabic */
+        @font-face {
+            font-family: 'Tajawal';
+            font-style: normal;
+            font-weight: 300;
+            font-display: swap;
+            src: url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.eot');
+            src: local('Tajawal Light'), local('Tajawal-Light'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.eot?#iefix') format('embedded-opentype'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.woff2') format('woff2'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.woff') format('woff'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.ttf') format('truetype'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.svg#Tajawal') format('svg');
+        }
+
+        /* tajawal-700 - latin_arabic */
+        @font-face {
+            font-family: 'Tajawal';
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+            src: url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.eot');
+            src: local('Tajawal Bold'), local('Tajawal-Bold'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.eot?#iefix') format('embedded-opentype'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.woff2') format('woff2'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.woff') format('woff'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.ttf') format('truetype'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.svg#Tajawal') format('svg');
+        }
+
+        /* tajawal-900 - latin_arabic */
+        @font-face {
+            font-family: 'Tajawal';
+            font-style: normal;
+            font-weight: 900;
+            font-display: swap;
+            src: url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.eot');
+            src: local('Tajawal Black'), local('Tajawal-Black'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.eot?#iefix') format('embedded-opentype'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.woff2') format('woff2'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.woff') format('woff'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.ttf') format('truetype'),
+                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.svg#Tajawal') format('svg');
+        }
+    </style>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;700;900&display=swap" rel="stylesheet">
 
     <title>Codeberg Pages - Static pages for your projects.</title>
@@ -80,8 +141,31 @@
       }
 
       .card .card-icon .material-icons {
-        display: block;
+        font-family: 'Material Icons';
+        font-weight: normal;
+        font-style: normal;
+        font-size: 24px;
         color: white;
+
+        /* Preferred icon size */
+        display: block;
+        line-height: 1;
+        text-transform: none;
+        letter-spacing: normal;
+        word-wrap: normal;
+        white-space: nowrap;
+        direction: ltr;
+
+        /* Support for all WebKit browsers. */
+        -webkit-font-smoothing: antialiased;
+        /* Support for Safari and Chrome. */
+        text-rendering: optimizeLegibility;
+
+        /* Support for Firefox. */
+        -moz-osx-font-smoothing: grayscale;
+
+        /* Support for IE. */
+        font-feature-settings: 'liga';
       }
 
       .card .card-header {
