@@ -6,7 +6,9 @@ function send_response($code, $message) {
     exit();
 }
 
-$request_url = filter_var($_SERVER["PHP_SELF"], FILTER_SANITIZE_URL);
+$request_uri = explode("?", $_SERVER["REQUEST_URI"])[0];
+$request_url = filter_var($request_uri, FILTER_SANITIZE_URL);
+$request_url = str_replace("%20", " ", $request_url);
 
 if ($request_url === "/" and $_SERVER["HTTP_HOST"] === "codeberg.eu") {
     send_response(200, file_get_contents("./default-page.html"));
@@ -22,8 +24,7 @@ $parts = explode("/", $request_url);
 $parts = array_diff($parts, array("")); # Remove empty parts in URL
 
 $parts_dot = explode(".",$_SERVER["HTTP_HOST"]);
-if (count($parts_dot) != 3)
-{
+if (count($parts_dot) != 3) {
     send_response(404, "invalid subdomain");
 }
 $owner = $parts_dot[0];
