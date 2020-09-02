@@ -83,6 +83,8 @@ if (array_key_exists($ext, $mime_types)) {
     header("Content-Type: application/octet-stream");
 }
 
+header("Cache-Control: public, max-age=180, immutable");
+
 ## We are executing command twice (first for send_response-checking, then for actual raw output to stream),
 ## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
 $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'HEAD:$file_url'\"";
