@@ -1,6 +1,6 @@
 <?php
 
-function send_response($code, $message) {
+function send_response($code, $message = "") {
     http_response_code($code);
     echo $message;
     exit();
@@ -83,7 +83,20 @@ if (array_key_exists($ext, $mime_types)) {
     header("Content-Type: application/octet-stream");
 }
 
-header("Cache-Control: public, max-age=180, immutable");
+#header("Cache-Control: public, max-age=10, immutable");
+
+$command = "sh -c \"cd '$git_root' && /usr/bin/git log --format='%H' -1\"";
+exec($command, $output, $retval);
+if ($retval == 0 && count($output)) {
+    $revision=$output[0];
+    header('ETag: "' . $revision . '"');
+    if (isset($_SERVER["HTTP_IF_NONE_MATCH"])) {
+	$req_revision = str_replace('"', '', str_replace('W/"', '', $_SERVER["HTTP_IF_NONE_MATCH"]));
+        if ($req_revision === $revision) {
+            send_response(304);
+        }
+    }
+}
 
 ## We are executing command twice (first for send_response-checking, then for actual raw output to stream),
 ## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
