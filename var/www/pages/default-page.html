@@ -7,68 +7,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="shortcut icon" href="https://codeberg.org/img/favicon.png" />
-    <style>
-        /* From https://github.com/google/material-design-icons under the Apache-2.0 License */
-        @font-face {
-            font-family: 'Material Icons';
-            font-style: normal;
-            font-weight: 400;
-            src: url('../fonts/material-icons/tajawal-v3-latin_arabic-300.eot');
-            src: url('../fonts/material-icons/MaterialIcons-Regular.eot');
-            src: local('Material Icons'), local('MaterialIcons-Regular'),
-                url('../fonts/material-icons/tajawal-v3-latin_arabic-300.eot?#iefix') format('embedded-opentype'),
-                url('../fonts/material-icons/MaterialIcons-Regular.woff2') format('woff2'),
-                url('../fonts/material-icons/MaterialIcons-Regular.woff') format('woff'),
-                url('../fonts/material-icons/MaterialIcons-Regular.ttf') format('truetype');
-        }
-    </style>
-    <style>
-        /* From https://github.com/googlefonts/tajawal under the OFL-1.1 License */
-        /* tajawal-300 - latin_arabic */
-        @font-face {
-            font-family: 'Tajawal';
-            font-style: normal;
-            font-weight: 300;
-            font-display: swap;
-            src: url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.eot');
-            src: local('Tajawal Light'), local('Tajawal-Light'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.eot?#iefix') format('embedded-opentype'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.woff2') format('woff2'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.woff') format('woff'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.ttf') format('truetype'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-300.svg#Tajawal') format('svg');
-        }
 
-        /* tajawal-700 - latin_arabic */
-        @font-face {
-            font-family: 'Tajawal';
-            font-style: normal;
-            font-weight: 700;
-            font-display: swap;
-            src: url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.eot');
-            src: local('Tajawal Bold'), local('Tajawal-Bold'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.eot?#iefix') format('embedded-opentype'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.woff2') format('woff2'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.woff') format('woff'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.ttf') format('truetype'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-700.svg#Tajawal') format('svg');
-        }
+    <!-- Details and License: https://fonts.codeberg.org/fonts/inter -->
+    <link rel="stylesheet" type="text/css" href="https://fonts.codeberg.org/dist/inter/Inter Web/inter.css">
 
-        /* tajawal-900 - latin_arabic */
-        @font-face {
-            font-family: 'Tajawal';
-            font-style: normal;
-            font-weight: 900;
-            font-display: swap;
-            src: url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.eot');
-            src: local('Tajawal Black'), local('Tajawal-Black'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.eot?#iefix') format('embedded-opentype'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.woff2') format('woff2'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.woff') format('woff'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.ttf') format('truetype'),
-                url('../fonts/tajawal-v3-latin_arabic/tajawal-v3-latin_arabic-900.svg#Tajawal') format('svg');
-        }
-    </style>
+    <!-- License: http://www.apache.org/licenses/LICENSE-2.0.txt -->
+    <!-- Material Design icons by Google -->
 
     <title>Codeberg Pages - Static pages for your projects.</title>
 
@@ -97,7 +41,7 @@
 
       .container {
         margin: 50px 0 50px 0;
-        font-family: 'Tajawal', sans-serif;
+        font-family: "Inter", sans-serif;
         font-weight: 300;
         color: #404040;
       }
@@ -137,36 +81,10 @@
         border-radius: 30px;
         background: black;
         box-shadow: 0px 4px 16px -10px rgba(0,0,0,0.75);
+        width: 18px;
+        height: 18px;
       }
-
-      .card .card-icon .material-icons {
-        font-family: 'Material Icons';
-        font-weight: normal;
-        font-style: normal;
-        font-size: 24px;
-        color: white;
-
-        /* Preferred icon size */
-        display: block;
-        line-height: 1;
-        text-transform: none;
-        letter-spacing: normal;
-        word-wrap: normal;
-        white-space: nowrap;
-        direction: ltr;
-
-        /* Support for all WebKit browsers. */
-        -webkit-font-smoothing: antialiased;
-        /* Support for Safari and Chrome. */
-        text-rendering: optimizeLegibility;
-
-        /* Support for Firefox. */
-        -moz-osx-font-smoothing: grayscale;
-
-        /* Support for IE. */
-        font-feature-settings: 'liga';
-      }
-
+      
       .card .card-header {
         margin-top: 20px;
         font-size: 18px;
@@ -201,19 +119,25 @@
         <div class="elevated">
           <div class="cards">
             <div class="card">
-              <div style="background: #efb960;" class="card-icon"><i class="material-icons">add</i></div>
+              <div style="background: #efb960;" class="card-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="18px" height="18px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              </div>
               <div class="card-header">Create a repository.</div>
               <div class="card-description">Create a repo named 'pages' in your user account or organization.</div>
             </div>
 
             <div class="card">
-              <div style="background: #0a97b0;" class="card-icon"><i class="material-icons">cloud_upload</i></div>
+              <div style="background: #0a97b0;" class="card-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="18px" height="18px"><path d="M0 0h24v24H0z" fill="none"/><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+              </div>
               <div class="card-header">Push your content.</div>
               <div class="card-description">Push your static content, HTML, style, fonts or images.</div>
             </div>
 
             <div class="card">
-              <div style="background: #6c5b7b;" class="card-icon"><i class="material-icons">flag</i></div>
+              <div style="background: #6c5b7b;" class="card-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="18px" height="18px"><path d="M0 0h24v24H0z" fill="none"/><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
+              </div>
               <div class="card-header">You're done!</div>
               <div class="card-description">You should now be able to access your content using the link shown above.</div>
             </div>
