@@ -6,36 +6,62 @@ function send_response($code, $message = "") {
     exit();
 }
 
+$domain_parts = explode('.', $_SERVER['HTTP_HOST']);
+$subdomain = implode(".", array_slice($domain_parts, 0, -2));
+$tld = end($domain_parts);
+
 $request_uri = explode("?", $_SERVER["REQUEST_URI"])[0];
 $request_url = filter_var($request_uri, FILTER_SANITIZE_URL);
 $request_url = str_replace("%20", " ", $request_url);
+$request_url_parts = explode("/", $request_url);
+$request_url_parts = array_diff($request_url_parts, array("")); # Remove empty parts in URL
 
-if ($request_url === "/" and $_SERVER["HTTP_HOST"] === "codeberg.eu") {
+if ($tld === "org") {
+    $subdomain_repo = array(
+        "docs" => "docs",
+        "fonts" => "codeberg-fonts",
+        "get-it-on" => "get-it-on"
+    );
+    if (array_key_exists($subdomain, $subdomain_repo)) {
+        $owner = $subdomain_repo[$subdomain];
+    } else {
+        $owner = strtolower(array_shift($request_url_parts));
+        if (!$owner) {
+            header("Location: https://codeberg.eu");
+            exit;
+	}
+	if (strpos($owner, ".") === false) {
+            $h = "Location: https://" . $owner . ".codeberg.eu/" . implode("/", $request_url_parts);
+            if ($_SERVER['QUERY_STRING'] !== "")
+                $h .= "?" . $_SERVER['QUERY_STRING'];
+            header($h);
+            exit;
+        }
+    }
+} else {
+    $owner = strtolower($subdomain);
+    if (strpos($owner, ".") !== false)
+        send_response(200, "Pages not supported for user names with dots. Please rename your username to use Codeberg pages.");
+}
+
+if ($owner == "codeberg-fonts" || $owner == "get-it-on")
+    header("Access-Control-Allow-Origin: *");
+
+if (!$owner) {
     send_response(200, file_get_contents("./default-page.html"));
 }
 
 # Restrict allowed characters in request URI:
-if (preg_match("/^\/[a-zA-Z0-9_ +\-\/\.]*\$/", $request_url) != 1) {
+if (preg_match("/^\/[a-zA-Z0-9_ +\-\/\.]*\$/", $request_url) != 1)
     send_response(404, "invalid request URL");
-}
 
 $git_prefix = "/data/git/gitea-repositories";
-$parts = explode("/", $request_url);
-$parts = array_diff($parts, array("")); # Remove empty parts in URL
-
-$parts_dot = explode(".",$_SERVER["HTTP_HOST"]);
-if (count($parts_dot) != 3) {
-    send_response(404, "invalid subdomain");
-}
-$owner = $parts_dot[0];
-
 $git_root = realpath("$git_prefix/$owner/pages.git");
-$file_url = implode("/", $parts);
+$file_url = implode("/", $request_url_parts);
 
 # Ensure that only files within $git_root are accessed:
-if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix) {
+if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix)
     send_response(404, "this user/organization does not have codeberg pages");
-}
 
 # If this is a folder, we explicitly redirect to folder URL, otherwise browsers will construct invalid relative links:
 $command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'HEAD:$file_url' > /dev/null\"";
@@ -91,7 +117,7 @@ if ($retval == 0 && count($output)) {
     $revision=$output[0];
     header('ETag: "' . $revision . '"');
     if (isset($_SERVER["HTTP_IF_NONE_MATCH"])) {
-	$req_revision = str_replace('"', '', str_replace('W/"', '', $_SERVER["HTTP_IF_NONE_MATCH"]));
+        $req_revision = str_replace('"', '', str_replace('W/"', '', $_SERVER["HTTP_IF_NONE_MATCH"]));
         if ($req_revision === $revision) {
             send_response(304);
         }
@@ -119,3 +145,4 @@ if ($retval != 0) {
 
 ## If we could directly exec+echo raw output from above, we wouldn't need to execute command twice:
 passthru($command);
+
