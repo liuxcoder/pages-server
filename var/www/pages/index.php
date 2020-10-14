@@ -45,12 +45,12 @@ if ($tld === "org") {
 }
 
 $reservedUsernames = array(
-    "abuse", "admin", "api", "app", "apt", "apps", "appserver", "archive", "archives", "assets", "attachments", "avatar", "avatars",
+    "abuse", "admin", "api", "app", "apt", "apps", "appserver", "archive", "archives", "assets", "attachments", "auth", "avatar", "avatars",
     "bbs", "blog",
     "cache", "cd", "cdn", "ci", "cloud", "cluster", "commits", "connect", "contact",
-    "dashboard", "debug", "deploy", "deployment", "dev", "dns", "dns0", "dns1", "dns2", "dns3", "dns4", "download",
+    "dashboard", "debug", "deploy", "deployment", "dev", "dns", "dns0", "dns1", "dns2", "dns3", "dns4", "doc", "docs", "download", "downloads",
     "email", "error", "explore",
-    "forum", "ftp",
+    "fonts", "forum", "ftp",
     "ghost",
     "help", "helpdesk", "host",
     "i", "imap", "info", "install", "internal", "issues",
@@ -60,7 +60,7 @@ $reservedUsernames = array(
     "official", "org", "ota", "owa",
     "packages", "plugins", "poll", "polls", "pop", "pop3", "portal", "postmaster", "project", "projects", "pulls",
     "raw", "remote", "repo", "robot", "robots",
-    "search", "secure", "server", "shop", "shopping", "smtp", "ssl", "stars", "store", "support",
+    "search", "secure", "server", "shop", "shopping", "signin", "signon", "smtp", "ssl", "sso", "stars", "store", "support",
     "takeout", "template", "test", "testing",
     "user",
     "vote", "voting",
