@@ -48,7 +48,7 @@ $reservedUsernames = array(
     "abuse", "admin", "api", "app", "apt", "apps", "appserver", "archive", "archives", "assets", "attachments", "auth", "avatar", "avatars",
     "bbs", "blog",
     "cache", "cd", "cdn", "ci", "cloud", "cluster", "commits", "connect", "contact",
-    "dashboard", "debug", "deploy", "deployment", "dev", "dns", "dns0", "dns1", "dns2", "dns3", "dns4", "doc", "docs", "download", "downloads",
+    "dashboard", "debug", "deploy", "deployment", "dev", "dns", "dns0", "dns1", "dns2", "dns3", "dns4", "doc", "download", "downloads",
     "email", "error", "explore",
     "fonts", "forum", "ftp",
     "ghost",
