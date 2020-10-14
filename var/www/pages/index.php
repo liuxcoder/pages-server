@@ -29,8 +29,8 @@ if ($tld === "org") {
         if (!$owner) {
             header("Location: https://codeberg.eu");
             exit;
-	}
-	if (strpos($owner, ".") === false) {
+        }
+        if (strpos($owner, ".") === false) {
             $h = "Location: https://" . $owner . ".codeberg.eu/" . implode("/", $request_url_parts);
             if ($_SERVER['QUERY_STRING'] !== "")
                 $h .= "?" . $_SERVER['QUERY_STRING'];
@@ -43,6 +43,34 @@ if ($tld === "org") {
     if (strpos($owner, ".") !== false)
         send_response(200, "Pages not supported for user names with dots. Please rename your username to use Codeberg pages.");
 }
+
+$reservedUsernames = array(
+    "abuse", "admin", "api", "app", "apt", "apps", "appserver", "archive", "archives", "assets", "attachments", "avatar", "avatars",
+    "bbs", "blog",
+    "cache", "cd", "cdn", "ci", "cloud", "cluster", "commits", "connect", "contact",
+    "dashboard", "debug", "deploy", "deployment", "dev", "dns", "dns0", "dns1", "dns2", "dns3", "dns4", "download",
+    "email", "error", "explore",
+    "forum", "ftp",
+    "ghost",
+    "help", "helpdesk", "host",
+    "i", "imap", "info", "install", "internal", "issues",
+    "less", "login",
+    "m", "mail", "mailserver", "manifest", "metrics", "milestones", "mx",
+    "new", "news", "notifications",
+    "official", "org", "ota", "owa",
+    "packages", "plugins", "poll", "polls", "pop", "pop3", "portal", "postmaster", "project", "projects", "pulls",
+    "raw", "remote", "repo", "robot", "robots",
+    "search", "secure", "server", "shop", "shopping", "smtp", "ssl", "stars", "store", "support",
+    "takeout", "template", "test", "testing",
+    "user",
+    "vote", "voting",
+    "web", "webmail", "webmaster", "webshop", "webstore", "www", "www0", "www1", "www2", "www3", "www4", "www5", "www6", "www7", "www8", "www9",
+    "ns", "ns0", "ns1", "ns2", "ns3", "ns4",
+    "vpn",
+);
+
+if (in_array($owner, $reservedUsernames))
+    send_response(404, "Reserved user name '" . $owner . "' cannot have pages");
 
 if ($owner == "codeberg-fonts" || $owner == "get-it-on")
     header("Access-Control-Allow-Origin: *");
