@@ -58,7 +58,7 @@ $reservedUsernames = array(
     "m", "me", "mail", "mailserver", "manifest", "merch", "merchandise", "metrics", "milestones", "mx",
     "new", "news", "notifications",
     "official", "org", "ota", "owa",
-    "packages", "plugins", "poll", "polls", "pop", "pop3", "portal", "postmaster", "project", "projects", "pulls",
+    "page", "pages", "packages", "plugins", "poll", "polls", "pop", "pop3", "portal", "postmaster", "project", "projects", "pulls",
     "raw", "remote", "repo", "robot", "robots",
     "search", "secure", "server", "shop", "shopping", "signin", "signon", "smtp", "ssl", "sso", "stars", "store", "support", "swag", "swagshop",
     "takeout", "template", "test", "testing",
