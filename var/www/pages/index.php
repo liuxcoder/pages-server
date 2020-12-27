@@ -15,6 +15,7 @@ $request_url = filter_var($request_uri, FILTER_SANITIZE_URL);
 $request_url = str_replace("%20", " ", $request_url);
 $request_url_parts = explode("/", $request_url);
 $request_url_parts = array_diff($request_url_parts, array("")); # Remove empty parts in URL
+$cors = false;
 
 if ($tld === "org") {
     $subdomain_repo = array(
@@ -24,6 +25,7 @@ if ($tld === "org") {
     );
     if (array_key_exists($subdomain, $subdomain_repo)) {
         $owner = $subdomain_repo[$subdomain];
+        $cors = true;
     } else {
         $owner = strtolower(array_shift($request_url_parts));
         if (!$owner) {
@@ -42,6 +44,10 @@ if ($tld === "org") {
     $owner = strtolower($subdomain);
     if (strpos($owner, ".") !== false)
         send_response(200, "Pages not supported for user names with dots. Please rename your username to use Codeberg pages.");
+    if ($owner === "raw") {
+        $owner = strtolower(array_shift($request_url_parts));
+        $cors = true;
+    }
 }
 
 $reservedUsernames = array(
@@ -71,9 +77,6 @@ $reservedUsernames = array(
 
 if (in_array($owner, $reservedUsernames))
     send_response(404, "Reserved user name '" . $owner . "' cannot have pages");
-
-if ($owner == "codeberg-fonts" || $owner == "get-it-on")
-    header("Access-Control-Allow-Origin: *");
 
 if (!$owner) {
     send_response(200, file_get_contents("./default-page.html"));
@@ -131,11 +134,17 @@ $mime_types = array(
     "xml" => "text/xml"
 );
 
-if (array_key_exists($ext, $mime_types)) {
-    header("Content-Type: " . $mime_types[$ext]);
-} else {
-    header("Content-Type: application/octet-stream");
+$mime_type = "application/octet-stream";
+if (array_key_exists($ext, $mime_types))
+    $mime_type = $mime_types[$ext];
+
+if ($cors === true) {
+    header("Access-Control-Allow-Origin: *");
+    if ($ext === "html" || $ext === "js" || $ext === "css")
+        $mime_type = "text/plain";
 }
+
+header("Content-Type: " . $mime_type);
 
 #header("Cache-Control: public, max-age=10, immutable");
 
