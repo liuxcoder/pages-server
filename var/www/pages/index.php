@@ -17,14 +17,18 @@ $request_url_parts = explode("/", $request_url);
 $request_url_parts = array_diff($request_url_parts, array("")); # Remove empty parts in URL
 $cors = false;
 
+$repo = "pages";
+
 if ($tld === "org") {
     $subdomain_repo = array(
-        "docs" => "docs",
-        "fonts" => "codeberg-fonts",
-        "get-it-on" => "get-it-on"
+        "docs" => array("docs", "pages"),
+        "fonts" => array("codeberg-fonts", "pages"),
+        "get-it-on" => array("get-it-on", "pages"),
+        "design" => array("Codeberg", "Design")
     );
     if (array_key_exists($subdomain, $subdomain_repo)) {
-        $owner = $subdomain_repo[$subdomain];
+        $owner = $subdomain_repo[$subdomain][0];
+        $repo = $subdomain_repo[$subdomain][1];
         $cors = true;
     } else {
         $owner = strtolower(array_shift($request_url_parts));
@@ -87,7 +91,7 @@ if (preg_match("/^\/[a-zA-Z0-9_ +\-\/\.]*\$/", $request_url) != 1)
     send_response(404, "invalid request URL");
 
 $git_prefix = "/data/git/gitea-repositories";
-$git_root = realpath("$git_prefix/$owner/pages.git");
+$git_root = realpath("$git_prefix/$owner/$repo.git");
 $file_url = implode("/", $request_url_parts);
 
 # Ensure that only files within $git_root are accessed:
