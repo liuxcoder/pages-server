@@ -15,7 +15,6 @@ $request_url = filter_var($request_uri, FILTER_SANITIZE_URL);
 $request_url = str_replace("%20", " ", $request_url);
 $request_url_parts = explode("/", $request_url);
 $request_url_parts = array_diff($request_url_parts, array("")); # Remove empty parts in URL
-$cors = false;
 
 $repo = "pages";
 
@@ -29,7 +28,8 @@ if ($tld === "org") {
     if (array_key_exists($subdomain, $subdomain_repo)) {
         $owner = $subdomain_repo[$subdomain][0];
         $repo = $subdomain_repo[$subdomain][1];
-        $cors = true;
+        // Allow CORS requests to static *.codeberg.org pages, for web fonts etc.
+        header("Access-Control-Allow-Origin: *");
     } else {
         $owner = strtolower(array_shift($request_url_parts));
         if (!$owner) {
@@ -61,11 +61,18 @@ if ($tld === "org") {
         $body = substr($response, $header_size);
         foreach($header as $h) {
             if ($h && substr($h, 0, 11) != "Set-Cookie:")
-                header($h);
+            	if (substr($h, 0, 13) == "Content-Type:" && strpos($h, "text/html") !== false)
+            		// text/html shouldn't be rendered on raw.codeberg.org, as it might confuse both users (with it being a legit codeberg.org subdomain) and developers (with it having a really strict CSP)
+                	header(str_replace("text/html", "text/plain", $h));
+                else
+                	header($h);
         }
+        // Allow CORS
+        header("Access-Control-Allow-Origin: *");
+        // Even though text/html isn't allowed, SVG files might still invoke JavaScript, which is blocked here
         header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox");
-            header("Access-Control-Allow-Origin: *");
         send_response($status, $body);
+        die();
     }
 }
 
@@ -156,12 +163,6 @@ $mime_types = array(
 $mime_type = "application/octet-stream";
 if (array_key_exists($ext, $mime_types))
     $mime_type = $mime_types[$ext];
-
-if ($cors === true) {
-    header("Access-Control-Allow-Origin: *");
-    if ($ext === "html" || $ext === "js" || $ext === "css")
-        $mime_type = "text/plain";
-}
 
 header("Content-Type: " . $mime_type);
 
