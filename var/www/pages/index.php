@@ -49,8 +49,23 @@ if ($tld === "org") {
     if (strpos($owner, ".") !== false)
         send_response(200, "Pages not supported for user names with dots. Please rename your username to use Codeberg pages.");
     if ($owner === "raw") {
-        $owner = strtolower(array_shift($request_url_parts));
-        $cors = true;
+        $ch = curl_init("http://localhost:3000" . $_SERVER["REQUEST_URI"]);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, true);
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $header = substr($response, 0, $header_size);
+        $header = explode("\r\n", $header);
+        $body = substr($response, $header_size);
+        foreach($header as $h) {
+            if ($h && substr($h, 0, 11) != "Set-Cookie:")
+                header($h);
+        }
+        header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox");
+            header("Access-Control-Allow-Origin: *");
+        send_response($status, $body);
     }
 }
 
