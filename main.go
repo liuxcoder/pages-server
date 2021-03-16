@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"mime"
 	"net"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -29,6 +30,7 @@ import (
 	_ "embed"
 
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fastjson"
 )
 
 // MainDomainSuffix specifies the main domain (starting with a dot) for which subdomains shall be served as static
@@ -73,37 +75,10 @@ var IndexPages = []string{
 // ReservedUsernames specifies the usernames that are reserved by Gitea and thus may not be used as owner names.
 // The contents are taken from https://github.com/go-gitea/gitea/blob/master/models/user.go#L783; reserved names with
 // dots are removed as they are forbidden for Codeberg Pages anyways.
-var ReservedUsernames = map[string]struct{}{
-	"admin": {},
-	"api": {},
-	"assets": {},
-	"attachments": {},
-	"avatars": {},
-	"captcha": {},
-	"commits": {},
-	"debug": {},
-	"error": {},
-	"explore": {},
-	"ghost": {},
-	"help": {},
-	"install": {},
-	"issues": {},
-	"less": {},
-	"login": {},
-	"metrics": {},
-	"milestones": {},
-	"new": {},
-	"notifications": {},
-	"org": {},
-	"plugins": {},
-	"pulls": {},
-	"raw": {},
-	"repo": {},
-	"search": {},
-	"stars": {},
-	"template": {},
-	"user": {},
-}
+var ReservedUsernames = createLookupMapFromWords(`
+	admin api assets attachments avatars captcha commits debug error explore ghost help install issues less login metrics milestones new notifications org plugins pulls raw repo search stars template user
+	
+`)
 
 // main sets up and starts the web server.
 func main() {
@@ -139,11 +114,12 @@ func main() {
 
 	// Start the web server
 	err = (&fasthttp.Server{
-		Handler: compressedHandler,
+		Handler:                      compressedHandler,
 		DisablePreParseMultipartForm: false,
-		MaxRequestBodySize: 0,
-		NoDefaultServerHeader: true,
-		ReadTimeout: 10 * time.Second,
+		MaxRequestBodySize:           0,
+		NoDefaultServerHeader:        true,
+		NoDefaultDate:                true,
+		ReadTimeout:                  10 * time.Second,
 	}).Serve(listener)
 	if err != nil {
 		fmt.Printf("Couldn't start server: %s\n", err)
@@ -195,28 +171,47 @@ func handler(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Prepare request information to Gitea
-	var targetOwner, targetRepo, targetPath string
-	var targetOptions = upstreamOptions{
+	var targetOwner, targetRepo, targetBranch, targetPath string
+	var targetOptions = &upstreamOptions{
 		ForbiddenMimeTypes: map[string]struct{}{},
-		TryIndexPages: true,
+		TryIndexPages:      true,
 	}
-	var alsoTryPagesRepo = false // Also try to treat the repo as the first path element & fall back to the "pages" repo
 
 	if RawDomain != nil && bytes.Equal(ctx.Request.Host(), RawDomain) {
 		// Serve raw content from RawDomain
 
 		targetOptions.TryIndexPages = false
 		targetOptions.ForbiddenMimeTypes["text/html"] = struct{}{}
+		targetOptions.DefaultMimeType = "text/plain; charset=utf-8"
 
-		pathElements := strings.SplitN(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/", 3)
-		if len(pathElements) < 3 {
-			// https://{RawDomain}/{owner}/{repo}/{path} is required
+		pathElements := strings.SplitN(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/", 4)
+		if len(pathElements) < 2 {
+			// https://{RawDomain}/{owner}/{repo}[/@{branch}]/{path} is required
 			ctx.Redirect(RawInfoPage, fasthttp.StatusTemporaryRedirect)
 			return
 		}
 		targetOwner = pathElements[0]
 		targetRepo = pathElements[1]
-		targetPath = pathElements[2]
+		if len(pathElements) > 3 {
+			targetPath = strings.Trim(pathElements[2]+"/"+pathElements[3], "/")
+		} else if len(pathElements) > 2 {
+			targetPath = pathElements[2]
+		}
+
+		// raw.codeberg.page/example/myrepo/@main/index.html
+		if len(pathElements) > 3 && strings.HasPrefix(pathElements[2], "@") {
+			branch, _ := url.PathUnescape(pathElements[2][1:])
+			if branch == "" {
+				branch = pathElements[2][1:]
+			}
+			// Check if the branch exists, otherwise treat it as a file path
+			targetBranch, targetOptions.BranchTimestamp = getBranchTimestamp(targetOwner, targetRepo, branch)
+			if targetOptions.BranchTimestamp != (time.Time{}) {
+				targetPath = strings.Trim(pathElements[3], "/") // branch exists, use it
+			} else {
+				targetBranch = "" // branch doesn't exist, use default branch
+			}
+		}
 
 	} else if bytes.HasSuffix(ctx.Request.Host(), MainDomainSuffix) {
 		// Serve pages from subdomains of MainDomainSuffix
@@ -224,13 +219,21 @@ func handler(ctx *fasthttp.RequestCtx) {
 		pathElements := strings.SplitN(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/", 2)
 		targetOwner = string(bytes.TrimSuffix(ctx.Request.Host(), MainDomainSuffix))
 		targetRepo = pathElements[0]
-		targetPath = pathElements[1]
-		alsoTryPagesRepo = true
+		if len(pathElements) > 1 {
+			targetPath = strings.Trim(pathElements[1], "/")
+		}
 
+		// Check if the first directory is a repo with a "pages" branch
+		targetBranch, targetOptions.BranchTimestamp = getBranchTimestamp(targetOwner, targetRepo, "pages")
+		if targetOptions.BranchTimestamp == (time.Time{}) {
+			targetRepo = "pages"
+			targetBranch = ""
+			targetPath = strings.Trim(pathElements[0]+"/"+targetPath, "/")
+		}
 	} else {
 		// Serve pages from external domains
 
-		targetOwner, targetRepo, targetPath = getTargetFromDNS(ctx.Request.Host())
+		targetOwner, targetRepo, targetBranch, targetPath = getTargetFromDNS(ctx)
 		if targetOwner == "" {
 			ctx.Redirect(BrokenDNSPage, fasthttp.StatusTemporaryRedirect)
 			return
@@ -243,37 +246,20 @@ func handler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// Pass request to Gitea
-	url := "/" + targetOwner + "/" + targetRepo + "/raw/" + targetPath
+	// Check for blob path
 	if strings.HasPrefix(targetPath, "blob/") {
 		returnErrorPage(ctx, fasthttp.StatusForbidden)
 		return
 	}
 
-	// Try target
-	if upstream(ctx, url, targetOptions) {
+	if upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, targetOptions) {
 		return
 	}
 
-	// Try target with pages repo
-	if alsoTryPagesRepo {
-		targetPath = targetRepo + "/" + targetPath
-		targetRepo = "pages"
-		url := "/" + targetOwner + "/" + targetRepo + "/raw/" + targetPath
-		if strings.HasPrefix(targetPath, "blob/") {
-			returnErrorPage(ctx, fasthttp.StatusForbidden)
-			return
-		}
-
-		if upstream(ctx, url, targetOptions) {
-			return
-		}
-	}
-
-	returnErrorPage(ctx, fasthttp.StatusNotFound)
+	returnErrorPage(ctx, ctx.Response.StatusCode())
 }
 
-func getTargetFromDNS(host []byte) (targetOwner, targetRepo, targetPath string) {
+func getTargetFromDNS(ctx *fasthttp.RequestCtx) (targetOwner, targetRepo, targetBranch, targetPath string) {
 	// TODO: read CNAME record for host and "www.{host}" to get those values
 	// TODO: check codeberg-pages-domains.txt
 	return
@@ -286,49 +272,86 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code))))
 }
 
+func getBranchTimestamp(owner, repo, branch string) (branchWithFallback string, t time.Time) {
+	branchWithFallback = branch
+	if branch == "" {
+		var body = make([]byte, 0)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 10*time.Second)
+		if err != nil || status != 200 {
+			return
+		}
+		branch = fastjson.GetString(body, "default_branch")
+		branchWithFallback = branch
+	}
+
+	var body = make([]byte, 0)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 10*time.Second)
+	if err != nil || status != 200 {
+		return
+	}
+
+	t, _ = time.Parse(time.RFC3339, fastjson.GetString(body, "commit", "timestamp"))
+	return
+}
+
 // upstream requests an URL from GiteaRoot and writes it to the request context; if "final" is set, it also returns a
 // 404 error if the page couldn't be loaded.
-func upstream(ctx *fasthttp.RequestCtx, url string, options upstreamOptions) (success bool) {
-	// Prepare necessary (temporary) variables with default values
-	body := make([]byte, 0)
+func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, targetBranch string, targetPath string, options *upstreamOptions) (success bool) {
+	fmt.Printf("Trying: %s/%s/%s/%s\n", targetOwner, targetRepo, targetBranch, targetPath)
 	if options.ForbiddenMimeTypes == nil {
 		options.ForbiddenMimeTypes = map[string]struct{}{}
 	}
 
-	// Make a request to the upstream URL
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot) + url, 10 * time.Second)
-
-	// Handle errors
-	if err != nil {
-		// Connection error, probably Gitea or the internet connection is down?
-		fmt.Printf("Couldn't fetch URL \"%s\": %s", url, err)
-		ctx.Response.SetStatusCode(fasthttp.StatusBadGateway)
-		return false
+	// Check if the branch exists and when it was modified
+	if options.BranchTimestamp == (time.Time{}) {
+		targetBranch, options.BranchTimestamp = getBranchTimestamp(targetOwner, targetRepo, targetBranch)
+		if options.BranchTimestamp == (time.Time{}) {
+			ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
+			return false
+		}
 	}
-	if status != 200 {
+
+	if ifModifiedSince, err := time.Parse(time.RFC1123, string(ctx.Request.Header.Peek("If-Modified-Since"))); err == nil {
+		if !ifModifiedSince.Before(options.BranchTimestamp) {
+			ctx.Response.SetStatusCode(fasthttp.StatusNotModified)
+			return true
+		}
+	}
+
+	// Make a GET request to the upstream URL
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath)
+	res := fasthttp.AcquireResponse()
+	err := fasthttp.DoTimeout(req, res, 10*time.Second)
+	if res.StatusCode() == fasthttp.StatusNotFound {
 		if options.TryIndexPages {
 			// copy the options struct & try if an index page exists
-			optionsForIndexPages := options
+			optionsForIndexPages := *options
 			optionsForIndexPages.TryIndexPages = false
 			optionsForIndexPages.AppendTrailingSlash = true
 			for _, indexPage := range IndexPages {
-				if upstream(ctx, url + "/" + indexPage, optionsForIndexPages) {
+				if upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, &optionsForIndexPages) {
 					return true
 				}
 			}
 		}
-		ctx.Response.SetStatusCode(status)
+		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
 		return false
+	}
+	if err != nil || res.StatusCode() != fasthttp.StatusOK {
+		fmt.Printf("Couldn't fetch contents from \"%s\": %s (status code %d)\n", req.RequestURI(), err, res.StatusCode())
+		returnErrorPage(ctx, fasthttp.StatusInternalServerError)
+		return true
 	}
 
 	// Append trailing slash if missing (for index files)
 	if options.AppendTrailingSlash && !bytes.HasSuffix(ctx.Request.URI().Path(), []byte{'/'}) {
-		ctx.Redirect(string(ctx.Request.URI().Path()) + "/", fasthttp.StatusTemporaryRedirect)
+		ctx.Redirect(string(ctx.Request.URI().Path())+"/", fasthttp.StatusTemporaryRedirect)
 		return true
 	}
 
 	// Set the MIME type
-	mimeType := mime.TypeByExtension(path.Ext(url))
+	mimeType := mime.TypeByExtension(path.Ext(targetPath))
 	mimeTypeSplit := strings.SplitN(mimeType, ";", 2)
 	if _, ok := options.ForbiddenMimeTypes[mimeTypeSplit[0]]; ok || mimeType == "" {
 		if options.DefaultMimeType != "" {
@@ -339,20 +362,26 @@ func upstream(ctx *fasthttp.RequestCtx, url string, options upstreamOptions) (su
 	}
 	ctx.Response.Header.SetContentType(mimeType)
 
-	// TODO: enable Caching - set Date header and respect If-Modified-Since!
-
-	// Set the response body
+	// Write the response to the original request
 	ctx.Response.SetStatusCode(fasthttp.StatusOK)
-	ctx.Response.SetBody(body)
+	ctx.Response.Header.SetLastModified(options.BranchTimestamp)
+	err = res.BodyWriteTo(ctx.Response.BodyWriter())
+	if err != nil {
+		fmt.Printf("Couldn't write body for \"%s\": %s\n", req.RequestURI(), err)
+		returnErrorPage(ctx, fasthttp.StatusInternalServerError)
+		return true
+	}
+
 	return true
 }
 
 // upstreamOptions provides various options for the upstream request.
 type upstreamOptions struct {
-	DefaultMimeType string
-	ForbiddenMimeTypes map[string]struct{}
-	TryIndexPages bool
+	DefaultMimeType     string
+	ForbiddenMimeTypes  map[string]struct{}
+	TryIndexPages       bool
 	AppendTrailingSlash bool
+	BranchTimestamp     time.Time
 }
 
 // envOr reads an environment variable and returns a default value if it's empty.
@@ -361,4 +390,15 @@ func envOr(env string, or string) string {
 		return v
 	}
 	return or
+}
+
+func createLookupMapFromWords(input string) map[string]struct{} {
+	var res = map[string]struct{}{}
+	input = strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(input)
+	for _, word := range strings.Split(input, " ") {
+		if len(word) > 0 {
+			res[word] = struct{}{}
+		}
+	}
+	return res
 }
