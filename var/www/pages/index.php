@@ -24,7 +24,7 @@ if ($tld === "org") {
         "docs" => array("docs", "pages", false),
         "fonts" => array("codeberg-fonts", "pages", true),
         "get-it-on" => array("get-it-on", "pages", false),
-        "design" => array("Codeberg", "Design", true)
+        "design" => array("codeberg", "design", true)
     );
     if (array_key_exists($subdomain, $subdomain_repo)) {
         $owner = $subdomain_repo[$subdomain][0];
@@ -52,7 +52,32 @@ if ($tld === "org") {
     if (strpos($owner, ".") !== false)
         send_response(200, "Pages not supported for user names with dots. Please rename your username to use Codeberg pages.");
     if ($owner === "raw") {
-        $ch = curl_init("http://localhost:3000" . $_SERVER["REQUEST_URI"]);
+        // Make URL safe
+        $url = "/" . explode("?", $_SERVER["REQUEST_URI"])[0];
+        $url = preg_replace('/\/\/+/', "/", $url); // clean duplicate slashes
+        if (strpos($url, "/../") !== false || strpos($url, "/./") !== false || substr($url, -3) === "/.." || substr($url, -2) === "/.") {
+            // contains .. or . path elements (which should be filtered by web browsers anyways)
+            http_response_code(403);
+            die("Forbidden");
+        }
+        $url_parts = explode("/", substr($url, 1), 3);
+        if (strpos($url_parts[2], "@") === 0) {
+            $url_parts[2] = substr($url_parts[2], 1);
+        }
+        if (count($url_parts) < 3 || strpos($url_parts[2], "blob/") === 0) {
+            // misses /owner/repo/path or path begins with "blob/" (e.g. issue attachments etc.)
+            http_response_code(403);
+            die("Forbidden");
+        }
+        if (strpos(" admin api assets attachments avatars captcha commits debug error explore ghost help install issues less login metrics milestones new notifications org plugins pulls raw repo search stars template user ", " " . $url_parts[0] . " ") !== false) {
+            // username is forbidden by Gitea
+            http_response_code(403);
+            die("Forbidden");
+        }
+        $url = "/api/v1/repos/" . $url_parts[0] . "/" . $url_parts[1] . "/raw/" . $url_parts[2];
+
+        // Send request to Gitea
+        $ch = curl_init("http://localhost:3000" . $url);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HEADER, true);
