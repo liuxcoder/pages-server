@@ -20,16 +20,19 @@ $repo = "pages";
 
 if ($tld === "org") {
     $subdomain_repo = array(
-        "docs" => array("docs", "pages"),
-        "fonts" => array("codeberg-fonts", "pages"),
-        "get-it-on" => array("get-it-on", "pages"),
-        "design" => array("Codeberg", "Design")
+        // subdomain => array(owner, repo, allowCORS),
+        "docs" => array("docs", "pages", false),
+        "fonts" => array("codeberg-fonts", "pages", true),
+        "get-it-on" => array("get-it-on", "pages", false),
+        "design" => array("Codeberg", "Design", true)
     );
     if (array_key_exists($subdomain, $subdomain_repo)) {
         $owner = $subdomain_repo[$subdomain][0];
         $repo = $subdomain_repo[$subdomain][1];
-        // Allow CORS requests to static *.codeberg.org pages, for web fonts etc.
-        header("Access-Control-Allow-Origin: *");
+        if ($subdomain_repo[$subdomain][2]) {
+            // Allow CORS requests to specified pages, for web fonts etc.
+            header("Access-Control-Allow-Origin: *");
+        }
     } else {
         $owner = strtolower(array_shift($request_url_parts));
         if (!$owner) {
