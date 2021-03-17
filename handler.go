@@ -148,7 +148,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 // with the provided status code.
 func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetStatusCode(code)
-	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code))))
+	ctx.Response.Header.SetContentType("text/html; charset=utf-8")
+	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code) + " " + fasthttp.StatusMessage(code))))
 }
 
 // getBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
@@ -186,10 +187,14 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	// Check if the branch exists and when it was modified
 	if options.BranchTimestamp == (time.Time{}) {
 		targetBranch, options.BranchTimestamp = getBranchTimestamp(targetOwner, targetRepo, targetBranch)
-		if options.BranchTimestamp == (time.Time{}) {
-			ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
-			return false
-		}
+	}
+
+	// Handle repositories with no/broken pages setup
+	if options.BranchTimestamp == (time.Time{}) || targetBranch == "" {
+		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
+		ctx.Response.Header.SetContentType("text/html; charset=utf-8")
+		ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte("pages not set up for this repo")))
+		return true
 	}
 
 	// Check if the browser has a cached version

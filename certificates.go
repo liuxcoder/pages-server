@@ -14,3 +14,5 @@ var tlsConfig = &tls.Config{
 	PreferServerCipherSuites: true,
 	// TODO: optimize cipher suites, minimum TLS version, etc.
 }
+
+// TODO: HSTS header with includeSubdomains & preload for MainDomainSuffix and RawDomain
