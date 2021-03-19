@@ -148,6 +148,12 @@ func handler(ctx *fasthttp.RequestCtx) {
 		// Check if the first directory is a repo with the second directory as a branch
 		// example.codeberg.page/myrepo/@main/index.html
 		if len(pathElements) > 1 && strings.HasPrefix(pathElements[1], "@") {
+			if targetRepo == "pages" {
+				// example.codeberg.org/pages/@... redirects to example.codeberg.org/@...
+				ctx.Redirect("/" + strings.Join(pathElements[1:], "/"), fasthttp.StatusMovedPermanently)
+				return
+			}
+
 			if tryBranch(pathElements[0], pathElements[1][1:], pathElements[2:],
 				"/"+pathElements[0]+"/%p",
 			) {
@@ -171,7 +177,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 		// Check if the first directory is a repo with a "pages" branch
 		// example.codeberg.page/myrepo/index.html
-		if tryBranch(pathElements[0], "pages", pathElements[1:], "") {
+		// example.codeberg.page/pages/... is not allowed here.
+		if pathElements[0] != "pages" && tryBranch(pathElements[0], "pages", pathElements[1:], "") {
 			tryUpstream()
 			return
 		}
