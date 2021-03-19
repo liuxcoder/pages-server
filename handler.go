@@ -66,6 +66,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 	if RawDomain != nil && bytes.Equal(ctx.Request.Host(), RawDomain) {
 		// Serve raw content from RawDomain
 
+		// TODO: add canonical link and "X-Robots-Tag: noarchive, noindex"
+
 		targetOptions.TryIndexPages = false
 		targetOptions.ForbiddenMimeTypes["text/html"] = struct{}{}
 		targetOptions.DefaultMimeType = "text/plain; charset=utf-8"
@@ -101,6 +103,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 	} else if bytes.HasSuffix(ctx.Request.Host(), MainDomainSuffix) {
 		// Serve pages from subdomains of MainDomainSuffix
+
+		// TODO: add @branch syntax with "X-Robots-Tag: noarchive, noindex"
 
 		pathElements := strings.SplitN(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/", 2)
 		targetOwner = string(bytes.TrimSuffix(ctx.Request.Host(), MainDomainSuffix))
@@ -154,6 +158,7 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 
 // getBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
 // (or an empty time.Time if the branch doesn't exist)
+// TODO: cache responses for ~15 minutes if a branch exists
 func getBranchTimestamp(owner, repo, branch string) (branchWithFallback string, t time.Time) {
 	branchWithFallback = branch
 	if branch == "" {
