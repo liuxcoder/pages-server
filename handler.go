@@ -63,16 +63,58 @@ func handler(ctx *fasthttp.RequestCtx) {
 		TryIndexPages:      true,
 	}
 
+	// tryBranch checks if a branch exists and populates the target variables. If canonicalLink is non-empty, it will
+	// also disallow search indexing and add a Link header to the canonical URL.
+	var tryBranch = func(repo string, branch string, path []string, canonicalLink string) bool {
+		if repo == "" {
+			return false
+		}
+		fmt.Printf("Trying branch: %s/%s/%s with path %v\n", targetOwner, repo, branch, path)
+
+		escapedBranch, _ := url.PathUnescape(branch)
+		if escapedBranch == "" {
+			escapedBranch = branch
+		}
+		// Check if the branch exists, otherwise treat it as a file path
+		targetBranch, targetOptions.BranchTimestamp = getBranchTimestamp(targetOwner, repo, branch)
+		fmt.Printf("Branch %s has timestamp %v\n", targetBranch, targetOptions.BranchTimestamp)
+		if targetOptions.BranchTimestamp != (time.Time{}) {
+			// Branch exists, use it
+			targetRepo = repo
+			targetPath = strings.Trim(strings.Join(path, "/"), "/")
+
+			if canonicalLink != "" {
+				// Hide from search machines & add canonical link
+				ctx.Response.Header.Set("X-Robots-Tag", "noarchive, noindex")
+				ctx.Response.Header.Set("Link",
+					strings.NewReplacer("%b", targetBranch, "%p", targetPath).Replace(canonicalLink)+
+						"; rel=\"canonical\"",
+				)
+			}
+
+			return true
+		} else {
+			// branch doesn't exist
+			return false
+		}
+	}
+
+	// tryUpstream forwards the target request to the Gitea API, and shows an error page on failure.
+	var tryUpstream = func() {
+		// Try to request the file from the Gitea API
+		if !upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, targetOptions) {
+			returnErrorPage(ctx, ctx.Response.StatusCode())
+		}
+	}
+
 	if RawDomain != nil && bytes.Equal(ctx.Request.Host(), RawDomain) {
 		// Serve raw content from RawDomain
-
-		// TODO: add canonical link and "X-Robots-Tag: noarchive, noindex"
 
 		targetOptions.TryIndexPages = false
 		targetOptions.ForbiddenMimeTypes["text/html"] = struct{}{}
 		targetOptions.DefaultMimeType = "text/plain; charset=utf-8"
 
-		pathElements := strings.SplitN(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/", 4)
+		pathElements := strings.Split(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/")
 		if len(pathElements) < 2 {
 			// https://{RawDomain}/{owner}/{repo}[/@{branch}]/{path} is required
 			ctx.Redirect(RawInfoPage, fasthttp.StatusTemporaryRedirect)
@@ -80,46 +122,74 @@ func handler(ctx *fasthttp.RequestCtx) {
 		}
 		targetOwner = pathElements[0]
 		targetRepo = pathElements[1]
-		if len(pathElements) > 3 {
-			targetPath = strings.Trim(pathElements[2]+"/"+pathElements[3], "/")
-		} else if len(pathElements) > 2 {
-			targetPath = pathElements[2]
-		}
 
 		// raw.codeberg.page/example/myrepo/@main/index.html
-		if len(pathElements) > 3 && strings.HasPrefix(pathElements[2], "@") {
-			branch, _ := url.PathUnescape(pathElements[2][1:])
-			if branch == "" {
-				branch = pathElements[2][1:]
+		if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
+			if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
+				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
+			) {
+				tryUpstream()
+				return
 			}
-			// Check if the branch exists, otherwise treat it as a file path
-			targetBranch, targetOptions.BranchTimestamp = getBranchTimestamp(targetOwner, targetRepo, branch)
-			if targetOptions.BranchTimestamp != (time.Time{}) {
-				targetPath = strings.Trim(pathElements[3], "/") // branch exists, use it
-			} else {
-				targetBranch = "" // branch doesn't exist, use default branch
-			}
+			returnErrorPage(ctx, fasthttp.StatusFailedDependency)
+			return
+		} else {
+			tryBranch(targetRepo, "", pathElements[2:],
+				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
+			)
+			tryUpstream()
+			return
 		}
 
 	} else if bytes.HasSuffix(ctx.Request.Host(), MainDomainSuffix) {
 		// Serve pages from subdomains of MainDomainSuffix
 
-		// TODO: add @branch syntax with "X-Robots-Tag: noarchive, noindex"
-
-		pathElements := strings.SplitN(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/", 2)
+		pathElements := strings.Split(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/")
 		targetOwner = string(bytes.TrimSuffix(ctx.Request.Host(), MainDomainSuffix))
 		targetRepo = pathElements[0]
-		if len(pathElements) > 1 {
-			targetPath = strings.Trim(pathElements[1], "/")
+		targetPath = strings.Trim(strings.Join(pathElements[1:], "/"), "/")
+
+		// Check if the first directory is a repo with the second directory as a branch
+		// example.codeberg.page/myrepo/@main/index.html
+		if len(pathElements) > 1 && strings.HasPrefix(pathElements[1], "@") {
+			if tryBranch(pathElements[0], pathElements[1][1:], pathElements[2:],
+				"/"+pathElements[0]+"/%p",
+			) {
+				tryUpstream()
+			} else {
+				returnErrorPage(ctx, fasthttp.StatusFailedDependency)
+			}
+			return
+		}
+
+		// Check if the first directory is a branch for the "pages" repo
+		// example.codeberg.page/@main/index.html
+		if strings.HasPrefix(pathElements[0], "@") {
+			if tryBranch("pages", pathElements[0][1:], pathElements[1:], "/%p") {
+				tryUpstream()
+			} else {
+				returnErrorPage(ctx, fasthttp.StatusFailedDependency)
+			}
+			return
 		}
 
 		// Check if the first directory is a repo with a "pages" branch
-		targetBranch, targetOptions.BranchTimestamp = getBranchTimestamp(targetOwner, targetRepo, "pages")
-		if targetOptions.BranchTimestamp == (time.Time{}) {
-			targetRepo = "pages"
-			targetBranch = ""
-			targetPath = strings.Trim(pathElements[0]+"/"+targetPath, "/")
+		// example.codeberg.page/myrepo/index.html
+		if tryBranch(pathElements[0], "pages", pathElements[1:], "") {
+			tryUpstream()
+			return
 		}
+
+		// Try to use the "pages" repo on its default branch
+		// example.codeberg.page/index.html
+		if tryBranch("pages", "", pathElements, "") {
+			tryUpstream()
+			return
+		}
+
+		// Couldn't find a valid repo/branch
+		returnErrorPage(ctx, fasthttp.StatusFailedDependency)
+		return
 	} else {
 		// Serve pages from external domains
 
@@ -129,23 +199,6 @@ func handler(ctx *fasthttp.RequestCtx) {
 			return
 		}
 	}
-
-	// Check if a username can't exist because it's reserved (we'd risk to hit a Gitea route in that case)
-	if _, ok := ReservedUsernames[targetOwner]; ok {
-		returnErrorPage(ctx, fasthttp.StatusForbidden)
-		return
-	}
-
-	// Check for blob path
-	if strings.HasPrefix(targetPath, "blob/") {
-		returnErrorPage(ctx, fasthttp.StatusForbidden)
-		return
-	}
-
-	// Try to request the file from the Gitea API
-	if !upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, targetOptions) {
-		returnErrorPage(ctx, ctx.Response.StatusCode())
-	}
 }
 
 // returnErrorPage sets the response status code and writes NotFoundPage to the response body, with "%status" replaced
@@ -153,7 +206,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetStatusCode(code)
 	ctx.Response.Header.SetContentType("text/html; charset=utf-8")
-	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code) + " " + fasthttp.StatusMessage(code))))
+	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+fasthttp.StatusMessage(code))))
 }
 
 // getBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
@@ -163,8 +216,9 @@ func getBranchTimestamp(owner, repo, branch string) (branchWithFallback string, 
 	branchWithFallback = branch
 	if branch == "" {
 		var body = make([]byte, 0)
-		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 10*time.Second)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+url.PathEscape(owner)+"/"+url.PathEscape(repo), 10*time.Second)
 		if err != nil || status != 200 {
+			fmt.Printf("Default branch request to Gitea API failed with status code %d and error %s\n", status, err)
 			branchWithFallback = ""
 			return
 		}
@@ -173,8 +227,9 @@ func getBranchTimestamp(owner, repo, branch string) (branchWithFallback string, 
 	}
 
 	var body = make([]byte, 0)
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 10*time.Second)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+url.PathEscape(owner)+"/"+url.PathEscape(repo)+"/branches/"+url.PathEscape(branch), 10*time.Second)
 	if err != nil || status != 200 {
+		fmt.Printf("Branch info request to Gitea API failed with status code %d and error %s\n", status, err)
 		branchWithFallback = ""
 		return
 	}
@@ -196,9 +251,14 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 
 	// Handle repositories with no/broken pages setup
 	if options.BranchTimestamp == (time.Time{}) || targetBranch == "" {
-		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
+		ctx.Response.SetStatusCode(fasthttp.StatusFailedDependency)
 		ctx.Response.Header.SetContentType("text/html; charset=utf-8")
 		ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte("pages not set up for this repo")))
+		return true
+	}
+
+	if targetOwner == "" || targetRepo == "" || targetBranch == "" {
+		returnErrorPage(ctx, fasthttp.StatusBadRequest)
 		return true
 	}
 
@@ -212,7 +272,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 
 	// Make a GET request to the upstream URL
 	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath)
+	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + url.PathEscape(targetOwner) + "/" + url.PathEscape(targetRepo) + "/raw/" + url.PathEscape(targetBranch) + "/" + url.PathEscape(targetPath))
 	res := fasthttp.AcquireResponse()
 	err := fasthttp.DoTimeout(req, res, 10*time.Second)
 

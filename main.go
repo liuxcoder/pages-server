@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	_ "embed"
@@ -66,14 +65,6 @@ var BlacklistedPaths = [][]byte{
 var IndexPages = []string{
 	"index.html",
 }
-
-// ReservedUsernames specifies the usernames that are reserved by Gitea and thus may not be used as owner names.
-// The contents are taken from https://github.com/go-gitea/gitea/blob/master/models/user.go#L783; reserved names with
-// dots are removed as they are forbidden for Codeberg Pages anyways.
-var ReservedUsernames = createLookupMapFromWords(`
-	admin api assets attachments avatars captcha commits debug error explore ghost help install issues less login metrics milestones new notifications org plugins pulls raw repo search stars template user
-	
-`)
 
 // main sets up and starts the web server.
 func main() {
@@ -121,15 +112,4 @@ func envOr(env string, or string) string {
 		return v
 	}
 	return or
-}
-
-func createLookupMapFromWords(input string) map[string]struct{} {
-	var res = map[string]struct{}{}
-	input = strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(input)
-	for _, word := range strings.Split(input, " ") {
-		if len(word) > 0 {
-			res[word] = struct{}{}
-		}
-	}
-	return res
 }
