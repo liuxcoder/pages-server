@@ -3,10 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 	"mime"
-	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -69,34 +69,30 @@ func handler(ctx *fasthttp.RequestCtx) {
 		if repo == "" {
 			return false
 		}
-		fmt.Printf("Trying branch: %s/%s/%s with path %v\n", targetOwner, repo, branch, path)
 
-		escapedBranch, _ := url.PathUnescape(branch)
-		if escapedBranch == "" {
-			escapedBranch = branch
-		}
 		// Check if the branch exists, otherwise treat it as a file path
-		targetBranch, targetOptions.BranchTimestamp = getBranchTimestamp(targetOwner, repo, branch)
-		fmt.Printf("Branch %s has timestamp %v\n", targetBranch, targetOptions.BranchTimestamp)
-		if targetOptions.BranchTimestamp != (time.Time{}) {
-			// Branch exists, use it
-			targetRepo = repo
-			targetPath = strings.Trim(strings.Join(path, "/"), "/")
-
-			if canonicalLink != "" {
-				// Hide from search machines & add canonical link
-				ctx.Response.Header.Set("X-Robots-Tag", "noarchive, noindex")
-				ctx.Response.Header.Set("Link",
-					strings.NewReplacer("%b", targetBranch, "%p", targetPath).Replace(canonicalLink)+
-						"; rel=\"canonical\"",
-				)
-			}
-
-			return true
-		} else {
+		branchTimestampResult := getBranchTimestamp(targetOwner, repo, branch)
+		if branchTimestampResult == nil {
 			// branch doesn't exist
 			return false
 		}
+
+		// Branch exists, use it
+		targetRepo = repo
+		targetPath = strings.Trim(strings.Join(path, "/"), "/")
+		targetBranch = branchTimestampResult.branch
+		targetOptions.BranchTimestamp = branchTimestampResult.timestamp
+
+		if canonicalLink != "" {
+			// Hide from search machines & add canonical link
+			ctx.Response.Header.Set("X-Robots-Tag", "noarchive, noindex")
+			ctx.Response.Header.Set("Link",
+				strings.NewReplacer("%b", targetBranch, "%p", targetPath).Replace(canonicalLink)+
+					"; rel=\"canonical\"",
+			)
+		}
+
+		return true
 	}
 
 	// tryUpstream forwards the target request to the Gitea API, and shows an error page on failure.
@@ -209,36 +205,49 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+fasthttp.StatusMessage(code))))
 }
 
+type branchTimestamp struct {
+	branch string
+	timestamp time.Time
+}
+var branchTimestampCache = mcache.New()
+
 // getBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
 // (or an empty time.Time if the branch doesn't exist)
-// TODO: cache responses for ~15 minutes if a branch exists
-func getBranchTimestamp(owner, repo, branch string) (branchWithFallback string, t time.Time) {
-	branchWithFallback = branch
+func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
+	if result, ok := branchTimestampCache.Get(owner + "/" + repo + "/" + branch); ok {
+		return result.(*branchTimestamp)
+	}
+	result := &branchTimestamp{}
+	result.branch = branch
 	if branch == "" {
 		var body = make([]byte, 0)
-		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+url.PathEscape(owner)+"/"+url.PathEscape(repo), 10*time.Second)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 10*time.Second)
 		if err != nil || status != 200 {
-			fmt.Printf("Default branch request to Gitea API failed with status code %d and error %s\n", status, err)
-			branchWithFallback = ""
-			return
+			return nil
 		}
 		branch = fastjson.GetString(body, "default_branch")
-		branchWithFallback = branch
+		result.branch = branch
 	}
 
 	var body = make([]byte, 0)
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+url.PathEscape(owner)+"/"+url.PathEscape(repo)+"/branches/"+url.PathEscape(branch), 10*time.Second)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 10*time.Second)
 	if err != nil || status != 200 {
-		fmt.Printf("Branch info request to Gitea API failed with status code %d and error %s\n", status, err)
-		branchWithFallback = ""
-		return
+		return nil
 	}
 
-	t, _ = time.Parse(time.RFC3339, fastjson.GetString(body, "commit", "timestamp"))
-	return
+	result.timestamp, _ = time.Parse(time.RFC3339, fastjson.GetString(body, "commit", "timestamp"))
+	_ = branchTimestampCache.Set(owner + "/" + repo + "/" + branch, result, 15 * time.Second)
+	return result
 }
 
-// upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
+var upstreamClient = fasthttp.Client{
+	ReadTimeout: 10 * time.Second,
+	MaxConnDuration: 60 * time.Second,
+	MaxConnWaitTimeout: 1000 * time.Millisecond,
+	MaxConnsPerHost: 1024 * 16, // TODO: adjust bottlenecks for best performance with Gitea!
+}
+
+	// upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
 func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, targetBranch string, targetPath string, options *upstreamOptions) (success bool) {
 	if options.ForbiddenMimeTypes == nil {
 		options.ForbiddenMimeTypes = map[string]struct{}{}
@@ -246,15 +255,14 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 
 	// Check if the branch exists and when it was modified
 	if options.BranchTimestamp == (time.Time{}) {
-		targetBranch, options.BranchTimestamp = getBranchTimestamp(targetOwner, targetRepo, targetBranch)
-	}
+		branch := getBranchTimestamp(targetOwner, targetRepo, targetBranch)
 
-	// Handle repositories with no/broken pages setup
-	if options.BranchTimestamp == (time.Time{}) || targetBranch == "" {
-		ctx.Response.SetStatusCode(fasthttp.StatusFailedDependency)
-		ctx.Response.Header.SetContentType("text/html; charset=utf-8")
-		ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte("pages not set up for this repo")))
-		return true
+		if branch == nil {
+			returnErrorPage(ctx, fasthttp.StatusFailedDependency)
+			return true
+		}
+		targetBranch = branch.branch
+		options.BranchTimestamp = branch.timestamp
 	}
 
 	if targetOwner == "" || targetRepo == "" || targetBranch == "" {
@@ -272,9 +280,9 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 
 	// Make a GET request to the upstream URL
 	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + url.PathEscape(targetOwner) + "/" + url.PathEscape(targetRepo) + "/raw/" + url.PathEscape(targetBranch) + "/" + url.PathEscape(targetPath))
+	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath)
 	res := fasthttp.AcquireResponse()
-	err := fasthttp.DoTimeout(req, res, 10*time.Second)
+	err := upstreamClient.Do(req, res)
 
 	// Handle errors
 	if res.StatusCode() == fasthttp.StatusNotFound {

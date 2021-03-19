@@ -99,6 +99,8 @@ func main() {
 		NoDefaultServerHeader:        true,
 		NoDefaultDate:                true,
 		ReadTimeout:                  10 * time.Second,
+		Concurrency:                  1024 * 32, // TODO: adjust bottlenecks for best performance with Gitea!
+		MaxConnsPerIP:                100,
 	}).Serve(listener)
 	if err != nil {
 		fmt.Printf("Couldn't start server: %s\n", err)
