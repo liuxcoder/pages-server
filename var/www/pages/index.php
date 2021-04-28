@@ -36,11 +36,11 @@ if ($tld === "org") {
     } else {
         $owner = strtolower(array_shift($request_url_parts));
         if (!$owner) {
-            header("Location: https://codeberg.eu");
+            header("Location: https://codeberg.page");
             exit;
         }
         if (strpos($owner, ".") === false) {
-            $h = "Location: https://" . $owner . ".codeberg.eu/" . implode("/", $request_url_parts);
+            $h = "Location: https://" . $owner . ".codeberg.page/" . implode("/", $request_url_parts);
             if ($_SERVER['QUERY_STRING'] !== "")
                 $h .= "?" . $_SERVER['QUERY_STRING'];
             header($h);
