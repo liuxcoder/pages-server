@@ -148,10 +148,56 @@ $file_url = implode("/", $request_url_parts);
 if (substr($git_root, 0, strlen($git_prefix)) !== $git_prefix)
     send_response(404, "this user/organization does not have codeberg pages");
 
+# Setup file descriptors
+$null_fd = array(
+    1 => array('file','/dev/null','w'),
+    2 => array('file','/dev/null','w'),
+);
+
+$pipe_fd = array(
+    1 => array('pipe','w'),
+    2 => array('pipe','w'),
+);
+
+/**
+ * Excute git commands
+ * @param  string $cmd_array  git command to be executed
+ * @param  string &$stdout    reference to $stdout variable, to receive stdout value
+ * @param  string &$stderr    reference to $stderr variable, to receive stderr value
+ * @param  string &$retval    reference to $retval variable, to receive return value
+ */
+function git_exec($cmd_array, &$stdout = false, &$retval = false, &$stderr = false) {
+    global $git_root, $pipe_fd;
+    $git_bin = '/usr/bin/git';
+    array_unshift($cmd_array, $git_bin);
+
+    $process = proc_open($cmd_array, $pipe_fd, $pipes, $git_root);
+    if($stdout !== false)
+        $stdout = stream_get_contents($pipes[1]);
+    if($stderr !== false)
+        $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $tmpret = proc_close($process);
+    if($retval !== false)
+        $retval = $tmpret;
+}
+
+/**
+ * Check whether git command succeeds
+ * @param   string $command    git command to be checked
+ * @return  bool   true if return value is 0, false otherwise
+ */
+function git_check($cmd_array) {
+    global $git_root, $null_fd;
+    $git_bin = '/usr/bin/git';
+    array_unshift($cmd_array, $git_bin);
+    return ( proc_close(proc_open($cmd_array,$null_fd,$pipes,$git_root)) === 0 );
+}
+
 # If this is a folder, we explicitly redirect to folder URL, otherwise browsers will construct invalid relative links:
-$command = "sh -c \"cd '$git_root' && /usr/bin/git ls-tree 'HEAD:$file_url' > /dev/null\"";
-exec($command, $output, $retval);
-if ($retval === 0) {
+$command = ["ls-tree", "HEAD:$file_url"];
+if (git_check($command)) {
     if (substr($request_url, -1) !== "/") {
         $h = "Location: " . $request_url . "/";
         if ($_SERVER['QUERY_STRING'] !== "")
@@ -196,10 +242,10 @@ header("Content-Type: " . $mime_type);
 
 #header("Cache-Control: public, max-age=10, immutable");
 
-$command = "sh -c \"cd '$git_root' && /usr/bin/git log --format='%H' -1\"";
-exec($command, $output, $retval);
-if ($retval == 0 && count($output)) {
-    $revision=$output[0];
+$command = ["log", "--format=%H", "-1"];
+git_exec($command, $output, $retval);
+if ($retval === 0 && !empty($output)) {
+    $revision=trim($output);
     header('ETag: "' . $revision . '"');
     if (isset($_SERVER["HTTP_IF_NONE_MATCH"])) {
         $req_revision = str_replace('"', '', str_replace('W/"', '', $_SERVER["HTTP_IF_NONE_MATCH"]));
@@ -208,26 +254,20 @@ if ($retval == 0 && count($output)) {
         }
     }
 }
-
-## We are executing command twice (first for send_response-checking, then for actual raw output to stream),
-## which seems wasteful, but it seems exec+echo cannot do raw binary output? Is this true?
-$command = "sh -c \"cd '$git_root' && /usr/bin/git show 'HEAD:$file_url'\"";
-exec($command . " > /dev/null", $output, $retval);
-if ($retval != 0) {
+$command = ["show", "HEAD:$file_url"];
+git_exec($command, $output, $retval);
+if ($retval !== 0) {
     # Try adding '.html' suffix, if this does not work either, report error
-    $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'HEAD:$file_url.html'\"";
-    exec($command . " > /dev/null", $output, $retval);
+    $command = ["show", "HEAD:$file_url.html"];
+    git_exec($command, $output, $retval);
     header("Content-Type: text/html");
-    if ($retval != 0) {
+    if ($retval !== 0) {
         # Render user-provided 404.html if exists, generic 404 message if not:
         http_response_code(404);
-        $command = "sh -c \"cd '$git_root' && /usr/bin/git show 'HEAD:404.html'\"";
-        exec($command . " > /dev/null", $output, $retval);
-        if ($retval != 0)
-            send_response(404 , "no such file in repo: '" . htmlspecialchars($file_url) . "'");
+        $command = ["show", "HEAD:404.html"];
+        git_exec($command, $output, $retval);
+        if ($retval !== 0)
+            send_response(404, "no such file in repo: '" . htmlspecialchars($file_url) . "'");
     }
 }
-
-## If we could directly exec+echo raw output from above, we wouldn't need to execute command twice:
-passthru($command);
-
+echo $output;
