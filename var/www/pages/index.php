@@ -161,7 +161,7 @@ $pipe_fd = array(
 
 /**
  * Excute git commands
- * @param  string $cmd_array  git command to be executed
+ * @param  array  $cmd_array  git command and parameters as an array
  * @param  string &$stdout    reference to $stdout variable, to receive stdout value
  * @param  string &$stderr    reference to $stderr variable, to receive stderr value
  * @param  string &$retval    reference to $retval variable, to receive return value
@@ -185,7 +185,7 @@ function git_exec($cmd_array, &$stdout = false, &$retval = false, &$stderr = fal
 
 /**
  * Check whether git command succeeds
- * @param   string $command    git command to be checked
+ * @param   array  $cmd_array  git command and parameters as an array
  * @return  bool   true if return value is 0, false otherwise
  */
 function git_check($cmd_array) {
