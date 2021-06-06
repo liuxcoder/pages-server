@@ -12,9 +12,12 @@ In the example (see [haproxy.cfg](haproxy.cfg)), the `pages_backend` is listenin
 
 ## How to test
 ```bash
-docker-compose up -d
+docker-compose up &
 ./test.sh
+docker-compose down
 
 # For manual testing: all HTTPS URLs connect to localhost:443 & certificates are not verified.
 ./test.sh [curl-options...] <url>
 ```
+
+![Screenshot of the test script's output](/attachments/c82d79ea-7586-4d4b-b340-3ad0030185d6)
