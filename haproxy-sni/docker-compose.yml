@@ -1,0 +1,22 @@
+version: "3"
+services:
+  haproxy:
+    image: haproxy
+    ports: ["443:443"]
+    volumes:
+    - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    - ./dhparam.pem:/etc/ssl/dhparam.pem:ro
+    - ./haproxy-certificates:/etc/ssl/private/haproxy:ro
+    cap_add:
+    - NET_ADMIN
+  gitea:
+    image: caddy
+    volumes:
+    - ./gitea-www:/srv:ro
+    - ./gitea.Caddyfile:/etc/caddy/Caddyfile:ro
+  pages:
+    image: caddy
+    volumes:
+    - ./pages-www:/srv:ro
+    - ./pages.Caddyfile:/etc/caddy/Caddyfile:ro
+    
