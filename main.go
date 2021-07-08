@@ -80,7 +80,7 @@ func main() {
 
 	// Use HOST and PORT environment variables to determine listening address
 	address := fmt.Sprintf("%s:%s", envOr("HOST", "[::]"), envOr("PORT", "80"))
-	fmt.Printf("Listening on http://%s\n", address)
+	fmt.Printf("Listening on https://%s\n", address)
 
 	// Enable compression by wrapping the handler() method with the compression function provided by FastHTTP
 	compressedHandler := fasthttp.CompressHandlerBrotliLevel(handler, fasthttp.CompressBrotliBestSpeed, fasthttp.CompressBestSpeed)
@@ -91,9 +91,7 @@ func main() {
 		fmt.Printf("Couldn't create listener: %s\n", err)
 		os.Exit(1)
 	}
-	if envOr("LETS_ENCRYPT", "0") == "1" {
-		tls.NewListener(listener, tlsConfig)
-	}
+	listener = tls.NewListener(listener, tlsConfig)
 
 	// Start the web server
 	err = (&fasthttp.Server{
