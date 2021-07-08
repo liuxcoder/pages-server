@@ -6,6 +6,7 @@ import (
 	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+	"io"
 	"mime"
 	"path"
 	"strconv"
@@ -212,11 +213,25 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+fasthttp.StatusMessage(code))))
 }
 
+// BranchCacheTimeout specifies the timeout for the branch timestamp cache.
+var BranchCacheTimeout = 60*time.Second
+// branchTimestampCache stores branch timestamps for faster cache checking
+var branchTimestampCache = mcache.New()
 type branchTimestamp struct {
 	branch string
 	timestamp time.Time
 }
-var branchTimestampCache = mcache.New()
+
+// FileCacheTimeout specifies the timeout for the file content cache - you might want to make this shorter
+// than BranchCacheTimeout when running out of memory.
+var FileCacheTimeout = 60*time.Second
+// fileResponseCache stores responses from the Gitea server
+var fileResponseCache = mcache.New()
+type fileResponse struct {
+	exists bool
+	mimeType string
+	body []byte
+}
 
 // getBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
 // (or an empty time.Time if the branch doesn't exist)
@@ -228,16 +243,15 @@ func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	result.branch = branch
 	if branch == "" {
 		var body = make([]byte, 0)
-		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 10*time.Second)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, BranchCacheTimeout)
 		if err != nil || status != 200 {
 			return nil
 		}
-		branch = fastjson.GetString(body, "default_branch")
-		result.branch = branch
+		result.branch = fastjson.GetString(body, "default_branch")
 	}
 
 	var body = make([]byte, 0)
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 10*time.Second)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, BranchCacheTimeout)
 	if err != nil || status != 200 {
 		return nil
 	}
@@ -251,11 +265,11 @@ var upstreamClient = fasthttp.Client{
 	ReadTimeout: 10 * time.Second,
 	MaxConnDuration: 60 * time.Second,
 	MaxConnWaitTimeout: 1000 * time.Millisecond,
-	MaxConnsPerHost: 1024 * 16, // TODO: adjust bottlenecks for best performance with Gitea!
+	MaxConnsPerHost: 128 * 16, // TODO: adjust bottlenecks for best performance with Gitea!
 }
 
-	// upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, targetBranch string, targetPath string, options *upstreamOptions) (success bool) {
+// upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
+func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, targetBranch string, targetPath string, options *upstreamOptions) (final bool) {
 	if options.ForbiddenMimeTypes == nil {
 		options.ForbiddenMimeTypes = map[string]struct{}{}
 	}
@@ -289,10 +303,18 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath)
 	res := fasthttp.AcquireResponse()
-	err := upstreamClient.Do(req, res)
+	isCached := false
+	var cachedResponse fileResponse
+	var err error
+	if cachedValue, ok := fileResponseCache.Get(string(req.RequestURI())); ok {
+		isCached = true
+		cachedResponse = cachedValue.(fileResponse)
+	} else {
+		err = upstreamClient.Do(req, res)
+	}
 
 	// Handle errors
-	if res.StatusCode() == fasthttp.StatusNotFound {
+	if (isCached && !cachedResponse.exists) || res.StatusCode() == fasthttp.StatusNotFound {
 		if options.TryIndexPages {
 			// copy the options struct & try if an index page exists
 			optionsForIndexPages := *options
@@ -305,15 +327,22 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			}
 		}
 		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
+		if !isCached {
+			// Update cache if the request is fresh
+			_ = fileResponseCache.Set(string(req.RequestURI()), fileResponse{
+				exists: false,
+			}, FileCacheTimeout)
+		}
 		return false
 	}
-	if err != nil || res.StatusCode() != fasthttp.StatusOK {
+	if !isCached && (err != nil || res.StatusCode() != fasthttp.StatusOK) {
 		fmt.Printf("Couldn't fetch contents from \"%s\": %s (status code %d)\n", req.RequestURI(), err, res.StatusCode())
 		returnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
 	}
 
 	// Append trailing slash if missing (for index files)
+	// options.AppendTrailingSlash is only true when looking for index pages
 	if options.AppendTrailingSlash && !bytes.HasSuffix(ctx.Request.URI().Path(), []byte{'/'}) {
 		ctx.Redirect(string(ctx.Request.URI().Path())+"/", fasthttp.StatusTemporaryRedirect)
 		return true
@@ -331,14 +360,28 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	}
 	ctx.Response.Header.SetContentType(mimeType)
 
-	// Write the response to the original request
+	// Everything's okay so far
 	ctx.Response.SetStatusCode(fasthttp.StatusOK)
 	ctx.Response.Header.SetLastModified(options.BranchTimestamp)
-	err = res.BodyWriteTo(ctx.Response.BodyWriter())
+
+	// Write the response body to the original request
+	var cacheBodyWriter bytes.Buffer
+	if !isCached {
+		err = res.BodyWriteTo(io.MultiWriter(ctx.Response.BodyWriter(), &cacheBodyWriter))
+	} else {
+		_, err = ctx.Write(cachedResponse.body)
+	}
 	if err != nil {
 		fmt.Printf("Couldn't write body for \"%s\": %s\n", req.RequestURI(), err)
 		returnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
+	}
+
+	if !isCached {
+		cachedResponse.exists = true
+		cachedResponse.mimeType = mimeType
+		cachedResponse.body = cacheBodyWriter.Bytes()
+		_ = fileResponseCache.Set(string(req.RequestURI()), cachedResponse, FileCacheTimeout)
 	}
 
 	return true
