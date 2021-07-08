@@ -32,24 +32,24 @@ import (
 // MainDomainSuffix specifies the main domain (starting with a dot) for which subdomains shall be served as static
 // pages, or used for comparison in CNAME lookups. Static pages can be accessed through
 // https://{owner}.{MainDomain}[/{repo}], with repo defaulting to "pages".
-var MainDomainSuffix = []byte(".codeberg.page")
+var MainDomainSuffix = []byte("." + envOr("PAGES_DOMAIN", "codeberg.page"))
 
 // GiteaRoot specifies the root URL of the Gitea instance, without a trailing slash.
-var GiteaRoot = []byte("https://codeberg.org")
+var GiteaRoot = []byte(envOr("GITEA_ROOT", "https://codeberg.org"))
 
 //go:embed 404.html
 var NotFoundPage []byte
 
 // BrokenDNSPage will be shown (with a redirect) when trying to access a domain for which no DNS CNAME record exists.
-var BrokenDNSPage = "https://docs.codeberg.org/codeberg-pages/custom-domains/"
+var BrokenDNSPage = envOr("REDIRECT_BROKEN_DNS", "https://docs.codeberg.org/codeberg-pages/custom-domains/")
 
 // RawDomain specifies the domain from which raw repository content shall be served in the following format:
 // https://{RawDomain}/{owner}/{repo}[/{branch|tag|commit}/{version}]/{filepath...}
 // (set to []byte(nil) to disable raw content hosting)
-var RawDomain = []byte("raw.codeberg.page")
+var RawDomain = []byte(envOr("RAW_DOMAIN", "raw.codeberg.org"))
 
 // RawInfoPage will be shown (with a redirect) when trying to access RawDomain directly (or without owner/repo/path).
-var RawInfoPage = "https://docs.codeberg.org/codeberg-pages/raw-content/"
+var RawInfoPage = envOr("REDIRECT_RAW_INFO", "https://docs.codeberg.org/codeberg-pages/raw-content/")
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
 var AllowedCorsDomains = [][]byte{
@@ -66,6 +66,8 @@ var BlacklistedPaths = [][]byte{
 // IndexPages lists pages that may be considered as index pages for directories.
 var IndexPages = []string{
 	"index.html",
+	"index.htm",
+	"README.md",
 }
 
 // main sets up and starts the web server.
