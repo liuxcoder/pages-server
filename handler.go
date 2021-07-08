@@ -98,6 +98,19 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 	// tryUpstream forwards the target request to the Gitea API, and shows an error page on failure.
 	var tryUpstream = func() {
+		// check if a canonical domain exists on a request on MainDomain
+		if bytes.HasSuffix(ctx.Request.Host(), MainDomainSuffix) {
+			canonicalDomain := checkCanonicalDomain(targetOwner, targetRepo, targetBranch)
+			if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], string(MainDomainSuffix)) {
+				canonicalPath := string(ctx.RequestURI())
+				if targetRepo != "pages" {
+					canonicalPath = "/" + strings.SplitN(canonicalPath, "/", 3)[2]
+				}
+				ctx.Redirect("https://" + canonicalDomain + canonicalPath, fasthttp.StatusTemporaryRedirect)
+				return
+			}
+		}
+
 		// Try to request the file from the Gitea API
 		if !upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, targetOptions) {
 			returnErrorPage(ctx, ctx.Response.StatusCode())
@@ -151,7 +164,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		if len(pathElements) > 1 && strings.HasPrefix(pathElements[1], "@") {
 			if targetRepo == "pages" {
 				// example.codeberg.org/pages/@... redirects to example.codeberg.org/@...
-				ctx.Redirect("/" + strings.Join(pathElements[1:], "/"), fasthttp.StatusMovedPermanently)
+				ctx.Redirect("/" + strings.Join(pathElements[1:], "/"), fasthttp.StatusTemporaryRedirect)
 				return
 			}
 
@@ -196,10 +209,39 @@ func handler(ctx *fasthttp.RequestCtx) {
 		return
 	} else {
 		// Serve pages from external domains
-
-		targetOwner, targetRepo, targetBranch, targetPath = getTargetFromDNS(ctx)
+		targetOwner, targetRepo, targetBranch = getTargetFromDNS(string(ctx.Request.Host()))
 		if targetOwner == "" {
 			ctx.Redirect(BrokenDNSPage, fasthttp.StatusTemporaryRedirect)
+			return
+		}
+
+		pathElements := strings.Split(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/")
+		canonicalLink := ""
+		if strings.HasPrefix(pathElements[0], "@") {
+			targetBranch = pathElements[0][1:]
+			pathElements = pathElements[1:]
+			canonicalLink = "/%p"
+		}
+
+		// Try to use the given repo on the given branch or the default branch
+		if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
+			canonicalDomain := checkCanonicalDomain(targetOwner, targetRepo, targetBranch)
+			if canonicalDomain != string(ctx.Request.Host()) {
+				// only redirect if
+				targetOwner, _, _ = getTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0])
+				if targetOwner != "" {
+					ctx.Redirect("https://"+canonicalDomain+string(ctx.RequestURI()), fasthttp.StatusTemporaryRedirect)
+					return
+				} else {
+					ctx.Redirect(BrokenDNSPage, fasthttp.StatusTemporaryRedirect)
+					return
+				}
+			}
+
+			tryUpstream()
+			return
+		} else {
+			returnErrorPage(ctx, fasthttp.StatusFailedDependency)
 			return
 		}
 	}
