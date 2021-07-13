@@ -13,8 +13,8 @@ var DnsLookupCacheTimeout = 15*time.Minute
 // dnsLookupCache stores DNS lookups for custom domains
 var dnsLookupCache = mcache.New()
 
-// getTargetFromDNS searches for CNAME or TXT entries on the request domain ending with MainDomainSuffix, and checks if
-// the domain equals the repository's ".canonical-domain" file. If everything is fine, it returns the target data.
+// getTargetFromDNS searches for CNAME or TXT entries on the request domain ending with MainDomainSuffix.
+// If everything is fine, it returns the target data.
 func getTargetFromDNS(domain string) (targetOwner, targetRepo, targetBranch string) {
 	// Get CNAME or TXT
 	var cname string
@@ -74,7 +74,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch string) (canonic
 		canonicalDomain = cachedValue.(string)
 	} else {
 		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.canonical-domain")
+		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains")
 		res := fasthttp.AcquireResponse()
 
 		err := upstreamClient.Do(req, res)

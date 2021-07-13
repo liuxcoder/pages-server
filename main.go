@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"time"
@@ -41,7 +42,7 @@ var GiteaRoot = []byte(envOr("GITEA_ROOT", "https://codeberg.org"))
 var NotFoundPage []byte
 
 // BrokenDNSPage will be shown (with a redirect) when trying to access a domain for which no DNS CNAME record exists.
-var BrokenDNSPage = envOr("REDIRECT_BROKEN_DNS", "https://docs.codeberg.org/codeberg-pages/custom-domains/")
+var BrokenDNSPage = envOr("REDIRECT_BROKEN_DNS", "https://docs.codeberg.org/pages/custom-domains/")
 
 // RawDomain specifies the domain from which raw repository content shall be served in the following format:
 // https://{RawDomain}/{owner}/{repo}[/{branch|tag|commit}/{version}]/{filepath...}
@@ -49,7 +50,7 @@ var BrokenDNSPage = envOr("REDIRECT_BROKEN_DNS", "https://docs.codeberg.org/code
 var RawDomain = []byte(envOr("RAW_DOMAIN", "raw.codeberg.org"))
 
 // RawInfoPage will be shown (with a redirect) when trying to access RawDomain directly (or without owner/repo/path).
-var RawInfoPage = envOr("REDIRECT_RAW_INFO", "https://docs.codeberg.org/codeberg-pages/raw-content/")
+var RawInfoPage = envOr("REDIRECT_RAW_INFO", "https://docs.codeberg.org/pages/raw-content/")
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
 var AllowedCorsDomains = [][]byte{
@@ -66,8 +67,6 @@ var BlacklistedPaths = [][]byte{
 // IndexPages lists pages that may be considered as index pages for directories.
 var IndexPages = []string{
 	"index.html",
-	"index.htm",
-	"README.md",
 }
 
 // main sets up and starts the web server.
@@ -80,21 +79,12 @@ func main() {
 
 	// Use HOST and PORT environment variables to determine listening address
 	address := fmt.Sprintf("%s:%s", envOr("HOST", "[::]"), envOr("PORT", "443"))
-	fmt.Printf("Listening on https://%s\n", address)
+	log.Printf("Listening on https://%s", address)
 
 	// Enable compression by wrapping the handler() method with the compression function provided by FastHTTP
 	compressedHandler := fasthttp.CompressHandlerBrotliLevel(handler, fasthttp.CompressBrotliBestSpeed, fasthttp.CompressBestSpeed)
 
-	// Setup listener and TLS
-	listener, err := net.Listen("tcp", address)
-	if err != nil {
-		fmt.Printf("Couldn't create listener: %s\n", err)
-		os.Exit(1)
-	}
-	listener = tls.NewListener(listener, tlsConfig)
-
-	// Start the web server
-	err = (&fasthttp.Server{
+	server := &fasthttp.Server{
 		Handler:                      compressedHandler,
 		DisablePreParseMultipartForm: false,
 		MaxRequestBodySize:           0,
@@ -103,10 +93,20 @@ func main() {
 		ReadTimeout:                  10 * time.Second,
 		Concurrency:                  1024 * 32, // TODO: adjust bottlenecks for best performance with Gitea!
 		MaxConnsPerIP:                100,
-	}).Serve(listener)
+	}
+	//fasthttp2.ConfigureServerAndConfig(server, tlsConfig)
+
+	// Setup listener and TLS
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		fmt.Printf("Couldn't start server: %s\n", err)
-		os.Exit(1)
+		log.Fatalf("Couldn't create listener: %s", err)
+	}
+	listener = tls.NewListener(listener, tlsConfig)
+
+	// Start the web server
+	err = server.Serve(listener)
+	if err != nil {
+		log.Fatalf("Couldn't start server: %s", err)
 	}
 }
 
