@@ -26,6 +26,7 @@ func getTargetFromDNS(domain string) (targetOwner, targetRepo, targetBranch stri
 		cname = strings.TrimSuffix(cname, ".")
 		if err != nil || !strings.HasSuffix(cname, string(MainDomainSuffix)) {
 			cname = ""
+			// TODO: check if the A record matches!
 			names, err := net.LookupTXT(domain)
 			if err == nil {
 				for _, name := range names {
@@ -69,12 +70,13 @@ var canonicalDomainCache = mcache.New()
 // checkCanonicalDomain returns the canonical domain specified in the repo (using the file `.canonical-domain`).
 func checkCanonicalDomain(targetOwner, targetRepo, targetBranch string) (canonicalDomain string) {
 	// Check if the canonical domain matches
-	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.canonical-domain")
-	res := fasthttp.AcquireResponse()
-	if cachedValue, ok := canonicalDomainCache.Get(string(req.RequestURI())); ok {
+	if cachedValue, ok := canonicalDomainCache.Get(targetOwner + "/" + targetRepo + "/" + targetBranch); ok {
 		canonicalDomain = cachedValue.(string)
 	} else {
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.canonical-domain")
+		res := fasthttp.AcquireResponse()
+
 		err := upstreamClient.Do(req, res)
 		if err == nil && res.StatusCode() == fasthttp.StatusOK {
 			canonicalDomain = strings.TrimSpace(string(res.Body()))
@@ -88,7 +90,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch string) (canonic
 				canonicalDomain += "/" + targetRepo
 			}
 		}
-		_ = canonicalDomainCache.Set(string(req.RequestURI()), canonicalDomain, CanonicalDomainCacheTimeout)
+		_ = canonicalDomainCache.Set(targetOwner + "/" + targetRepo + "/" + targetBranch, canonicalDomain, CanonicalDomainCacheTimeout)
 	}
 	return
 }

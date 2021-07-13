@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	debug_stepper "codeberg.org/codeberg/pages/debug-stepper"
 	"fmt"
 	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/valyala/fasthttp"
@@ -16,6 +17,9 @@ import (
 
 // handler handles a single HTTP request to the web server.
 func handler(ctx *fasthttp.RequestCtx) {
+	s := debug_stepper.Start("handler")
+	defer s.Complete()
+
 	ctx.Response.Header.Set("Server", "Codeberg Pages")
 
 	// Force new default from specification (since November 2020) - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy#strict-origin-when-cross-origin
@@ -117,8 +121,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
+	s.Step("preparations")
+
 	if RawDomain != nil && bytes.Equal(ctx.Request.Host(), RawDomain) {
 		// Serve raw content from RawDomain
+		s.Debug("raw domain")
 
 		targetOptions.TryIndexPages = false
 		targetOptions.ForbiddenMimeTypes["text/html"] = struct{}{}
@@ -135,24 +142,30 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 		// raw.codeberg.page/example/myrepo/@main/index.html
 		if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
+			s.Step("raw domain preparations, now trying with specified branch")
 			if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
 				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			) {
+				s.Step("tryBranch, now trying upstream")
 				tryUpstream()
 				return
 			}
+			s.Debug("missing branch")
 			returnErrorPage(ctx, fasthttp.StatusFailedDependency)
 			return
 		} else {
+			s.Step("raw domain preparations, now trying with default branch")
 			tryBranch(targetRepo, "", pathElements[2:],
 				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			)
+			s.Step("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		}
 
 	} else if bytes.HasSuffix(ctx.Request.Host(), MainDomainSuffix) {
 		// Serve pages from subdomains of MainDomainSuffix
+		s.Debug("main domain suffix")
 
 		pathElements := strings.Split(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/")
 		targetOwner = string(bytes.TrimSuffix(ctx.Request.Host(), MainDomainSuffix))
@@ -168,9 +181,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 				return
 			}
 
+			s.Step("main domain preparations, now trying with specified repo & branch")
 			if tryBranch(pathElements[0], pathElements[1][1:], pathElements[2:],
 				"/"+pathElements[0]+"/%p",
 			) {
+				s.Step("tryBranch, now trying upstream")
 				tryUpstream()
 			} else {
 				returnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -181,7 +196,9 @@ func handler(ctx *fasthttp.RequestCtx) {
 		// Check if the first directory is a branch for the "pages" repo
 		// example.codeberg.page/@main/index.html
 		if strings.HasPrefix(pathElements[0], "@") {
+			s.Step("main domain preparations, now trying with specified branch")
 			if tryBranch("pages", pathElements[0][1:], pathElements[1:], "/%p") {
+				s.Step("tryBranch, now trying upstream")
 				tryUpstream()
 			} else {
 				returnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -192,14 +209,18 @@ func handler(ctx *fasthttp.RequestCtx) {
 		// Check if the first directory is a repo with a "pages" branch
 		// example.codeberg.page/myrepo/index.html
 		// example.codeberg.page/pages/... is not allowed here.
+		s.Step("main domain preparations, now trying with specified repo")
 		if pathElements[0] != "pages" && tryBranch(pathElements[0], "pages", pathElements[1:], "") {
+			s.Step("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		}
 
 		// Try to use the "pages" repo on its default branch
 		// example.codeberg.page/index.html
+		s.Step("main domain preparations, now trying with default repo/branch")
 		if tryBranch("pages", "", pathElements, "") {
+			s.Step("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		}
@@ -224,10 +245,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 		}
 
 		// Try to use the given repo on the given branch or the default branch
+		s.Step("custom domain preparations, now trying with details from DNS")
 		if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
 			canonicalDomain := checkCanonicalDomain(targetOwner, targetRepo, targetBranch)
 			if canonicalDomain != string(ctx.Request.Host()) {
-				// only redirect if
+				// only redirect if the target is also a codeberg page!
 				targetOwner, _, _ = getTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0])
 				if targetOwner != "" {
 					ctx.Redirect("https://"+canonicalDomain+string(ctx.RequestURI()), fasthttp.StatusTemporaryRedirect)
@@ -238,6 +260,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 				}
 			}
 
+			s.Step("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		} else {
@@ -255,8 +278,12 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+fasthttp.StatusMessage(code))))
 }
 
-// BranchCacheTimeout specifies the timeout for the branch timestamp cache.
-var BranchCacheTimeout = 60*time.Second
+// BranchExistanceCacheTimeout specifies the timeout for the default branch cache. It can be quite long.
+var DefaultBranchCacheTimeout = 1*time.Hour
+// BranchExistanceCacheTimeout specifies the timeout for the branch timestamp & existance cache. It should be shorter
+// than FileCacheTimeout, as that gets invalidated if the branch timestamp has changed. That way, repo changes will be
+// picked up faster, while still allowing the content to be cached longer if nothing changes.
+var BranchExistanceCacheTimeout = 5*time.Minute
 // branchTimestampCache stores branch timestamps for faster cache checking
 var branchTimestampCache = mcache.New()
 type branchTimestamp struct {
@@ -264,9 +291,11 @@ type branchTimestamp struct {
 	timestamp time.Time
 }
 
-// FileCacheTimeout specifies the timeout for the file content cache - you might want to make this shorter
-// than BranchCacheTimeout when running out of memory.
-var FileCacheTimeout = 60*time.Second
+// FileCacheTimeout specifies the timeout for the file content cache - you might want to make this quite long, depending
+// on your available memory.
+var FileCacheTimeout = 60*time.Minute
+// FileCacheSizeLimit limits the maximum file size that will be cached, and is set to 1 MB by default.
+var FileCacheSizeLimit = 1024 * 1024
 // fileResponseCache stores responses from the Gitea server
 var fileResponseCache = mcache.New()
 type fileResponse struct {
@@ -279,27 +308,32 @@ type fileResponse struct {
 // (or an empty time.Time if the branch doesn't exist)
 func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	if result, ok := branchTimestampCache.Get(owner + "/" + repo + "/" + branch); ok {
+		if result == nil {
+			return nil
+		}
 		return result.(*branchTimestamp)
 	}
 	result := &branchTimestamp{}
 	result.branch = branch
 	if branch == "" {
+		// Get default branch
 		var body = make([]byte, 0)
-		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, BranchCacheTimeout)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 5 * time.Second)
 		if err != nil || status != 200 {
+			_ = branchTimestampCache.Set(owner + "/" + repo + "/" + branch, nil, DefaultBranchCacheTimeout)
 			return nil
 		}
 		result.branch = fastjson.GetString(body, "default_branch")
 	}
 
 	var body = make([]byte, 0)
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, BranchCacheTimeout)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 5 * time.Second)
 	if err != nil || status != 200 {
 		return nil
 	}
 
 	result.timestamp, _ = time.Parse(time.RFC3339, fastjson.GetString(body, "commit", "timestamp"))
-	_ = branchTimestampCache.Set(owner + "/" + repo + "/" + branch, result, 15 * time.Second)
+	_ = branchTimestampCache.Set(owner + "/" + repo + "/" + branch, result, BranchExistanceCacheTimeout)
 	return result
 }
 
@@ -312,6 +346,9 @@ var upstreamClient = fasthttp.Client{
 
 // upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
 func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, targetBranch string, targetPath string, options *upstreamOptions) (final bool) {
+	s := debug_stepper.Start("upstream")
+	defer s.Complete()
+
 	if options.ForbiddenMimeTypes == nil {
 		options.ForbiddenMimeTypes = map[string]struct{}{}
 	}
@@ -340,23 +377,27 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			return true
 		}
 	}
+	s.Step("preparations")
 
 	// Make a GET request to the upstream URL
-	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath)
-	res := fasthttp.AcquireResponse()
-	isCached := false
+	uri := targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath
+	var req *fasthttp.Request
+	var res *fasthttp.Response
 	var cachedResponse fileResponse
 	var err error
-	if cachedValue, ok := fileResponseCache.Get(string(req.RequestURI())); ok {
-		isCached = true
+	if cachedValue, ok := fileResponseCache.Get(uri); ok {
 		cachedResponse = cachedValue.(fileResponse)
 	} else {
+		req = fasthttp.AcquireRequest()
+		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + uri)
+		res = fasthttp.AcquireResponse()
+		res.SetBodyStream(&strings.Reader{}, -1)
 		err = upstreamClient.Do(req, res)
 	}
+	s.Step("acquisition")
 
 	// Handle errors
-	if (isCached && !cachedResponse.exists) || res.StatusCode() == fasthttp.StatusNotFound {
+	if (res == nil && !cachedResponse.exists) || (res != nil && res.StatusCode() == fasthttp.StatusNotFound) {
 		if options.TryIndexPages {
 			// copy the options struct & try if an index page exists
 			optionsForIndexPages := *options
@@ -364,20 +405,23 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			optionsForIndexPages.AppendTrailingSlash = true
 			for _, indexPage := range IndexPages {
 				if upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, &optionsForIndexPages) {
+					_ = fileResponseCache.Set(uri, fileResponse{
+						exists: false,
+					}, FileCacheTimeout)
 					return true
 				}
 			}
 		}
 		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
-		if !isCached {
+		if res != nil {
 			// Update cache if the request is fresh
-			_ = fileResponseCache.Set(string(req.RequestURI()), fileResponse{
+			_ = fileResponseCache.Set(uri, fileResponse{
 				exists: false,
 			}, FileCacheTimeout)
 		}
 		return false
 	}
-	if !isCached && (err != nil || res.StatusCode() != fasthttp.StatusOK) {
+	if res != nil && (err != nil || res.StatusCode() != fasthttp.StatusOK) {
 		fmt.Printf("Couldn't fetch contents from \"%s\": %s (status code %d)\n", req.RequestURI(), err, res.StatusCode())
 		returnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
@@ -389,6 +433,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		ctx.Redirect(string(ctx.Request.URI().Path())+"/", fasthttp.StatusTemporaryRedirect)
 		return true
 	}
+	s.Step("error handling")
 
 	// Set the MIME type
 	mimeType := mime.TypeByExtension(path.Ext(targetPath))
@@ -406,10 +451,16 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	ctx.Response.SetStatusCode(fasthttp.StatusOK)
 	ctx.Response.Header.SetLastModified(options.BranchTimestamp)
 
+	s.Step("response preparations")
+
 	// Write the response body to the original request
 	var cacheBodyWriter bytes.Buffer
-	if !isCached {
-		err = res.BodyWriteTo(io.MultiWriter(ctx.Response.BodyWriter(), &cacheBodyWriter))
+	if res != nil {
+		if res.Header.ContentLength() > FileCacheSizeLimit {
+			err = res.BodyWriteTo(ctx.Response.BodyWriter())
+		} else {
+			err = res.BodyWriteTo(io.MultiWriter(ctx.Response.BodyWriter(), &cacheBodyWriter))
+		}
 	} else {
 		_, err = ctx.Write(cachedResponse.body)
 	}
@@ -418,12 +469,13 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		returnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
 	}
+	s.Step("response")
 
-	if !isCached {
+	if res != nil {
 		cachedResponse.exists = true
 		cachedResponse.mimeType = mimeType
 		cachedResponse.body = cacheBodyWriter.Bytes()
-		_ = fileResponseCache.Set(string(req.RequestURI()), cachedResponse, FileCacheTimeout)
+		_ = fileResponseCache.Set(uri, cachedResponse, FileCacheTimeout)
 	}
 
 	return true

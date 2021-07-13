@@ -12,7 +12,7 @@ func TestHandlerPerformance(t *testing.T) {
 		Request:  *fasthttp.AcquireRequest(),
 		Response: *fasthttp.AcquireResponse(),
 	}
-	ctx.Request.SetRequestURI("http://mondstern.codeberg:8080/")
+	ctx.Request.SetRequestURI("http://mondstern.codeberg.page/")
 	fmt.Printf("Start: %v\n", time.Now())
 	start := time.Now()
 	handler(ctx)
@@ -32,6 +32,21 @@ func TestHandlerPerformance(t *testing.T) {
 	end = time.Now()
 	fmt.Printf("Done: %v\n", time.Now())
 	if ctx.Response.StatusCode() != 200 || len(ctx.Response.Body()) < 2048 {
+		t.Errorf("request failed with status code %d and body length %d", ctx.Response.StatusCode(), len(ctx.Response.Body()))
+	} else {
+		t.Logf("request took %d milliseconds", end.Sub(start).Milliseconds())
+	}
+
+
+	ctx.Response.Reset()
+	ctx.Response.ResetBody()
+	ctx.Request.SetRequestURI("http://example.momar.xyz/")
+	fmt.Printf("Start: %v\n", time.Now())
+	start = time.Now()
+	handler(ctx)
+	end = time.Now()
+	fmt.Printf("Done: %v\n", time.Now())
+	if ctx.Response.StatusCode() != 200 || len(ctx.Response.Body()) < 1 {
 		t.Errorf("request failed with status code %d and body length %d", ctx.Response.StatusCode(), len(ctx.Response.Body()))
 	} else {
 		t.Logf("request took %d milliseconds", end.Sub(start).Milliseconds())
