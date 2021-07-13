@@ -79,7 +79,7 @@ func main() {
 	GiteaRoot = bytes.TrimSuffix(GiteaRoot, []byte{'/'})
 
 	// Use HOST and PORT environment variables to determine listening address
-	address := fmt.Sprintf("%s:%s", envOr("HOST", "[::]"), envOr("PORT", "80"))
+	address := fmt.Sprintf("%s:%s", envOr("HOST", "[::]"), envOr("PORT", "443"))
 	fmt.Printf("Listening on https://%s\n", address)
 
 	// Enable compression by wrapping the handler() method with the compression function provided by FastHTTP

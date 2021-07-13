@@ -28,6 +28,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 	// Enable caching, but require revalidation to reduce confusion
 	ctx.Response.Header.Set("Cache-Control", "must-revalidate")
 
+	// Add HSTS for RawDomain and MainDomainSuffix
+	if hsts := GetHSTSHeader(ctx.Host()); hsts != "" {
+		ctx.Response.Header.Set("Strict-Transport-Security", hsts)
+	}
+
 	// Block all methods not required for static pages
 	if !ctx.IsGet() && !ctx.IsHead() && !ctx.IsOptions() {
 		ctx.Response.Header.Set("Allow", "GET, HEAD, OPTIONS")
@@ -275,7 +280,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetStatusCode(code)
 	ctx.Response.Header.SetContentType("text/html; charset=utf-8")
-	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+fasthttp.StatusMessage(code))))
+	message := fasthttp.StatusMessage(code)
+	if code == fasthttp.StatusFailedDependency {
+		message += " - owner, repo or branch doesn't exist"
+	}
+	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+message)))
 }
 
 // BranchExistanceCacheTimeout specifies the timeout for the default branch cache. It can be quite long.
