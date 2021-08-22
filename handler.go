@@ -91,6 +91,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		targetRepo = repo
 		targetPath = strings.Trim(strings.Join(path, "/"), "/")
 		targetBranch = branchTimestampResult.branch
+
 		targetOptions.BranchTimestamp = branchTimestampResult.timestamp
 
 		if canonicalLink != "" {
@@ -314,7 +315,7 @@ type fileResponse struct {
 }
 
 // getBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
-// (or an empty time.Time if the branch doesn't exist)
+// (or nil if the branch doesn't exist)
 func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	if result, ok := branchTimestampCache.Get(owner + "/" + repo + "/" + branch); ok {
 		if result == nil {
@@ -394,7 +395,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	var res *fasthttp.Response
 	var cachedResponse fileResponse
 	var err error
-	if cachedValue, ok := fileResponseCache.Get(uri); ok {
+	if cachedValue, ok := fileResponseCache.Get(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10)); ok {
 		cachedResponse = cachedValue.(fileResponse)
 	} else {
 		req = fasthttp.AcquireRequest()
@@ -414,7 +415,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			optionsForIndexPages.AppendTrailingSlash = true
 			for _, indexPage := range IndexPages {
 				if upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, &optionsForIndexPages) {
-					_ = fileResponseCache.Set(uri, fileResponse{
+					_ = fileResponseCache.Set(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 						exists: false,
 					}, FileCacheTimeout)
 					return true
@@ -424,7 +425,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
 		if res != nil {
 			// Update cache if the request is fresh
-			_ = fileResponseCache.Set(uri, fileResponse{
+			_ = fileResponseCache.Set(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 				exists: false,
 			}, FileCacheTimeout)
 		}
@@ -484,7 +485,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		cachedResponse.exists = true
 		cachedResponse.mimeType = mimeType
 		cachedResponse.body = cacheBodyWriter.Bytes()
-		_ = fileResponseCache.Set(uri, cachedResponse, FileCacheTimeout)
+		_ = fileResponseCache.Set(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10), cachedResponse, FileCacheTimeout)
 	}
 
 	return true

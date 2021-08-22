@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/akrylysov/pogreb"
+	"github.com/reugn/equalizer"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
@@ -107,12 +108,6 @@ var tlsConfig = &tls.Config{
 		} else {
 			// request a new certificate
 
-			// TODO: rate-limit certificates per owner
-			// LE Rate Limits:
-			// - 300 new orders per account per 3 hours
-			// - 20 requests per second
-			// - 10 Accounts per IP per 3 hours
-
 			if bytes.Equal(sniBytes, MainDomainSuffix) {
 				return nil, errors.New("won't request certificate for main domain, something really bad has happened")
 			}
@@ -123,6 +118,10 @@ var tlsConfig = &tls.Config{
 				return nil, err
 			}
 			key = x509.MarshalPKCS1PrivateKey(privateKey)
+			acmeClient, err := acmeClientFromPool(targetOwner)
+			if err != nil {
+				// TODO
+			}
 			res, err := acmeClient.Certificate.Obtain(certificate.ObtainRequest{
 				Domains:        []string{sni},
 				PrivateKey:     key,
@@ -259,7 +258,17 @@ func (u AcmeAccount) GetRegistration() *registration.Resource {
 func (u *AcmeAccount) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
-var acmeClient *lego.Client
+
+// rate-limit certificates per owner, based on LE Rate Limits:
+// - 300 new orders per account per 3 hours
+// - 20 requests per second
+// - 10 Accounts per IP per 3 hours
+var acmeClientPool []*lego.Client
+var lastAcmeClient = 0
+var acmeClientRequestLimit = equalizer.NewTokenBucket(10, time.Second) // LE allows 20 requests per second, but we want to give other applications a chancem so we want 10 here at most.
+var acmeClientRegistrationLimit = equalizer.NewTokenBucket(5, time.Hour * 3) // LE allows 10 registrations in 3 hours per IP, we want at most 5 of them.
+var acmeClientCertificateLimitPerRegistration = []*equalizer.TokenBucket{}
+var acmeClientCertificateLimitPerUser = map[string]*equalizer.TokenBucket{}
 
 type AcmeTLSChallengeProvider struct{}
 var _ challenge.Provider = AcmeTLSChallengeProvider{}
@@ -271,19 +280,31 @@ func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
 	return nil
 }
 
-func init() {
-	FallbackCertificate()
+func acmeClientFromPool(user string) (*lego.Client, error) {
+	userLimit, ok := acmeClientCertificateLimitPerUser[user]
+	if !ok {
+		// Each Codeberg user can only add 10 new domains per day.
+		userLimit = equalizer.NewTokenBucket(10, time.Hour * 24)
+		acmeClientCertificateLimitPerUser[user] = userLimit
 
-	var err error
-	keyDatabase, err = pogreb.Open("key-database.pogreb", &pogreb.Options{
-		BackgroundSyncInterval:       30 * time.Second,
-		BackgroundCompactionInterval: 6 * time.Hour,
-		FileSystem:                   fs.OSMMap,
-	})
-	if err != nil {
-		panic(err)
+	}
+	if !userLimit.Ask() {
+		return nil, errors.New("rate limit exceeded: 10 certificates per user per 24 hours")
 	}
 
+	if len(acmeClientPool) < 1 {
+		acmeClientPool = append(acmeClientPool, newAcmeClient())
+		acmeClientCertificateLimitPerRegistration = append(acmeClientCertificateLimitPerRegistration, equalizer.NewTokenBucket(290, time.Hour * 3))
+	}
+	if !acmeClientCertificateLimitPerRegistration[(lastAcmeClient + 1) % len(acmeClientPool)].Ask() {
+
+	}
+	equalizer.NewTokenBucket(290, time.Hour * 3) // LE allows 300 certificates per account, to be sure to catch it earlier, we limit that to 290.
+
+	// TODO: limit domains by file in repo
+}
+
+func newAcmeClient() *lego.Client {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(err)
@@ -295,7 +316,7 @@ func init() {
 	config := lego.NewConfig(&myUser)
 	config.CADirURL = envOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
 	config.Certificate.KeyType = certcrypto.RSA2048
-	acmeClient, err = lego.NewClient(config)
+	acmeClient, err := lego.NewClient(config)
 	if err != nil {
 		panic(err)
 	}
@@ -313,6 +334,21 @@ func init() {
 		myUser.Registration = reg
 	} else {
 		log.Printf("Warning: not using ACME certificates as ACME_ACCEPT_TERMS is false!")
+	}
+	return acmeClient
+}
+
+func init() {
+	FallbackCertificate()
+
+	var err error
+	keyDatabase, err = pogreb.Open("key-database.pogreb", &pogreb.Options{
+		BackgroundSyncInterval:       30 * time.Second,
+		BackgroundCompactionInterval: 6 * time.Hour,
+		FileSystem:                   fs.OSMMap,
+	})
+	if err != nil {
+		panic(err)
 	}
 
 	// generate certificate for main domain
@@ -340,7 +376,7 @@ func init() {
 			panic(err)
 		}
 		mainKey := x509.MarshalPKCS1PrivateKey(mainPrivateKey)
-		res, err := acmeClient.Certificate.Obtain(certificate.ObtainRequest{
+		res, err := dnsAcmeClient.Certificate.Obtain(certificate.ObtainRequest{
 			Domains:    []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])},
 			PrivateKey: mainKey,
 			Bundle:     true,

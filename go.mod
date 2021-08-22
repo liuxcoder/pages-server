@@ -8,6 +8,7 @@ require (
 	github.com/andybalholm/brotli v1.0.3 // indirect
 	github.com/go-acme/lego/v4 v4.4.0
 	github.com/klauspost/compress v1.13.1 // indirect
+	github.com/reugn/equalizer v0.0.0-20210216135016-a959c509d7ad
 	github.com/valyala/fasthttp v1.28.0
 	github.com/valyala/fastjson v1.6.3
 )
