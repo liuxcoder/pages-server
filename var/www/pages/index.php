@@ -6,6 +6,9 @@ function send_response($code, $message = "") {
     exit();
 }
 
+$hostname_fqdn = "${HOSTNAME_FQDN}";
+$hostname_pages = "${HOSTNAME_PAGES}";
+
 $domain_parts = explode('.', $_SERVER['HTTP_HOST']);
 $subdomain = implode(".", array_slice($domain_parts, 0, -2));
 $tld = end($domain_parts);
@@ -36,11 +39,11 @@ if ($tld === "org") {
     } else {
         $owner = strtolower(array_shift($request_url_parts));
         if (!$owner) {
-            header("Location: https://codeberg.page");
+            header("Location: https://" . $hostname_pages);
             exit;
         }
         if (strpos($owner, ".") === false) {
-            $h = "Location: https://" . $owner . ".codeberg.page/" . implode("/", $request_url_parts);
+            $h = "Location: https://" . $owner . "." . $hostname_pages . "/" . implode("/", $request_url_parts);
             if ($_SERVER['QUERY_STRING'] !== "")
                 $h .= "?" . $_SERVER['QUERY_STRING'];
             header($h);

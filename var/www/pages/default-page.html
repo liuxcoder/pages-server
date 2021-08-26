@@ -6,12 +6,12 @@
     <meta name="keywords" content="Codeberg, Website, Pages, Free, Hosting, Git, Repository">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link rel="icon" href="https://design.codeberg.org/logo-kit/favicon.ico" type="image/x-icon" />
-    <link rel="icon" href="https://design.codeberg.org/logo-kit/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="https://design.codeberg.org/logo-kit/apple-touch-icon.png" />
+    <link rel="icon" href="https://design.${HOSTNAME_FQDN}/logo-kit/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="https://design.${HOSTNAME_FQDN}/logo-kit/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="https://design.${HOSTNAME_FQDN}/logo-kit/apple-touch-icon.png" />
 
-    <!-- Details and License: https://fonts.codeberg.org/fonts/inter/ -->
-    <link rel="stylesheet" type="text/css" href="https://fonts.codeberg.org/dist/inter/Inter%20Web/inter.css">
+    <!-- Details and License: https://fonts.${HOSTNAME_FQDN}/fonts/inter/ -->
+    <link rel="stylesheet" type="text/css" href="https://fonts.${HOSTNAME_FQDN}/dist/inter/Inter%20Web/inter.css">
 
     <!-- License: http://www.apache.org/licenses/LICENSE-2.0.txt -->
     <!-- Material Design icons by Google -->
@@ -111,12 +111,12 @@
   <body>
     <center>
       <div class="container">
-        <a href="https://codeberg.org"><img class="logo" src="https://design.codeberg.org/logo-kit/icon.svg" alt="Go to codeberg.org"></a><br>
+        <a href="https://${HOSTNAME_FQDN}"><img class="logo" src="https://design.${HOSTNAME_FQDN}/logo-kit/icon.svg" alt="Go to ${HOSTNAME_FQDN}"></a><br>
 
         <div class="header">
           <div class="name">Codeberg Pages.</div>
           <div class="description">Static pages for your projects.</div>
-          <code style="margin-top: 15px;">https://&lt;your_username&gt;.codeberg.page/</code>
+          <code style="margin-top: 15px;">https://&lt;your_username&gt;.${HOSTNAME_PAGES}/</code>
         </div>
 
         <div class="elevated">
