@@ -313,7 +313,7 @@ type branchTimestamp struct {
 
 // FileCacheTimeout specifies the timeout for the file content cache - you might want to make this quite long, depending
 // on your available memory.
-var FileCacheTimeout = 60*time.Minute
+var FileCacheTimeout = 5*time.Minute
 // FileCacheSizeLimit limits the maximum file size that will be cached, and is set to 1 MB by default.
 var FileCacheSizeLimit = 1024 * 1024
 // fileResponseCache stores responses from the Gitea server
