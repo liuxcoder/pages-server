@@ -95,12 +95,7 @@ var tlsConfig = &tls.Config{
 				return nil, errors.New("won't request certificate for main domain, something really bad has happened")
 			}
 
-			err = CheckUserLimit(targetOwner)
-			if err != nil {
-				return nil, err
-			}
-
-			tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil)
+			tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner)
 			if err != nil {
 				return nil, err
 			}
@@ -241,7 +236,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 		// renew certificates 7 days before they expire
 		if !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-7 * 24 * time.Hour)) {
 			go (func() {
-				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res)
+				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "")
 				if err != nil {
 					log.Printf("Couldn't renew certificate for %s: %s", sni, err)
 				}
@@ -253,7 +248,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 }
 
 var obtainLocks = sync.Map{}
-func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource) (tls.Certificate, error) {
+func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user string) (tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
 	if os.Getenv("DNS_PROVIDER") == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
 		domains = domains[1:]
@@ -284,6 +279,12 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 		log.Printf("Renewing certificate for %v", domains)
 		res, err = acmeClient.Certificate.Renew(*renew, true, false, "")
 	} else {
+		if user != "" {
+			if err := CheckUserLimit(user); err != nil {
+				return tls.Certificate{}, err
+			}
+		}
+
 		if os.Getenv("ACME_USE_RATE_LIMITS") != "false" {
 			acmeClientOrderLimit.Take()
 			acmeClientRequestLimit.Take()
@@ -422,7 +423,7 @@ func setupCertificates() {
 		// key database is not working
 		panic(err)
 	} else if resBytes == nil {
-		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, nil)
+		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, nil, "")
 		if err != nil {
 			log.Fatalf("Couldn't renew certificate for *%s: %s", MainDomainSuffix, err)
 		}
@@ -495,7 +496,7 @@ func setupCertificates() {
 			// renew main certificate 30 days before it expires
 			if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
 				go (func() {
-					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, res)
+					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, res, "")
 					if err != nil {
 						log.Printf("Couldn't renew certificate for *%s: %s", MainDomainSuffix, err)
 					}

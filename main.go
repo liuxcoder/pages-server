@@ -91,7 +91,7 @@ func main() {
 		MaxRequestBodySize:           0,
 		NoDefaultServerHeader:        true,
 		NoDefaultDate:                true,
-		ReadTimeout:                  10 * time.Second,
+		ReadTimeout:                  30 * time.Second, // needs to be this high for ACME certificates with ZeroSSL & HTTP-01 challenge
 		Concurrency:                  1024 * 32, // TODO: adjust bottlenecks for best performance with Gitea!
 		MaxConnsPerIP:                100,
 	}
@@ -110,7 +110,7 @@ func main() {
 			err := fasthttp.ListenAndServe("[::]:80", func(ctx *fasthttp.RequestCtx) {
 				if bytes.HasPrefix(ctx.Path(), challengePath) {
 					challenge, ok := challengeCache.Get(string(TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
-					if !ok {
+					if !ok || challenge == nil {
 						ctx.SetStatusCode(http.StatusNotFound)
 						ctx.SetBodyString("no challenge for this token")
 					}
