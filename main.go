@@ -102,6 +102,8 @@ func main() {
 	}
 	listener = tls.NewListener(listener, tlsConfig)
 
+	setupCertificates()
+
 	// Start the web server
 	err = server.Serve(listener)
 	if err != nil {

@@ -46,10 +46,10 @@ func getTargetFromDNS(domain string) (targetOwner, targetRepo, targetBranch stri
 	cnameParts := strings.Split(strings.TrimSuffix(cname, string(MainDomainSuffix)), ".")
 	targetOwner = cnameParts[len(cnameParts)-1]
 	if len(cnameParts) > 1 {
-		targetRepo = cnameParts[len(cnameParts)-1]
+		targetRepo = cnameParts[len(cnameParts)-2]
 	}
 	if len(cnameParts) > 2 {
-		targetBranch = cnameParts[len(cnameParts)-2]
+		targetBranch = cnameParts[len(cnameParts)-3]
 	}
 	if targetRepo == "" {
 		targetRepo = "pages"
