@@ -131,7 +131,6 @@ var tlsConfig = &tls.Config{
 	},
 }
 
-var challengeCache = mcache.New()
 var keyCache = mcache.New()
 var keyDatabase *pogreb.DB
 
@@ -189,6 +188,7 @@ var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15 * time.Minute)
 // rate limit is 20 / second, we want 10 / second
 var acmeClientRequestLimit = equalizer.NewTokenBucket(10, 1 * time.Second)
 
+var challengeCache = mcache.New()
 type AcmeTLSChallengeProvider struct{}
 var _ challenge.Provider = AcmeTLSChallengeProvider{}
 func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
@@ -196,6 +196,15 @@ func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
 }
 func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
 	challengeCache.Remove(domain)
+	return nil
+}
+type AcmeHTTPChallengeProvider struct{}
+var _ challenge.Provider = AcmeHTTPChallengeProvider{}
+func (a AcmeHTTPChallengeProvider) Present(domain, token, keyAuth string) error {
+	return challengeCache.Set(domain + "/" + token, keyAuth, 1*time.Hour)
+}
+func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
+	challengeCache.Remove(domain + "/" + token)
 	return nil
 }
 
@@ -383,7 +392,14 @@ func setupCertificates() {
 	}
 
 	acmeClient = newAcmeClient(func(challenge *resolver.SolverManager) error {
-		return challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
+		err = challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
+		if err != nil {
+			return err
+		}
+		if os.Getenv("ENABLE_HTTP_SERVER") == "true" {
+			return challenge.SetHTTP01Provider(AcmeHTTPChallengeProvider{})
+		}
+		return err
 	})
 	mainDomainAcmeClient = newAcmeClient(func(challenge *resolver.SolverManager) error {
 		if os.Getenv("DNS_PROVIDER") == "" {

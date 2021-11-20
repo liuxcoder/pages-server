@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -103,6 +104,26 @@ func main() {
 	listener = tls.NewListener(listener, tlsConfig)
 
 	setupCertificates()
+	if os.Getenv("ENABLE_HTTP_SERVER") == "true" {
+		go (func() {
+			challengePath := []byte("/.well-known/acme-challenge/")
+			err := fasthttp.ListenAndServe("[::]:80", func(ctx *fasthttp.RequestCtx) {
+				if bytes.HasPrefix(ctx.Path(), challengePath) {
+					challenge, ok := challengeCache.Get(string(TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
+					if !ok {
+						ctx.SetStatusCode(http.StatusNotFound)
+						ctx.SetBodyString("no challenge for this token")
+					}
+					ctx.SetBodyString(challenge.(string))
+				} else {
+					ctx.Redirect("https://" + string(ctx.Host()) + string(ctx.RequestURI()), http.StatusMovedPermanently)
+				}
+			})
+			if err != nil {
+				log.Fatalf("Couldn't start HTTP server: %s", err)
+			}
+		})()
+	}
 
 	// Start the web server
 	err = server.Serve(listener)
