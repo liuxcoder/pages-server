@@ -278,12 +278,16 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	var res *certificate.Resource
 	var err error
 	if renew != nil {
-		acmeClientRequestLimit.Take()
+		if os.Getenv("ACME_USE_RATE_LIMITS") != "false" {
+			acmeClientRequestLimit.Take()
+		}
 		log.Printf("Renewing certificate for %v", domains)
 		res, err = acmeClient.Certificate.Renew(*renew, true, false, "")
 	} else {
-		acmeClientOrderLimit.Take()
-		acmeClientRequestLimit.Take()
+		if os.Getenv("ACME_USE_RATE_LIMITS") != "false" {
+			acmeClientOrderLimit.Take()
+			acmeClientRequestLimit.Take()
+		}
 		log.Printf("Requesting new certificate for %v", domains)
 		res, err = acmeClient.Certificate.Obtain(certificate.ObtainRequest{
 			Domains:    domains,
