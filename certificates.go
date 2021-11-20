@@ -204,11 +204,23 @@ func newAcmeClient(configureChallenge func(*resolver.SolverManager) error) *lego
 	}
 
 	// accept terms
-	reg, err := acmeClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true"})
-	if err != nil {
-		panic(err)
+	if os.Getenv("ACME_EAB_KID") == "" || os.Getenv("ACME_EAB_HMAC") == "" {
+		reg, err := acmeClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true"})
+		if err != nil {
+			panic(err)
+		}
+		myUser.Registration = reg
+	} else {
+		reg, err := acmeClient.Registration.RegisterWithExternalAccountBinding(registration.RegisterEABOptions{
+			TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true",
+			Kid: os.Getenv("ACME_EAB_KID"),
+			HmacEncoded: os.Getenv("ACME_EAB_HMAC"),
+		})
+		if err != nil {
+			panic(err)
+		}
+		myUser.Registration = reg
 	}
-	myUser.Registration = reg
 
 	return acmeClient
 }

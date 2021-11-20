@@ -148,7 +148,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		targetOwner = pathElements[0]
 		targetRepo = pathElements[1]
 
-		// raw.codeberg.page/example/myrepo/@main/index.html
+		// raw.codeberg.org/example/myrepo/@main/index.html
 		if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
 			s.Step("raw domain preparations, now trying with specified branch")
 			if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
