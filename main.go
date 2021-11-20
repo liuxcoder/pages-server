@@ -94,7 +94,6 @@ func main() {
 		Concurrency:                  1024 * 32, // TODO: adjust bottlenecks for best performance with Gitea!
 		MaxConnsPerIP:                100,
 	}
-	//fasthttp2.ConfigureServerAndConfig(server, tlsConfig)
 
 	// Setup listener and TLS
 	listener, err := net.Listen("tcp", address)

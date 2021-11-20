@@ -6,20 +6,17 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/akrylysov/pogreb/fs"
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/resolver"
 	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
 	"github.com/go-acme/lego/v4/providers/dns"
 	"log"
-	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -36,10 +33,6 @@ import (
 var tlsConfig = &tls.Config{
 	// check DNS name & get certificate from Let's Encrypt
 	GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		if os.Getenv("ACME_ACCEPT_TERMS") != "true" {
-			return FallbackCertificate(), nil
-		}
-
 		sni := strings.ToLower(strings.TrimSpace(info.ServerName))
 		sniBytes := []byte(sni)
 		if len(sni) < 1 {
@@ -63,7 +56,7 @@ var tlsConfig = &tls.Config{
 		}
 
 		targetOwner := ""
-		if bytes.HasSuffix(sniBytes, MainDomainSuffix) {
+		if bytes.HasSuffix(sniBytes, MainDomainSuffix) || bytes.Equal(sniBytes, MainDomainSuffix[1:]) {
 			// deliver default certificate for the main domain (*.codeberg.page)
 			sniBytes = MainDomainSuffix
 			sni = string(sniBytes)
@@ -71,90 +64,68 @@ var tlsConfig = &tls.Config{
 			var targetRepo, targetBranch string
 			targetOwner, targetRepo, targetBranch = getTargetFromDNS(sni)
 			if targetOwner == "" {
-				// DNS not set up, return a self-signed certificate to redirect to the docs
-				return FallbackCertificate(), nil
+				// DNS not set up, return main certificate to redirect to the docs
+				sniBytes = MainDomainSuffix
+				sni = string(sniBytes)
+			} else {
+				_, _ = targetRepo, targetBranch
+				_, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, sni)
+				if !valid {
+					sniBytes = MainDomainSuffix
+					sni = string(sniBytes)
+				}
 			}
-
-			// TODO: use .domains file to list all domains, to keep users from getting rate-limited
-			_, _ = targetRepo, targetBranch
-			/*canonicalDomain := checkCanonicalDomain(targetOwner, targetRepo, targetBranch)
-			if sni != canonicalDomain {
-				return FallbackCertificate(), nil
-			}*/
 		}
 
-		// limit users to 1 certificate per week
-
-		var cert, key []byte
 		if tlsCertificate, ok := keyCache.Get(sni); ok {
 			// we can use an existing certificate object
 			return tlsCertificate.(*tls.Certificate), nil
-		} else if ok, err := keyDatabase.Has(sniBytes); err != nil {
+		}
+
+		var tlsCertificate tls.Certificate
+		if ok, err := keyDatabase.Has(sniBytes); err != nil {
 			// key database is not working
 			panic(err)
 		} else if ok {
 			// parse certificate from database
-
-			cert, err = keyDatabase.Get(sniBytes)
+			certPem, err := keyDatabase.Get(sniBytes)
 			if err != nil {
 				// key database is not working
 				panic(err)
 			}
-			key, err = keyDatabase.Get(append(sniBytes, '/', 'k', 'e', 'y'))
+			keyPem, err := keyDatabase.Get(append(sniBytes, '/', 'k', 'e', 'y'))
 			if err != nil {
 				// key database is not working or key doesn't exist
 				panic(err)
 			}
-		} else {
-			// request a new certificate
 
+			tlsCertificate, err = tls.X509KeyPair(certPem, keyPem)
+			if err != nil {
+				panic(err)
+			}
+			tlsCertificate.Leaf, err = x509.ParseCertificate(tlsCertificate.Certificate[0])
+			if err != nil {
+				panic(err)
+			}
+		}
+		if tlsCertificate.Certificate == nil || !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-24 * time.Hour)) {
+			// request a new certificate
 			if bytes.Equal(sniBytes, MainDomainSuffix) {
 				return nil, errors.New("won't request certificate for main domain, something really bad has happened")
 			}
 
-			log.Printf("Requesting new certificate for %s", sni)
-			privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+			err := CheckUserLimit(targetOwner)
 			if err != nil {
 				return nil, err
 			}
-			key = x509.MarshalPKCS1PrivateKey(privateKey)
-			acmeClient, err := acmeClientFromPool(targetOwner)
-			if err != nil {
-				// TODO
-			}
-			res, err := acmeClient.Certificate.Obtain(certificate.ObtainRequest{
-				Domains:        []string{sni},
-				PrivateKey:     key,
-				Bundle:         true,
-				MustStaple:     true,
-			})
+
+			tlsCertificate, err = obtainCert(acmeClient, []string{sni})
 			if err != nil {
 				return nil, err
 			}
-			log.Printf("Obtained certificate for %s", sni)
-			err = keyDatabase.Put(append(sniBytes, '/', 'k', 'e', 'y'), key)
-			if err != nil {
-				return nil, err
-			}
-			err = keyDatabase.Put(sniBytes, res.Certificate)
-			if err != nil {
-				_ = keyDatabase.Delete(append(sniBytes, '/', 'k', 'e', 'y'))
-				return nil, err
-			}
-			cert = res.Certificate
-		}
-		tlsCertificate, err := tls.X509KeyPair(pem.EncodeToMemory(&pem.Block{
-			Bytes: cert,
-			Type: "CERTIFICATE",
-		}), pem.EncodeToMemory(&pem.Block{
-			Bytes: key,
-			Type: "RSA PRIVATE KEY",
-		}))
-		if err != nil {
-			panic(err)
 		}
 
-		err = keyCache.Set(sni, &tlsCertificate, 15 * time.Minute)
+		err := keyCache.Set(sni, &tlsCertificate, 15 * time.Minute)
 		if err != nil {
 			panic(err)
 		}
@@ -178,76 +149,28 @@ var tlsConfig = &tls.Config{
 	},
 }
 
-// GetHSTSHeader returns a HSTS header with includeSubdomains & preload for MainDomainSuffix and RawDomain, or an empty
-// string for custom domains.
-func GetHSTSHeader(host []byte) string {
-	if bytes.HasSuffix(host, MainDomainSuffix) || bytes.Equal(host, RawDomain) {
-		return "max-age=63072000; includeSubdomains; preload"
-	} else {
-		return ""
-	}
-}
-
 var challengeCache = mcache.New()
 var keyCache = mcache.New()
 var keyDatabase *pogreb.DB
 
-var fallbackCertificate *tls.Certificate
-// FallbackCertificate generates a new self-signed TLS certificate on demand.
-func FallbackCertificate() *tls.Certificate {
-	if fallbackCertificate != nil {
-		return fallbackCertificate
+func CheckUserLimit(user string) (error) {
+	userLimit, ok := acmeClientCertificateLimitPerUser[user]
+	if !ok {
+		// Each Codeberg user can only add 10 new domains per day.
+		userLimit = equalizer.NewTokenBucket(10, time.Hour * 24)
+		acmeClientCertificateLimitPerUser[user] = userLimit
 	}
-
-	fallbackSerial, err := rand.Int(rand.Reader, (&big.Int{}).Lsh(big.NewInt(1), 159))
-	if err != nil {
-		panic(err)
+	if !userLimit.Ask() {
+		return errors.New("rate limit exceeded: 10 certificates per user per 24 hours")
 	}
-
-	fallbackCertKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		panic(err)
-	}
-
-	fallbackCertSpecification := &x509.Certificate{
-		Subject: pkix.Name{
-			CommonName: strings.TrimPrefix(string(MainDomainSuffix), "."),
-		},
-		SerialNumber: fallbackSerial,
-		NotBefore: time.Now(),
-		NotAfter: time.Now().AddDate(100, 0, 0),
-	}
-
-	fallbackCertBytes, err := x509.CreateCertificate(
-		rand.Reader,
-		fallbackCertSpecification,
-		fallbackCertSpecification,
-		fallbackCertKey.Public(),
-		fallbackCertKey,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	fallbackCert, err := tls.X509KeyPair(pem.EncodeToMemory(&pem.Block{
-		Bytes: fallbackCertBytes,
-		Type: "CERTIFICATE",
-	}), pem.EncodeToMemory(&pem.Block{
-		Bytes: x509.MarshalPKCS1PrivateKey(fallbackCertKey),
-		Type: "RSA PRIVATE KEY",
-	}))
-	if err != nil {
-		panic(err)
-	}
-
-	fallbackCertificate = &fallbackCert
-	return fallbackCertificate
+	return nil
 }
 
 type AcmeAccount struct {
 	Email        string
 	Registration *registration.Resource
 	key          crypto.PrivateKey
+	limit        equalizer.Limiter
 }
 func (u *AcmeAccount) GetEmail() string {
 	return u.Email
@@ -259,16 +182,53 @@ func (u *AcmeAccount) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
-// rate-limit certificates per owner, based on LE Rate Limits:
-// - 300 new orders per account per 3 hours
-// - 20 requests per second
-// - 10 Accounts per IP per 3 hours
-var acmeClientPool []*lego.Client
-var lastAcmeClient = 0
-var acmeClientRequestLimit = equalizer.NewTokenBucket(10, time.Second) // LE allows 20 requests per second, but we want to give other applications a chancem so we want 10 here at most.
-var acmeClientRegistrationLimit = equalizer.NewTokenBucket(5, time.Hour * 3) // LE allows 10 registrations in 3 hours per IP, we want at most 5 of them.
-var acmeClientCertificateLimitPerRegistration = []*equalizer.TokenBucket{}
+func newAcmeClient(configureChallenge func(*resolver.SolverManager) error) *lego.Client {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	myUser := AcmeAccount{
+		Email: envOr("ACME_EMAIL", "noreply@example.email"),
+		key:   privateKey,
+	}
+	config := lego.NewConfig(&myUser)
+	config.CADirURL = envOr("ACME_API", "https://acme.zerossl.com/v2/DV90")
+	config.Certificate.KeyType = certcrypto.RSA2048
+	acmeClient, err := lego.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+	err = configureChallenge(acmeClient.Challenge)
+	if err != nil {
+		panic(err)
+	}
+
+	// accept terms
+	reg, err := acmeClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true"})
+	if err != nil {
+		panic(err)
+	}
+	myUser.Registration = reg
+
+	return acmeClient
+}
+
+var acmeClient = newAcmeClient(func(challenge *resolver.SolverManager) error {
+	return challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
+})
 var acmeClientCertificateLimitPerUser = map[string]*equalizer.TokenBucket{}
+
+var mainDomainAcmeClient = newAcmeClient(func(challenge *resolver.SolverManager) error {
+	if os.Getenv("DNS_PROVIDER") == "" {
+		// using mock server, don't use wildcard certs
+		return challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
+	}
+	provider, err := dns.NewDNSChallengeProviderByName(os.Getenv("DNS_PROVIDER"))
+	if err != nil {
+		return err
+	}
+	return challenge.SetDNS01Provider(provider)
+})
 
 type AcmeTLSChallengeProvider struct{}
 var _ challenge.Provider = AcmeTLSChallengeProvider{}
@@ -280,67 +240,42 @@ func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
 	return nil
 }
 
-func acmeClientFromPool(user string) (*lego.Client, error) {
-	userLimit, ok := acmeClientCertificateLimitPerUser[user]
-	if !ok {
-		// Each Codeberg user can only add 10 new domains per day.
-		userLimit = equalizer.NewTokenBucket(10, time.Hour * 24)
-		acmeClientCertificateLimitPerUser[user] = userLimit
-
-	}
-	if !userLimit.Ask() {
-		return nil, errors.New("rate limit exceeded: 10 certificates per user per 24 hours")
+func obtainCert(acmeClient *lego.Client, domains []string) (tls.Certificate, error) {
+	name := domains[0]
+	if os.Getenv("DNS_PROVIDER") == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
+		domains = domains[1:]
 	}
 
-	if len(acmeClientPool) < 1 {
-		acmeClientPool = append(acmeClientPool, newAcmeClient())
-		acmeClientCertificateLimitPerRegistration = append(acmeClientCertificateLimitPerRegistration, equalizer.NewTokenBucket(290, time.Hour * 3))
+		log.Printf("Requesting new certificate for %v", domains)
+	res, err := acmeClient.Certificate.Obtain(certificate.ObtainRequest{
+		Domains:    domains,
+		Bundle:     true,
+		MustStaple: true,
+	})
+	if err != nil {
+		log.Printf("Couldn't obtain certificate for %v: %s", domains, err)
+		return tls.Certificate{}, err
 	}
-	if !acmeClientCertificateLimitPerRegistration[(lastAcmeClient + 1) % len(acmeClientPool)].Ask() {
+	log.Printf("Obtained certificate for %v", domains)
 
-	}
-	equalizer.NewTokenBucket(290, time.Hour * 3) // LE allows 300 certificates per account, to be sure to catch it earlier, we limit that to 290.
-
-	// TODO: limit domains by file in repo
-}
-
-func newAcmeClient() *lego.Client {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	err = keyDatabase.Put([]byte(name + "/key"), res.PrivateKey)
 	if err != nil {
 		panic(err)
 	}
-	myUser := AcmeAccount{
-		Email: "",
-		key:   privateKey,
-	}
-	config := lego.NewConfig(&myUser)
-	config.CADirURL = envOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
-	config.Certificate.KeyType = certcrypto.RSA2048
-	acmeClient, err := lego.NewClient(config)
+	err = keyDatabase.Put([]byte(name), res.Certificate)
 	if err != nil {
-		panic(err)
-	}
-	err = acmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
-	if err != nil {
+		_ = keyDatabase.Delete([]byte(name + "/key"))
 		panic(err)
 	}
 
-	// accept terms
-	if os.Getenv("ACME_ACCEPT_TERMS") == "true" {
-		reg, err := acmeClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true"})
-		if err != nil {
-			panic(err)
-		}
-		myUser.Registration = reg
-	} else {
-		log.Printf("Warning: not using ACME certificates as ACME_ACCEPT_TERMS is false!")
+	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
+	if err != nil {
+		panic(err)
 	}
-	return acmeClient
+	return tlsCertificate, nil
 }
 
 func init() {
-	FallbackCertificate()
-
 	var err error
 	keyDatabase, err = pogreb.Open("key-database.pogreb", &pogreb.Options{
 		BackgroundSyncInterval:       30 * time.Second,
@@ -351,50 +286,62 @@ func init() {
 		panic(err)
 	}
 
-	// generate certificate for main domain
-	if os.Getenv("ACME_ACCEPT_TERMS") != "true" || os.Getenv("DNS_PROVIDER") == "" {
-		err = keyCache.Set(string(MainDomainSuffix), FallbackCertificate(), mcache.TTL_FOREVER)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		log.Printf("Requesting new certificate for *%s", MainDomainSuffix)
-		dnsAcmeClient, err := lego.NewClient(config)
-		if err != nil {
-			panic(err)
-		}
-		provider, err := dns.NewDNSChallengeProviderByName(os.Getenv("DNS_PROVIDER"))
-		if err != nil {
-			panic(err)
-		}
-		err = dnsAcmeClient.Challenge.SetDNS01Provider(provider)
-		if err != nil {
-			panic(err)
-		}
-		mainPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-		if err != nil {
-			panic(err)
-		}
-		mainKey := x509.MarshalPKCS1PrivateKey(mainPrivateKey)
-		res, err := dnsAcmeClient.Certificate.Obtain(certificate.ObtainRequest{
-			Domains:    []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])},
-			PrivateKey: mainKey,
-			Bundle:     true,
-			MustStaple: true,
-		})
-		if err != nil {
-			panic(err)
-		}
-		err = keyDatabase.Put(append(MainDomainSuffix, '/', 'k', 'e', 'y'), mainKey)
-		if err != nil {
-			panic(err)
-		}
-		err = keyDatabase.Put(MainDomainSuffix, res.Certificate)
-		if err != nil {
-			_ = keyDatabase.Delete(append(MainDomainSuffix, '/', 'k', 'e', 'y'))
-			panic(err)
-		}
+	if os.Getenv("ACME_ACCEPT_TERMS") != "true" || (os.Getenv("DNS_PROVIDER") == "" && os.Getenv("ACME_API") != "https://acme.mock.directory") {
+		panic(errors.New("you must set ACME_ACCEPT_TERMS and DNS_PROVIDER, unless ACME_API is set to https://acme.mock.directory"))
 	}
-}
 
-// TODO: renew & revoke
+	go (func() {
+		for {
+			err := keyDatabase.Sync()
+			if err != nil {
+				log.Printf("Syncinc key database failed: %s", err)
+			}
+			time.Sleep(5 * time.Minute)
+		}
+	})()
+	go (func() {
+		for {
+			// clean up expired certs
+			keySuffix := []byte("/key")
+			now := time.Now()
+			expiredCertCount := 0
+			key, value, err := keyDatabase.Items().Next()
+			for err == nil {
+				if !bytes.HasSuffix(key, keySuffix) {
+					tlsCertificates, err := certcrypto.ParsePEMBundle(value)
+					if err != nil || !tlsCertificates[0].NotAfter.After(now) {
+						err := keyDatabase.Delete(key)
+						if err != nil {
+							log.Printf("Deleting expired certificate for %s failed: %s", string(key), err)
+						} else {
+							expiredCertCount++
+						}
+					}
+				}
+				key, value, err = keyDatabase.Items().Next()
+			}
+			log.Printf("Removed %d expired certificates from the database", expiredCertCount)
+
+			// compact the database
+			result, err := keyDatabase.Compact()
+			if err != nil {
+				log.Printf("Compacting key database failed: %s", err)
+			} else {
+				log.Printf("Compacted key database (%+v)", result)
+			}
+
+			// update main cert
+			certPem, err := keyDatabase.Get(MainDomainSuffix)
+			if err != nil {
+				// key database is not working
+				panic(err)
+			}
+			tlsCertificates, err := certcrypto.ParsePEMBundle(certPem)
+			if err != nil || !tlsCertificates[0].NotAfter.After(time.Now().Add(-48 * time.Hour)) {
+				_, _ = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])})
+			}
+
+			time.Sleep(12 * time.Hour)
+		}
+	})()
+}

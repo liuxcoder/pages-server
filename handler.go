@@ -28,8 +28,10 @@ func handler(ctx *fasthttp.RequestCtx) {
 	// Enable caching, but require revalidation to reduce confusion
 	ctx.Response.Header.Set("Cache-Control", "must-revalidate")
 
+	trimmedHost := TrimHostPort(ctx.Request.Host())
+
 	// Add HSTS for RawDomain and MainDomainSuffix
-	if hsts := GetHSTSHeader(ctx.Host()); hsts != "" {
+	if hsts := GetHSTSHeader(trimmedHost); hsts != "" {
 		ctx.Response.Header.Set("Strict-Transport-Security", hsts)
 	}
 
@@ -52,7 +54,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 	if ctx.IsOptions() {
 		allowCors := false
 		for _, allowedCorsDomain := range AllowedCorsDomains {
-			if bytes.Equal(ctx.Request.Host(), allowedCorsDomain) {
+			if bytes.Equal(trimmedHost, allowedCorsDomain) {
 				allowCors = true
 				break
 			}
@@ -109,8 +111,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 	// tryUpstream forwards the target request to the Gitea API, and shows an error page on failure.
 	var tryUpstream = func() {
 		// check if a canonical domain exists on a request on MainDomain
-		if bytes.HasSuffix(ctx.Request.Host(), MainDomainSuffix) {
-			canonicalDomain := checkCanonicalDomain(targetOwner, targetRepo, targetBranch)
+		if bytes.HasSuffix(trimmedHost, MainDomainSuffix) {
+			canonicalDomain, _ := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, "")
 			if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], string(MainDomainSuffix)) {
 				canonicalPath := string(ctx.RequestURI())
 				if targetRepo != "pages" {
@@ -129,7 +131,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 	s.Step("preparations")
 
-	if RawDomain != nil && bytes.Equal(ctx.Request.Host(), RawDomain) {
+	if RawDomain != nil && bytes.Equal(trimmedHost, RawDomain) {
 		// Serve raw content from RawDomain
 		s.Debug("raw domain")
 
@@ -169,12 +171,12 @@ func handler(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-	} else if bytes.HasSuffix(ctx.Request.Host(), MainDomainSuffix) {
+	} else if bytes.HasSuffix(trimmedHost, MainDomainSuffix) {
 		// Serve pages from subdomains of MainDomainSuffix
 		s.Debug("main domain suffix")
 
 		pathElements := strings.Split(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/")
-		targetOwner = string(bytes.TrimSuffix(ctx.Request.Host(), MainDomainSuffix))
+		targetOwner = string(bytes.TrimSuffix(trimmedHost, MainDomainSuffix))
 		targetRepo = pathElements[0]
 		targetPath = strings.Trim(strings.Join(pathElements[1:], "/"), "/")
 
@@ -235,8 +237,10 @@ func handler(ctx *fasthttp.RequestCtx) {
 		returnErrorPage(ctx, fasthttp.StatusFailedDependency)
 		return
 	} else {
+		trimmedHostStr := string(trimmedHost)
+
 		// Serve pages from external domains
-		targetOwner, targetRepo, targetBranch = getTargetFromDNS(string(ctx.Request.Host()))
+		targetOwner, targetRepo, targetBranch = getTargetFromDNS(trimmedHostStr)
 		if targetOwner == "" {
 			ctx.Redirect(BrokenDNSPage, fasthttp.StatusTemporaryRedirect)
 			return
@@ -253,8 +257,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 		// Try to use the given repo on the given branch or the default branch
 		s.Step("custom domain preparations, now trying with details from DNS")
 		if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
-			canonicalDomain := checkCanonicalDomain(targetOwner, targetRepo, targetBranch)
-			if canonicalDomain != string(ctx.Request.Host()) {
+			canonicalDomain, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr)
+			if !valid {
+				returnErrorPage(ctx, fasthttp.StatusMisdirectedRequest)
+				return
+			} else if canonicalDomain != trimmedHostStr {
 				// only redirect if the target is also a codeberg page!
 				targetOwner, _, _ = getTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0])
 				if targetOwner != "" {
@@ -282,6 +289,9 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetStatusCode(code)
 	ctx.Response.Header.SetContentType("text/html; charset=utf-8")
 	message := fasthttp.StatusMessage(code)
+	if code == fasthttp.StatusMisdirectedRequest {
+		message += " - domain not specified in <code>.domains</code> file"
+	}
 	if code == fasthttp.StatusFailedDependency {
 		message += " - owner, repo or branch doesn't exist"
 	}
