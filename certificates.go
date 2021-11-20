@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"github.com/OrlovEvgeny/go-mcache"
@@ -88,22 +89,7 @@ var tlsConfig = &tls.Config{
 		var tlsCertificate tls.Certificate
 		var err error
 		var ok bool
-		if tlsCertificate, ok = retrieveCertFromDB(sniBytes); ok {
-			tlsCertificate.Leaf, err = x509.ParseCertificate(tlsCertificate.Certificate[0])
-			if err != nil {
-				panic(err)
-			}
-
-			if !bytes.Equal(sniBytes, MainDomainSuffix) && !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-7 * 24 * time.Hour)) {
-				go (func() {
-					tlsCertificate, err = obtainCert(acmeClient, []string{sni})
-					if err != nil {
-						log.Printf("Couldn't renew certificate.")
-					}
-				})()
-			}
-		}
-		if tlsCertificate.Certificate == nil || !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-5 * time.Minute)) {
+		if tlsCertificate, ok = retrieveCertFromDB(sniBytes); !ok {
 			// request a new certificate
 			if bytes.Equal(sniBytes, MainDomainSuffix) {
 				return nil, errors.New("won't request certificate for main domain, something really bad has happened")
@@ -114,7 +100,7 @@ var tlsConfig = &tls.Config{
 				return nil, err
 			}
 
-			tlsCertificate, err = obtainCert(acmeClient, []string{sni})
+			tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -196,6 +182,13 @@ func newAcmeClient(configureChallenge func(*resolver.SolverManager) error) *lego
 var acmeClient, mainDomainAcmeClient *lego.Client
 var acmeClientCertificateLimitPerUser = map[string]*equalizer.TokenBucket{}
 
+// rate limit is 300 / 3 hours, we want 200 / 2 hours but to refill more often, so that's 25 new domains every 15 minutes
+// TODO: when this is used a lot, we probably have to think of a somewhat better solution?
+var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15 * time.Minute)
+
+// rate limit is 20 / second, we want 10 / second
+var acmeClientRequestLimit = equalizer.NewTokenBucket(10, 1 * time.Second)
+
 type AcmeTLSChallengeProvider struct{}
 var _ challenge.Provider = AcmeTLSChallengeProvider{}
 func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
@@ -208,29 +201,50 @@ func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
 
 func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 	// parse certificate from database
-	certPem, err := keyDatabase.Get(sni)
+	resBytes, err := keyDatabase.Get(sni)
 	if err != nil {
 		// key database is not working
 		panic(err)
 	}
-	if certPem == nil {
+	if resBytes == nil {
 		return tls.Certificate{}, false
 	}
-	keyPem, err := keyDatabase.Get(append(sni, '/', 'k', 'e', 'y'))
+
+	resGob := bytes.NewBuffer(resBytes)
+	resDec := gob.NewDecoder(resGob)
+	res := &certificate.Resource{}
+	err = resDec.Decode(res)
 	if err != nil {
-		// key database is not working or key doesn't exist
 		panic(err)
 	}
 
-	tlsCertificate, err := tls.X509KeyPair(certPem, keyPem)
+	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
 		panic(err)
 	}
+
+	if !bytes.Equal(sni, MainDomainSuffix) {
+		tlsCertificate.Leaf, err = x509.ParseCertificate(tlsCertificate.Certificate[0])
+		if err != nil {
+			panic(err)
+		}
+
+		// renew certificates 7 days before they expire
+		if !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-7 * 24 * time.Hour)) {
+			go (func() {
+				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res)
+				if err != nil {
+					log.Printf("Couldn't renew certificate for %s: %s", sni, err)
+				}
+			})()
+		}
+	}
+
 	return tlsCertificate, true
 }
 
 var obtainLocks = sync.Map{}
-func obtainCert(acmeClient *lego.Client, domains []string) (tls.Certificate, error) {
+func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource) (tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
 	if os.Getenv("DNS_PROVIDER") == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
 		domains = domains[1:]
@@ -251,24 +265,36 @@ func obtainCert(acmeClient *lego.Client, domains []string) (tls.Certificate, err
 	}
 	defer obtainLocks.Delete(name)
 
-	log.Printf("Requesting new certificate for %v", domains)
-	res, err := acmeClient.Certificate.Obtain(certificate.ObtainRequest{
-		Domains:    domains,
-		Bundle:     true,
-		MustStaple: true,
-	})
+	// request actual cert
+	var res *certificate.Resource
+	var err error
+	if renew != nil {
+		acmeClientRequestLimit.Take()
+		log.Printf("Renewing certificate for %v", domains)
+		res, err = acmeClient.Certificate.Renew(*renew, true, false, "")
+	} else {
+		acmeClientOrderLimit.Take()
+		acmeClientRequestLimit.Take()
+		log.Printf("Requesting new certificate for %v", domains)
+		res, err = acmeClient.Certificate.Obtain(certificate.ObtainRequest{
+			Domains:    domains,
+			Bundle:     true,
+			MustStaple: false,
+		})
+	}
 	if err != nil {
 		log.Printf("Couldn't obtain certificate for %v: %s", domains, err)
 		return tls.Certificate{}, err
 	}
 	log.Printf("Obtained certificate for %v", domains)
 
-	err = keyDatabase.Put([]byte(name + "/key"), res.PrivateKey)
+	var resGob bytes.Buffer
+	resEnc := gob.NewEncoder(&resGob)
+	err = resEnc.Encode(res)
 	if err != nil {
-		obtainLocks.Delete(name)
 		panic(err)
 	}
-	err = keyDatabase.Put([]byte(name), res.Certificate)
+	err = keyDatabase.Put([]byte(name), resGob.Bytes())
 	if err != nil {
 		_ = keyDatabase.Delete([]byte(name + "/key"))
 		obtainLocks.Delete(name)
@@ -307,7 +333,7 @@ func setupCertificates() {
 			panic(err)
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = envOr("ACME_API", "https://acme.zerossl.com/v2/DV90")
+		myAcmeConfig.CADirURL = envOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
 		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
 		newAcmeClient(func(manager *resolver.SolverManager) error { return nil })
 	} else if os.IsNotExist(err) {
@@ -321,7 +347,7 @@ func setupCertificates() {
 			KeyPEM: string(certcrypto.PEMEncode(privateKey)),
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = envOr("ACME_API", "https://acme.zerossl.com/v2/DV90")
+		myAcmeConfig.CADirURL = envOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
 		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
 		tempClient := newAcmeClient(func(manager *resolver.SolverManager) error { return nil })
 
@@ -371,6 +397,17 @@ func setupCertificates() {
 		return challenge.SetDNS01Provider(provider)
 	})
 
+	resBytes, err := keyDatabase.Get(MainDomainSuffix)
+	if err != nil {
+		// key database is not working
+		panic(err)
+	} else if resBytes == nil {
+		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, nil)
+		if err != nil {
+			log.Fatalf("Couldn't renew certificate for *%s: %s", MainDomainSuffix, err)
+		}
+	}
+
 	go (func() {
 		for {
 			err := keyDatabase.Sync()
@@ -383,13 +420,20 @@ func setupCertificates() {
 	go (func() {
 		for {
 			// clean up expired certs
-			keySuffix := []byte("/key")
 			now := time.Now()
 			expiredCertCount := 0
-			key, value, err := keyDatabase.Items().Next()
+			key, resBytes, err := keyDatabase.Items().Next()
 			for err == nil {
-				if !bytes.HasSuffix(key, keySuffix) {
-					tlsCertificates, err := certcrypto.ParsePEMBundle(value)
+				if !bytes.Equal(key, MainDomainSuffix) {
+					resGob := bytes.NewBuffer(resBytes)
+					resDec := gob.NewDecoder(resGob)
+					res := &certificate.Resource{}
+					err = resDec.Decode(res)
+					if err != nil {
+						panic(err)
+					}
+
+					tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 					if err != nil || !tlsCertificates[0].NotAfter.After(now) {
 						err := keyDatabase.Delete(key)
 						if err != nil {
@@ -399,7 +443,7 @@ func setupCertificates() {
 						}
 					}
 				}
-				key, value, err = keyDatabase.Items().Next()
+				key, resBytes, err = keyDatabase.Items().Next()
 			}
 			log.Printf("Removed %d expired certificates from the database", expiredCertCount)
 
@@ -412,14 +456,30 @@ func setupCertificates() {
 			}
 
 			// update main cert
-			certPem, err := keyDatabase.Get(MainDomainSuffix)
+			resBytes, err = keyDatabase.Get(MainDomainSuffix)
 			if err != nil {
 				// key database is not working
 				panic(err)
 			}
-			tlsCertificates, err := certcrypto.ParsePEMBundle(certPem)
-			if err != nil || !tlsCertificates[0].NotAfter.After(time.Now().Add(-48 * time.Hour)) {
-				_, _ = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])})
+
+			resGob := bytes.NewBuffer(resBytes)
+			resDec := gob.NewDecoder(resGob)
+			res := &certificate.Resource{}
+			err = resDec.Decode(res)
+			if err != nil {
+				panic(err)
+			}
+
+			tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
+
+			// renew main certificate 30 days before it expires
+			if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
+				go (func() {
+					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, res)
+					if err != nil {
+						log.Printf("Couldn't renew certificate for *%s: %s", MainDomainSuffix, err)
+					}
+				})()
 			}
 
 			time.Sleep(12 * time.Hour)
