@@ -443,7 +443,8 @@ func setupCertificates() {
 			// clean up expired certs
 			now := time.Now()
 			expiredCertCount := 0
-			key, resBytes, err := keyDatabase.Items().Next()
+			keyDatabaseIterator := keyDatabase.Items()
+			key, resBytes, err := keyDatabaseIterator.Next()
 			for err == nil {
 				if !bytes.Equal(key, MainDomainSuffix) {
 					resGob := bytes.NewBuffer(resBytes)
@@ -464,7 +465,7 @@ func setupCertificates() {
 						}
 					}
 				}
-				key, resBytes, err = keyDatabase.Items().Next()
+				key, resBytes, err = keyDatabaseIterator.Next()
 			}
 			log.Printf("Removed %d expired certificates from the database", expiredCertCount)
 
