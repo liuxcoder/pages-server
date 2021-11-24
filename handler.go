@@ -293,13 +293,13 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 		message += " - domain not specified in <code>.domains</code> file"
 	}
 	if code == fasthttp.StatusFailedDependency {
-		message += " - owner, repo or branch doesn't exist"
+		message += " - owner, repo or branch doesn't exist (if everything's set up correctly, wait up to 15 minutes for cache invalidation)"
 	}
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+message)))
 }
 
 // BranchExistanceCacheTimeout specifies the timeout for the default branch cache. It can be quite long.
-var DefaultBranchCacheTimeout = 1*time.Hour
+var DefaultBranchCacheTimeout = 15*time.Minute
 // BranchExistanceCacheTimeout specifies the timeout for the branch timestamp & existance cache. It should be shorter
 // than FileCacheTimeout, as that gets invalidated if the branch timestamp has changed. That way, repo changes will be
 // picked up faster, while still allowing the content to be cached longer if nothing changes.
@@ -317,6 +317,7 @@ var FileCacheTimeout = 5*time.Minute
 // FileCacheSizeLimit limits the maximum file size that will be cached, and is set to 1 MB by default.
 var FileCacheSizeLimit = 1024 * 1024
 // fileResponseCache stores responses from the Gitea server
+// TODO: make this an MRU cache with a size limit
 var fileResponseCache = mcache.New()
 type fileResponse struct {
 	exists bool
