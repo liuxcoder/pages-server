@@ -9,7 +9,8 @@ import (
 )
 
 // DnsLookupCacheTimeout specifies the timeout for the DNS lookup cache.
-var DnsLookupCacheTimeout = 15*time.Minute
+var DnsLookupCacheTimeout = 15 * time.Minute
+
 // dnsLookupCache stores DNS lookups for custom domains
 var dnsLookupCache = mcache.New()
 
@@ -61,9 +62,9 @@ func getTargetFromDNS(domain string) (targetOwner, targetRepo, targetBranch stri
 	return
 }
 
-
 // CanonicalDomainCacheTimeout specifies the timeout for the canonical domain cache.
-var CanonicalDomainCacheTimeout = 15*time.Minute
+var CanonicalDomainCacheTimeout = 15 * time.Minute
+
 // canonicalDomainCache stores canonical domains
 var canonicalDomainCache = mcache.New()
 
@@ -98,14 +99,14 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain st
 				}
 			}
 		}
-		domains = append(domains, targetOwner + string(MainDomainSuffix))
-		if domains[len(domains) - 1] == actualDomain {
+		domains = append(domains, targetOwner+string(MainDomainSuffix))
+		if domains[len(domains)-1] == actualDomain {
 			valid = true
 		}
 		if targetRepo != "" && targetRepo != "pages" {
-			domains[len(domains) - 1] += "/" + targetRepo
+			domains[len(domains)-1] += "/" + targetRepo
 		}
-		_ = canonicalDomainCache.Set(targetOwner + "/" + targetRepo + "/" + targetBranch, domains, CanonicalDomainCacheTimeout)
+		_ = canonicalDomainCache.Set(targetOwner+"/"+targetRepo+"/"+targetBranch, domains, CanonicalDomainCacheTimeout)
 	}
 	canonicalDomain = domains[0]
 	return

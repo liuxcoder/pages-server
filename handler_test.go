@@ -37,7 +37,6 @@ func TestHandlerPerformance(t *testing.T) {
 		t.Logf("request took %d milliseconds", end.Sub(start).Milliseconds())
 	}
 
-
 	ctx.Response.Reset()
 	ctx.Response.ResetBody()
 	ctx.Request.SetRequestURI("http://example.momar.xyz/")
