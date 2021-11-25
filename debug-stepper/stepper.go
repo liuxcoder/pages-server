@@ -14,9 +14,9 @@ var Logger = func(s string, i ...interface{}) {
 }
 
 type Stepper struct {
-	Name string
-	Start time.Time
-	LastStep time.Time
+	Name       string
+	Start      time.Time
+	LastStep   time.Time
 	Completion time.Time
 }
 
@@ -27,8 +27,8 @@ func Start(name string) *Stepper {
 	t := time.Now()
 	Logger("%s: started at %s\n", name, t.Format(time.RFC3339))
 	return &Stepper{
-		Name: name,
-		Start: t,
+		Name:     name,
+		Start:    t,
 		LastStep: t,
 	}
 }

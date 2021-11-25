@@ -92,7 +92,7 @@ func main() {
 		NoDefaultServerHeader:        true,
 		NoDefaultDate:                true,
 		ReadTimeout:                  30 * time.Second, // needs to be this high for ACME certificates with ZeroSSL & HTTP-01 challenge
-		Concurrency:                  1024 * 32, // TODO: adjust bottlenecks for best performance with Gitea!
+		Concurrency:                  1024 * 32,        // TODO: adjust bottlenecks for best performance with Gitea!
 		MaxConnsPerIP:                100,
 	}
 
@@ -116,7 +116,7 @@ func main() {
 					}
 					ctx.SetBodyString(challenge.(string))
 				} else {
-					ctx.Redirect("https://" + string(ctx.Host()) + string(ctx.RequestURI()), http.StatusMovedPermanently)
+					ctx.Redirect("https://"+string(ctx.Host())+string(ctx.RequestURI()), http.StatusMovedPermanently)
 				}
 			})
 			if err != nil {

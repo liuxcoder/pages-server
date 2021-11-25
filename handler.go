@@ -118,7 +118,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 				if targetRepo != "pages" {
 					canonicalPath = "/" + strings.SplitN(canonicalPath, "/", 3)[2]
 				}
-				ctx.Redirect("https://" + canonicalDomain + canonicalPath, fasthttp.StatusTemporaryRedirect)
+				ctx.Redirect("https://"+canonicalDomain+canonicalPath, fasthttp.StatusTemporaryRedirect)
 				return
 			}
 		}
@@ -185,7 +185,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		if len(pathElements) > 1 && strings.HasPrefix(pathElements[1], "@") {
 			if targetRepo == "pages" {
 				// example.codeberg.org/pages/@... redirects to example.codeberg.org/@...
-				ctx.Redirect("/" + strings.Join(pathElements[1:], "/"), fasthttp.StatusTemporaryRedirect)
+				ctx.Redirect("/"+strings.Join(pathElements[1:], "/"), fasthttp.StatusTemporaryRedirect)
 				return
 			}
 
@@ -299,30 +299,36 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 }
 
 // BranchExistanceCacheTimeout specifies the timeout for the default branch cache. It can be quite long.
-var DefaultBranchCacheTimeout = 15*time.Minute
+var DefaultBranchCacheTimeout = 15 * time.Minute
+
 // BranchExistanceCacheTimeout specifies the timeout for the branch timestamp & existance cache. It should be shorter
 // than FileCacheTimeout, as that gets invalidated if the branch timestamp has changed. That way, repo changes will be
 // picked up faster, while still allowing the content to be cached longer if nothing changes.
-var BranchExistanceCacheTimeout = 5*time.Minute
+var BranchExistanceCacheTimeout = 5 * time.Minute
+
 // branchTimestampCache stores branch timestamps for faster cache checking
 var branchTimestampCache = mcache.New()
+
 type branchTimestamp struct {
-	branch string
+	branch    string
 	timestamp time.Time
 }
 
 // FileCacheTimeout specifies the timeout for the file content cache - you might want to make this quite long, depending
 // on your available memory.
-var FileCacheTimeout = 5*time.Minute
+var FileCacheTimeout = 5 * time.Minute
+
 // FileCacheSizeLimit limits the maximum file size that will be cached, and is set to 1 MB by default.
 var FileCacheSizeLimit = 1024 * 1024
+
 // fileResponseCache stores responses from the Gitea server
 // TODO: make this an MRU cache with a size limit
 var fileResponseCache = mcache.New()
+
 type fileResponse struct {
-	exists bool
+	exists   bool
 	mimeType string
-	body []byte
+	body     []byte
 }
 
 // getBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
@@ -339,30 +345,30 @@ func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	if branch == "" {
 		// Get default branch
 		var body = make([]byte, 0)
-		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 5 * time.Second)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 5*time.Second)
 		if err != nil || status != 200 {
-			_ = branchTimestampCache.Set(owner + "/" + repo + "/" + branch, nil, DefaultBranchCacheTimeout)
+			_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, nil, DefaultBranchCacheTimeout)
 			return nil
 		}
 		result.branch = fastjson.GetString(body, "default_branch")
 	}
 
 	var body = make([]byte, 0)
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 5 * time.Second)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 5*time.Second)
 	if err != nil || status != 200 {
 		return nil
 	}
 
 	result.timestamp, _ = time.Parse(time.RFC3339, fastjson.GetString(body, "commit", "timestamp"))
-	_ = branchTimestampCache.Set(owner + "/" + repo + "/" + branch, result, BranchExistanceCacheTimeout)
+	_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, result, BranchExistanceCacheTimeout)
 	return result
 }
 
 var upstreamClient = fasthttp.Client{
-	ReadTimeout: 10 * time.Second,
-	MaxConnDuration: 60 * time.Second,
+	ReadTimeout:        10 * time.Second,
+	MaxConnDuration:    60 * time.Second,
 	MaxConnWaitTimeout: 1000 * time.Millisecond,
-	MaxConnsPerHost: 128 * 16, // TODO: adjust bottlenecks for best performance with Gitea!
+	MaxConnsPerHost:    128 * 16, // TODO: adjust bottlenecks for best performance with Gitea!
 }
 
 // upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
@@ -426,7 +432,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			optionsForIndexPages.AppendTrailingSlash = true
 			for _, indexPage := range IndexPages {
 				if upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, &optionsForIndexPages) {
-					_ = fileResponseCache.Set(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
+					_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 						exists: false,
 					}, FileCacheTimeout)
 					return true
@@ -436,7 +442,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
 		if res != nil {
 			// Update cache if the request is fresh
-			_ = fileResponseCache.Set(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
+			_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 				exists: false,
 			}, FileCacheTimeout)
 		}
@@ -496,7 +502,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		cachedResponse.exists = true
 		cachedResponse.mimeType = mimeType
 		cachedResponse.body = cacheBodyWriter.Bytes()
-		_ = fileResponseCache.Set(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10), cachedResponse, FileCacheTimeout)
+		_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), cachedResponse, FileCacheTimeout)
 	}
 
 	return true

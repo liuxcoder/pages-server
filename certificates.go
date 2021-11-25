@@ -101,7 +101,7 @@ var tlsConfig = &tls.Config{
 			}
 		}
 
-		err = keyCache.Set(sni, &tlsCertificate, 15 * time.Minute)
+		err = keyCache.Set(sni, &tlsCertificate, 15*time.Minute)
 		if err != nil {
 			panic(err)
 		}
@@ -129,11 +129,11 @@ var tlsConfig = &tls.Config{
 var keyCache = mcache.New()
 var keyDatabase *pogreb.DB
 
-func CheckUserLimit(user string) (error) {
+func CheckUserLimit(user string) error {
 	userLimit, ok := acmeClientCertificateLimitPerUser[user]
 	if !ok {
 		// Each Codeberg user can only add 10 new domains per day.
-		userLimit = equalizer.NewTokenBucket(10, time.Hour * 24)
+		userLimit = equalizer.NewTokenBucket(10, time.Hour*24)
 		acmeClientCertificateLimitPerUser[user] = userLimit
 	}
 	if !userLimit.Ask() {
@@ -149,8 +149,9 @@ type AcmeAccount struct {
 	Email        string
 	Registration *registration.Resource
 	Key          crypto.PrivateKey `json:"-"`
-	KeyPEM       string `json:"Key"`
+	KeyPEM       string            `json:"Key"`
 }
+
 func (u *AcmeAccount) GetEmail() string {
 	return u.Email
 }
@@ -178,14 +179,17 @@ var acmeClientCertificateLimitPerUser = map[string]*equalizer.TokenBucket{}
 
 // rate limit is 300 / 3 hours, we want 200 / 2 hours but to refill more often, so that's 25 new domains every 15 minutes
 // TODO: when this is used a lot, we probably have to think of a somewhat better solution?
-var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15 * time.Minute)
+var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15*time.Minute)
 
 // rate limit is 20 / second, we want 10 / second
-var acmeClientRequestLimit = equalizer.NewTokenBucket(10, 1 * time.Second)
+var acmeClientRequestLimit = equalizer.NewTokenBucket(10, 1*time.Second)
 
 var challengeCache = mcache.New()
+
 type AcmeTLSChallengeProvider struct{}
+
 var _ challenge.Provider = AcmeTLSChallengeProvider{}
+
 func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
 	return challengeCache.Set(domain, keyAuth, 1*time.Hour)
 }
@@ -193,10 +197,13 @@ func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
 	challengeCache.Remove(domain)
 	return nil
 }
+
 type AcmeHTTPChallengeProvider struct{}
+
 var _ challenge.Provider = AcmeHTTPChallengeProvider{}
+
 func (a AcmeHTTPChallengeProvider) Present(domain, token, keyAuth string) error {
-	return challengeCache.Set(domain + "/" + token, keyAuth, 1*time.Hour)
+	return challengeCache.Set(domain+"/"+token, keyAuth, 1*time.Hour)
 }
 func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	challengeCache.Remove(domain + "/" + token)
@@ -248,6 +255,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 }
 
 var obtainLocks = sync.Map{}
+
 func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user string) (tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
 	if os.Getenv("DNS_PROVIDER") == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
@@ -356,8 +364,8 @@ func setupCertificates() {
 			panic(err)
 		}
 		myAcmeAccount = AcmeAccount{
-			Email: envOr("ACME_EMAIL", "noreply@example.email"),
-			Key:   privateKey,
+			Email:  envOr("ACME_EMAIL", "noreply@example.email"),
+			Key:    privateKey,
 			KeyPEM: string(certcrypto.PEMEncode(privateKey)),
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
@@ -375,8 +383,8 @@ func setupCertificates() {
 		} else {
 			reg, err := tempClient.Registration.RegisterWithExternalAccountBinding(registration.RegisterEABOptions{
 				TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true",
-				Kid: os.Getenv("ACME_EAB_KID"),
-				HmacEncoded: os.Getenv("ACME_EAB_HMAC"),
+				Kid:                  os.Getenv("ACME_EAB_KID"),
+				HmacEncoded:          os.Getenv("ACME_EAB_HMAC"),
 			})
 			if err != nil {
 				panic(err)
