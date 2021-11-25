@@ -298,7 +298,7 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+message)))
 }
 
-// BranchExistanceCacheTimeout specifies the timeout for the default branch cache. It can be quite long.
+// DefaultBranchCacheTimeout specifies the timeout for the default branch cache. It can be quite long.
 var DefaultBranchCacheTimeout = 15 * time.Minute
 
 // BranchExistanceCacheTimeout specifies the timeout for the branch timestamp & existance cache. It should be shorter
