@@ -152,7 +152,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
 			s.Step("raw domain preparations, now trying with specified branch")
 			if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
-				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p"+"?access_token="+string(GiteaApiToken),
+				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			) {
 				s.Step("tryBranch, now trying upstream")
 				tryUpstream()
@@ -164,7 +164,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		} else {
 			s.Step("raw domain preparations, now trying with default branch")
 			tryBranch(targetRepo, "", pathElements[2:],
-				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p"+"?access_token="+string(GiteaApiToken),
+				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			)
 			s.Step("tryBranch, now trying upstream")
 			tryUpstream()
