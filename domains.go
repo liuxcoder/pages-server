@@ -81,7 +81,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain st
 		}
 	} else {
 		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains")
+		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + string(GiteaApiToken))
 		res := fasthttp.AcquireResponse()
 
 		err := upstreamClient.Do(req, res)

@@ -4,6 +4,7 @@
 - `PAGES_DOMAIN` (default: `codeberg.page`): main domain for pages.
 - `RAW_DOMAIN` (default: `raw.codeberg.org`): domain for raw resources.
 - `GITEA_ROOT` (default: `https://codeberg.org`): root of the upstream Gitea instance.
+- `GITEA_API_TOKEN` (default: empty): API token for the Gitea instance to access non-public (e.g. limited) repos.
 - `REDIRECT_BROKEN_DNS` (default: https://docs.codeberg.org/pages/custom-domains/): info page for setting up DNS, shown for invalid DNS setups.
 - `REDIRECT_RAW_INFO` (default: https://docs.codeberg.org/pages/raw-content/): info page for raw resources, shown if no resource is provided.
 - `ACME_API` (default: https://acme-v02.api.letsencrypt.org/directory): set this to https://acme.mock.director to use invalid certificates without any verification (great for debugging).  

@@ -152,7 +152,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
 			s.Step("raw domain preparations, now trying with specified branch")
 			if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
-				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
+				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p"+"?access_token="+string(GiteaApiToken),
 			) {
 				s.Step("tryBranch, now trying upstream")
 				tryUpstream()
@@ -164,7 +164,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		} else {
 			s.Step("raw domain preparations, now trying with default branch")
 			tryBranch(targetRepo, "", pathElements[2:],
-				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
+				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p"+"?access_token="+string(GiteaApiToken),
 			)
 			s.Step("tryBranch, now trying upstream")
 			tryUpstream()
@@ -345,7 +345,7 @@ func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	if branch == "" {
 		// Get default branch
 		var body = make([]byte, 0)
-		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 5*time.Second)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"?access_token="+string(GiteaApiToken), 5*time.Second)
 		if err != nil || status != 200 {
 			_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, nil, DefaultBranchCacheTimeout)
 			return nil
@@ -354,7 +354,7 @@ func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	}
 
 	var body = make([]byte, 0)
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 5*time.Second)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch+"?access_token="+string(GiteaApiToken), 5*time.Second)
 	if err != nil || status != 200 {
 		return nil
 	}
@@ -416,7 +416,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		cachedResponse = cachedValue.(fileResponse)
 	} else {
 		req = fasthttp.AcquireRequest()
-		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + uri)
+		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + uri + "?access_token=" + string(GiteaApiToken))
 		res = fasthttp.AcquireResponse()
 		res.SetBodyStream(&strings.Reader{}, -1)
 		err = upstreamClient.Do(req, res)
