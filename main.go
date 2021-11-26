@@ -39,7 +39,7 @@ var MainDomainSuffix = []byte("." + envOr("PAGES_DOMAIN", "codeberg.page"))
 // GiteaRoot specifies the root URL of the Gitea instance, without a trailing slash.
 var GiteaRoot = []byte(envOr("GITEA_ROOT", "https://codeberg.org"))
 
-var GiteaApiToken = []byte(envOr("GITEA_API_TOKEN", ""))
+var GiteaApiToken = envOr("GITEA_API_TOKEN", "")
 
 //go:embed 404.html
 var NotFoundPage []byte
