@@ -180,6 +180,12 @@ func handler(ctx *fasthttp.RequestCtx) {
 		targetRepo = pathElements[0]
 		targetPath = strings.Trim(strings.Join(pathElements[1:], "/"), "/")
 
+		if targetOwner == "www" {
+			// www.codeberg.page redirects to codeberg.page
+			ctx.Redirect("https://" + string(MainDomainSuffix[1:]) + string(ctx.Path()), fasthttp.StatusPermanentRedirect)
+			return
+		}
+
 		// Check if the first directory is a repo with the second directory as a branch
 		// example.codeberg.page/myrepo/@main/index.html
 		if len(pathElements) > 1 && strings.HasPrefix(pathElements[1], "@") {
