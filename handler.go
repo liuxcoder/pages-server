@@ -242,7 +242,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		// Serve pages from external domains
 		targetOwner, targetRepo, targetBranch = getTargetFromDNS(trimmedHostStr)
 		if targetOwner == "" {
-			ctx.Redirect(BrokenDNSPage, fasthttp.StatusTemporaryRedirect)
+			returnErrorPage(ctx, fasthttp.StatusFailedDependency)
 			return
 		}
 
@@ -268,7 +268,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 					ctx.Redirect("https://"+canonicalDomain+string(ctx.RequestURI()), fasthttp.StatusTemporaryRedirect)
 					return
 				} else {
-					ctx.Redirect(BrokenDNSPage, fasthttp.StatusTemporaryRedirect)
+					returnErrorPage(ctx, fasthttp.StatusFailedDependency)
 					return
 				}
 			}

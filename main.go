@@ -44,9 +44,6 @@ var GiteaApiToken = envOr("GITEA_API_TOKEN", "")
 //go:embed 404.html
 var NotFoundPage []byte
 
-// BrokenDNSPage will be shown (with a redirect) when trying to access a domain for which no DNS CNAME record exists.
-var BrokenDNSPage = envOr("REDIRECT_BROKEN_DNS", "https://docs.codeberg.org/pages/custom-domains/")
-
 // RawDomain specifies the domain from which raw repository content shall be served in the following format:
 // https://{RawDomain}/{owner}/{repo}[/{branch|tag|commit}/{version}]/{filepath...}
 // (set to []byte(nil) to disable raw content hosting)
