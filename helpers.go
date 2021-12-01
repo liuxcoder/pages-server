@@ -1,6 +1,10 @@
 package main
 
-import "bytes"
+import (
+	"bytes"
+	"encoding/gob"
+	"github.com/akrylysov/pogreb"
+)
 
 // GetHSTSHeader returns a HSTS header with includeSubdomains & preload for MainDomainSuffix and RawDomain, or an empty
 // string for custom domains.
@@ -18,4 +22,35 @@ func TrimHostPort(host []byte) []byte {
 		return host[:i]
 	}
 	return host
+}
+
+func PogrebPut(db *pogreb.DB, name []byte, obj interface{}) {
+	var resGob bytes.Buffer
+	resEnc := gob.NewEncoder(&resGob)
+	err := resEnc.Encode(obj)
+	if err != nil {
+		panic(err)
+	}
+	err = db.Put(name, resGob.Bytes())
+	if err != nil {
+		panic(err)
+	}
+}
+
+func PogrebGet(db *pogreb.DB, name []byte, obj interface{}) bool {
+	resBytes, err := db.Get(name)
+	if err != nil {
+		panic(err)
+	}
+	if resBytes == nil {
+		return false
+	}
+
+	resGob := bytes.NewBuffer(resBytes)
+	resDec := gob.NewDecoder(resGob)
+	err = resDec.Decode(obj)
+	if err != nil {
+		panic(err)
+	}
+	return true
 }
