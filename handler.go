@@ -293,7 +293,7 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 		message += " - domain not specified in <code>.domains</code> file"
 	}
 	if code == fasthttp.StatusFailedDependency {
-		message += " - owner, repo or branch doesn't exist (if everything's set up correctly, wait up to 15 minutes for cache invalidation)"
+		message += " - target repo/branch doesn't exist or is private"
 	}
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+message)))
 }
@@ -345,7 +345,7 @@ func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	if branch == "" {
 		// Get default branch
 		var body = make([]byte, 0)
-		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo, 5*time.Second)
+		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"?access_token="+GiteaApiToken, 5*time.Second)
 		if err != nil || status != 200 {
 			_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, nil, DefaultBranchCacheTimeout)
 			return nil
@@ -354,7 +354,7 @@ func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	}
 
 	var body = make([]byte, 0)
-	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch, 5*time.Second)
+	status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"/branches/"+branch+"?access_token="+GiteaApiToken, 5*time.Second)
 	if err != nil || status != 200 {
 		return nil
 	}
@@ -416,7 +416,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		cachedResponse = cachedValue.(fileResponse)
 	} else {
 		req = fasthttp.AcquireRequest()
-		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + uri)
+		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + uri + "?access_token=" + GiteaApiToken)
 		res = fasthttp.AcquireResponse()
 		res.SetBodyStream(&strings.Reader{}, -1)
 		err = upstreamClient.Do(req, res)
