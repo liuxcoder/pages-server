@@ -24,6 +24,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -207,21 +208,9 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 
 func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 	// parse certificate from database
-	resBytes, err := keyDatabase.Get(sni)
-	if err != nil {
-		// key database is not working
-		panic(err)
-	}
-	if resBytes == nil {
-		return tls.Certificate{}, false
-	}
-
-	resGob := bytes.NewBuffer(resBytes)
-	resDec := gob.NewDecoder(resGob)
 	res := &certificate.Resource{}
-	err = resDec.Decode(res)
-	if err != nil {
-		panic(err)
+	if !PogrebGet(keyDatabase, sni, res) {
+		return tls.Certificate{}, false
 	}
 
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
@@ -237,7 +226,15 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 
 		// renew certificates 7 days before they expire
 		if !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-7 * 24 * time.Hour)) {
+			if res.CSR != nil && len(res.CSR) > 0 {
+				// CSR stores the time when the renewal shall be tried again
+				nextTryUnix, err := strconv.ParseInt(string(res.CSR), 10, 64)
+				if err == nil && time.Now().Before(time.Unix(nextTryUnix, 0)) {
+					return tlsCertificate, true
+				}
+			}
 			go (func() {
+				res.CSR = nil // acme client doesn't like CSR to be set
 				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "")
 				if err != nil {
 					log.Printf("Couldn't renew certificate for %s: %s", sni, err)
@@ -310,18 +307,21 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	}
 	if err != nil {
 		log.Printf("Couldn't obtain certificate for %v: %s", domains, err)
-		return mockCert(domains[0], err.Error()), err
+		if renew != nil && renew.CertURL != "" {
+			tlsCertificate, err := tls.X509KeyPair(renew.Certificate, renew.PrivateKey)
+			if err == nil && tlsCertificate.Leaf.NotAfter.After(time.Now()) {
+				// avoid sending a mock cert instead of a still valid cert, instead abuse CSR field to store time to try again at
+				renew.CSR = []byte(strconv.FormatInt(time.Now().Add(6 * time.Hour).Unix(), 10))
+				PogrebPut(keyDatabase, []byte(name), renew)
+				return tlsCertificate, nil
+			}
+		} else {
+			return mockCert(domains[0], err.Error()), err
+		}
 	}
 	log.Printf("Obtained certificate for %v", domains)
 
-	var resGob bytes.Buffer
-	resEnc := gob.NewEncoder(&resGob)
-	err = resEnc.Encode(res)
-	if err != nil {
-		panic(err)
-	}
-	err = keyDatabase.Put([]byte(name), resGob.Bytes())
-
+	PogrebPut(keyDatabase, []byte(name), res)
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
 		return tls.Certificate{}, err
@@ -382,20 +382,11 @@ func mockCert(domain string, msg string) tls.Certificate {
 		IssuerCertificate: outBytes,
 		Domain: domain,
 	}
-	var resGob bytes.Buffer
-	resEnc := gob.NewEncoder(&resGob)
-	err = resEnc.Encode(res)
-	if err != nil {
-		panic(err)
-	}
 	databaseName := domain
 	if domain == "*" + string(MainDomainSuffix) || domain == string(MainDomainSuffix[1:]) {
 		databaseName = string(MainDomainSuffix)
 	}
-	err = keyDatabase.Put([]byte(databaseName), resGob.Bytes())
-	if err != nil {
-		panic(err)
-	}
+	PogrebPut(keyDatabase, []byte(databaseName), res)
 
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
@@ -585,30 +576,21 @@ func setupCertificates() {
 			}
 
 			// update main cert
-			resBytes, err = keyDatabase.Get(MainDomainSuffix)
-			if err != nil {
-				// key database is not working
-				panic(err)
-			}
-
-			resGob := bytes.NewBuffer(resBytes)
-			resDec := gob.NewDecoder(resGob)
 			res := &certificate.Resource{}
-			err = resDec.Decode(res)
-			if err != nil {
-				panic(err)
-			}
+			if !PogrebGet(keyDatabase, MainDomainSuffix, res) {
+				log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", "expected main domain cert to exist, but it's missing - seems like the database is corrupted")
+			} else {
+				tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 
-			tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
-
-			// renew main certificate 30 days before it expires
-			if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
-				go (func() {
-					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, res, "")
-					if err != nil {
-						log.Printf("Couldn't renew certificate for *%s: %s", MainDomainSuffix, err)
-					}
-				})()
+				// renew main certificate 30 days before it expires
+				if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
+					go (func() {
+						_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, res, "")
+						if err != nil {
+							log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", err)
+						}
+					})()
+				}
 			}
 
 			time.Sleep(12 * time.Hour)
