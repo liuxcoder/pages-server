@@ -311,7 +311,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			tlsCertificate, err := tls.X509KeyPair(renew.Certificate, renew.PrivateKey)
 			if err == nil && tlsCertificate.Leaf.NotAfter.After(time.Now()) {
 				// avoid sending a mock cert instead of a still valid cert, instead abuse CSR field to store time to try again at
-				renew.CSR = []byte(strconv.FormatInt(time.Now().Add(6 * time.Hour).Unix(), 10))
+				renew.CSR = []byte(strconv.FormatInt(time.Now().Add(6*time.Hour).Unix(), 10))
 				PogrebPut(keyDatabase, []byte(name), renew)
 				return tlsCertificate, nil
 			}
@@ -338,7 +338,7 @@ func mockCert(domain string, msg string) tls.Certificate {
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName: domain,
+			CommonName:   domain,
 			Organization: []string{"Codeberg Pages Error Certificate (couldn't obtain ACME certificate)"},
 			OrganizationalUnit: []string{
 				"Will not try again for 6 hours to avoid hitting rate limits for your domain.",
@@ -349,7 +349,7 @@ func mockCert(domain string, msg string) tls.Certificate {
 		},
 
 		// certificates younger than 7 days are renewed, so this enforces the cert to not be renewed for a 6 hours
-		NotAfter:  time.Now().Add(time.Hour * 24 * 7 + time.Hour * 6),
+		NotAfter:  time.Now().Add(time.Hour*24*7 + time.Hour*6),
 		NotBefore: time.Now(),
 
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
@@ -370,20 +370,20 @@ func mockCert(domain string, msg string) tls.Certificate {
 	out := &bytes.Buffer{}
 	err = pem.Encode(out, &pem.Block{
 		Bytes: certBytes,
-		Type: "CERTIFICATE",
+		Type:  "CERTIFICATE",
 	})
 	if err != nil {
 		panic(err)
 	}
 	outBytes := out.Bytes()
 	res := &certificate.Resource{
-		PrivateKey: certcrypto.PEMEncode(key),
-		Certificate: outBytes,
+		PrivateKey:        certcrypto.PEMEncode(key),
+		Certificate:       outBytes,
 		IssuerCertificate: outBytes,
-		Domain: domain,
+		Domain:            domain,
 	}
 	databaseName := domain
-	if domain == "*" + string(MainDomainSuffix) || domain == string(MainDomainSuffix[1:]) {
+	if domain == "*"+string(MainDomainSuffix) || domain == string(MainDomainSuffix[1:]) {
 		databaseName = string(MainDomainSuffix)
 	}
 	PogrebPut(keyDatabase, []byte(databaseName), res)
