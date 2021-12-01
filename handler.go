@@ -293,7 +293,7 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 		message += " - domain not specified in <code>.domains</code> file"
 	}
 	if code == fasthttp.StatusFailedDependency {
-		message += " - owner, repo or branch doesn't exist (if everything's set up correctly, wait up to 15 minutes for cache invalidation)"
+		message += " - target repo/branch doesn't exist or is private"
 	}
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+message)))
 }
