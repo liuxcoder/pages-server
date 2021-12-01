@@ -74,6 +74,25 @@ var IndexPages = []string{
 
 // main sets up and starts the web server.
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--remove-certificate" {
+		if len(os.Args) < 2 {
+			println("--remove-certificate requires at least one domain as an argument")
+			os.Exit(1)
+		}
+		if keyDatabaseErr != nil {
+			panic(keyDatabaseErr)
+		}
+		for _, domain := range os.Args[2:] {
+			if err := keyDatabase.Delete([]byte(domain)); err != nil {
+				panic(err)
+			}
+		}
+		if err := keyDatabase.Sync(); err != nil {
+			panic(err)
+		}
+		os.Exit(0)
+	}
+
 	// Make sure MainDomain has a trailing dot, and GiteaRoot has no trailing slash
 	if !bytes.HasPrefix(MainDomainSuffix, []byte{'.'}) {
 		MainDomainSuffix = append([]byte{'.'}, MainDomainSuffix...)
