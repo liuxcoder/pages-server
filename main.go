@@ -71,6 +71,7 @@ var IndexPages = []string{
 
 // main sets up and starts the web server.
 func main() {
+	// TODO: CLI Library
 	if len(os.Args) > 1 && os.Args[1] == "--remove-certificate" {
 		if len(os.Args) < 2 {
 			println("--remove-certificate requires at least one domain as an argument")
@@ -105,7 +106,7 @@ func main() {
 
 	server := &fasthttp.Server{
 		Handler:                      compressedHandler,
-		DisablePreParseMultipartForm: false,
+		DisablePreParseMultipartForm: true,
 		MaxRequestBodySize:           0,
 		NoDefaultServerHeader:        true,
 		NoDefaultDate:                true,
@@ -151,6 +152,7 @@ func main() {
 }
 
 // envOr reads an environment variable and returns a default value if it's empty.
+// TODO: to helpers.go or use CLI framework
 func envOr(env string, or string) string {
 	if v := os.Getenv(env); v != "" {
 		return v

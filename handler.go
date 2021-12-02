@@ -301,6 +301,7 @@ func returnErrorPage(ctx *fasthttp.RequestCtx, code int) {
 	if code == fasthttp.StatusFailedDependency {
 		message += " - target repo/branch doesn't exist or is private"
 	}
+	// TODO: use template engine?
 	ctx.Response.SetBody(bytes.ReplaceAll(NotFoundPage, []byte("%status"), []byte(strconv.Itoa(code)+" "+message)))
 }
 
@@ -351,6 +352,7 @@ func getBranchTimestamp(owner, repo, branch string) *branchTimestamp {
 	if branch == "" {
 		// Get default branch
 		var body = make([]byte, 0)
+		// TODO: use header for API key?
 		status, body, err := fasthttp.GetTimeout(body, string(GiteaRoot)+"/api/v1/repos/"+owner+"/"+repo+"?access_token="+GiteaApiToken, 5*time.Second)
 		if err != nil || status != 200 {
 			_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, nil, DefaultBranchCacheTimeout)
@@ -509,6 +511,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		if res.Header.ContentLength() > FileCacheSizeLimit {
 			err = res.BodyWriteTo(ctx.Response.BodyWriter())
 		} else {
+			// TODO: cache is half-empty if request is cancelled - does the ctx.Err() below do the trick?
 			err = res.BodyWriteTo(io.MultiWriter(ctx.Response.BodyWriter(), &cacheBodyWriter))
 		}
 	} else {

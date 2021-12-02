@@ -130,6 +130,7 @@ var tlsConfig = &tls.Config{
 	},
 }
 
+// TODO: clean up & move to init
 var keyCache = mcache.New()
 var keyDatabase, keyDatabaseErr = pogreb.Open("key-database.pogreb", &pogreb.Options{
 	BackgroundSyncInterval:       30 * time.Second,
@@ -218,6 +219,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 		panic(err)
 	}
 
+	// TODO: document & put into own function
 	if !bytes.Equal(sni, MainDomainSuffix) {
 		tlsCertificate.Leaf, err = x509.ParseCertificate(tlsCertificate.Certificate[0])
 		if err != nil {
@@ -226,6 +228,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 
 		// renew certificates 7 days before they expire
 		if !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-7 * 24 * time.Hour)) {
+			// TODO: add ValidUntil to custom res struct
 			if res.CSR != nil && len(res.CSR) > 0 {
 				// CSR stores the time when the renewal shall be tried again
 				nextTryUnix, err := strconv.ParseInt(string(res.CSR), 10, 64)
@@ -315,9 +318,8 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 				PogrebPut(keyDatabase, []byte(name), renew)
 				return tlsCertificate, nil
 			}
-		} else {
-			return mockCert(domains[0], err.Error()), err
 		}
+		return mockCert(domains[0], err.Error()), err
 	}
 	log.Printf("Obtained certificate for %v", domains)
 
@@ -531,9 +533,10 @@ func setupCertificates() {
 		for {
 			err := keyDatabase.Sync()
 			if err != nil {
-				log.Printf("[ERROR] Syncinc key database failed: %s", err)
+				log.Printf("[ERROR] Syncing key database failed: %s", err)
 			}
 			time.Sleep(5 * time.Minute)
+			// TODO: graceful exit
 		}
 	})()
 	go (func() {
