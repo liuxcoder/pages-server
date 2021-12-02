@@ -418,7 +418,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	var res *fasthttp.Response
 	var cachedResponse fileResponse
 	var err error
-	if cachedValue, ok := fileResponseCache.Get(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10)); ok {
+	if cachedValue, ok := fileResponseCache.Get(uri + "?timestamp=" + strconv.FormatInt(options.BranchTimestamp.Unix(), 10)); ok && len(cachedValue.(fileResponse).body) > 0 {
 		cachedResponse = cachedValue.(fileResponse)
 	} else {
 		req = fasthttp.AcquireRequest()
@@ -504,7 +504,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	}
 	s.Step("response")
 
-	if res != nil {
+	if res != nil && ctx.Err() == nil {
 		cachedResponse.exists = true
 		cachedResponse.mimeType = mimeType
 		cachedResponse.body = cacheBodyWriter.Bytes()
