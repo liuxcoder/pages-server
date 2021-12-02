@@ -444,6 +444,15 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 					return true
 				}
 			}
+			// compatibility fix for GitHub Pages (/example → /example.html)
+			optionsForIndexPages.AppendTrailingSlash = false
+			optionsForIndexPages.RedirectIfExists = targetPath + ".html"
+			if upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath + ".html", &optionsForIndexPages) {
+				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
+					exists: false,
+				}, FileCacheTimeout)
+				return true
+			}
 		}
 		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
 		if res != nil {
@@ -460,10 +469,18 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		return true
 	}
 
-	// Append trailing slash if missing (for index files)
+	// Append trailing slash if missing (for index files), and redirect to fix filenames in general
 	// options.AppendTrailingSlash is only true when looking for index pages
 	if options.AppendTrailingSlash && !bytes.HasSuffix(ctx.Request.URI().Path(), []byte{'/'}) {
 		ctx.Redirect(string(ctx.Request.URI().Path())+"/", fasthttp.StatusTemporaryRedirect)
+		return true
+	}
+	if bytes.HasSuffix(ctx.Request.URI().Path(), []byte("/index.html")) {
+		ctx.Redirect(strings.TrimSuffix(string(ctx.Request.URI().Path()), "index.html"), fasthttp.StatusTemporaryRedirect)
+		return true
+	}
+	if options.RedirectIfExists != "" {
+		ctx.Redirect(options.RedirectIfExists, fasthttp.StatusTemporaryRedirect)
 		return true
 	}
 	s.Step("error handling")
@@ -520,5 +537,6 @@ type upstreamOptions struct {
 	ForbiddenMimeTypes  map[string]struct{}
 	TryIndexPages       bool
 	AppendTrailingSlash bool
+	RedirectIfExists    string
 	BranchTimestamp     time.Time
 }
