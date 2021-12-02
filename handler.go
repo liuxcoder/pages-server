@@ -25,8 +25,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 	// Force new default from specification (since November 2020) - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy#strict-origin-when-cross-origin
 	ctx.Response.Header.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-	// Enable caching, but require revalidation to reduce confusion
-	ctx.Response.Header.Set("Cache-Control", "must-revalidate")
+	// Enable browser caching for up to 10 minutes
+	ctx.Response.Header.Set("Cache-Control", "public, max-age=600")
 
 	trimmedHost := TrimHostPort(ctx.Request.Host())
 
