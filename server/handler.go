@@ -19,7 +19,7 @@ import (
 )
 
 // Handler handles a single HTTP request to the web server.
-func Handler(mainDomainSuffix, rawDomain, giteaRoot []byte, rawInfoPage, giteaApiToken string, blacklistedPaths, allowedCorsDomains [][]byte) func(ctx *fasthttp.RequestCtx) {
+func Handler(mainDomainSuffix, rawDomain []byte, giteaRoot, rawInfoPage, giteaApiToken string, blacklistedPaths, allowedCorsDomains [][]byte) func(ctx *fasthttp.RequestCtx) {
 	return func(ctx *fasthttp.RequestCtx) {
 		log := log.With().Str("Handler", string(ctx.Request.Header.RequestURI())).Logger()
 
@@ -86,7 +86,7 @@ func Handler(mainDomainSuffix, rawDomain, giteaRoot []byte, rawInfoPage, giteaAp
 			}
 
 			// Check if the branch exists, otherwise treat it as a file path
-			branchTimestampResult := getBranchTimestamp(targetOwner, repo, branch, string(giteaRoot), giteaApiToken)
+			branchTimestampResult := getBranchTimestamp(targetOwner, repo, branch, giteaRoot, giteaApiToken)
 			if branchTimestampResult == nil {
 				// branch doesn't exist
 				return false
@@ -115,7 +115,7 @@ func Handler(mainDomainSuffix, rawDomain, giteaRoot []byte, rawInfoPage, giteaAp
 		var tryUpstream = func() {
 			// check if a canonical domain exists on a request on MainDomain
 			if bytes.HasSuffix(trimmedHost, mainDomainSuffix) {
-				canonicalDomain, _ := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, "", string(mainDomainSuffix), string(giteaRoot), giteaApiToken)
+				canonicalDomain, _ := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, "", string(mainDomainSuffix), giteaRoot, giteaApiToken)
 				if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], string(mainDomainSuffix)) {
 					canonicalPath := string(ctx.RequestURI())
 					if targetRepo != "pages" {
@@ -127,7 +127,7 @@ func Handler(mainDomainSuffix, rawDomain, giteaRoot []byte, rawInfoPage, giteaAp
 			}
 
 			// Try to request the file from the Gitea API
-			if !upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, string(giteaRoot), giteaApiToken, targetOptions) {
+			if !upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken, targetOptions) {
 				returnErrorPage(ctx, ctx.Response.StatusCode())
 			}
 		}
@@ -155,7 +155,7 @@ func Handler(mainDomainSuffix, rawDomain, giteaRoot []byte, rawInfoPage, giteaAp
 			if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
 				log.Debug().Msg("raw domain preparations, now trying with specified branch")
 				if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
-					string(giteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
+					giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 				) {
 					log.Debug().Msg("tryBranch, now trying upstream")
 					tryUpstream()
@@ -167,7 +167,7 @@ func Handler(mainDomainSuffix, rawDomain, giteaRoot []byte, rawInfoPage, giteaAp
 			} else {
 				log.Debug().Msg("raw domain preparations, now trying with default branch")
 				tryBranch(targetRepo, "", pathElements[2:],
-					string(giteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
+					giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 				)
 				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream()
@@ -266,7 +266,7 @@ func Handler(mainDomainSuffix, rawDomain, giteaRoot []byte, rawInfoPage, giteaAp
 			// Try to use the given repo on the given branch or the default branch
 			log.Debug().Msg("custom domain preparations, now trying with details from DNS")
 			if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
-				canonicalDomain, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), string(giteaRoot), giteaApiToken)
+				canonicalDomain, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), giteaRoot, giteaApiToken)
 				if !valid {
 					returnErrorPage(ctx, fasthttp.StatusMisdirectedRequest)
 					return

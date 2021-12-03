@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"github.com/valyala/fasthttp"
 
@@ -17,8 +18,8 @@ import (
 )
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
+// TODO: make it a flag
 var AllowedCorsDomains = [][]byte{
-	RawDomain,
 	[]byte("fonts.codeberg.org"),
 	[]byte("design.codeberg.org"),
 }
@@ -30,20 +31,26 @@ var BlacklistedPaths = [][]byte{
 
 // Serve sets up and starts the web server.
 func Serve(ctx *cli.Context) error {
+	giteaRoot := strings.TrimSuffix(ctx.String("gitea-root"), "/")
+	giteaAPIToken := ctx.String("gitea-api-token")
+	rawDomain := ctx.String("raw-domain")
 	mainDomainSuffix := []byte(ctx.String("main-domain-suffix"))
+	rawInfoPage := ctx.String("raw-info-page")
+	listeningAddress := fmt.Sprintf("%s:%s", ctx.String("host"), ctx.String("port"))
+	acmeAPI := ctx.String("acme-api")
+	acmeMail := ctx.String("acme-email")
+	allowedCorsDomains := AllowedCorsDomains
+	if len(rawDomain) != 0 {
+		allowedCorsDomains = append(allowedCorsDomains, []byte(rawDomain))
+	}
+
 	// Make sure MainDomain has a trailing dot, and GiteaRoot has no trailing slash
 	if !bytes.HasPrefix(mainDomainSuffix, []byte{'.'}) {
 		mainDomainSuffix = append([]byte{'.'}, mainDomainSuffix...)
 	}
 
-	GiteaRoot = bytes.TrimSuffix(GiteaRoot, []byte{'/'})
-
-	// Use HOST and PORT environment variables to determine listening address
-	address := fmt.Sprintf("%s:%s", server.EnvOr("HOST", "[::]"), server.EnvOr("PORT", "443"))
-	log.Printf("Listening on https://%s", address)
-
 	// Create handler based on settings
-	handler := server.Handler(mainDomainSuffix, RawDomain, GiteaRoot, RawInfoPage, GiteaApiToken, BlacklistedPaths, AllowedCorsDomains)
+	handler := server.Handler(mainDomainSuffix, []byte(rawDomain), giteaRoot, rawInfoPage, giteaAPIToken, BlacklistedPaths, allowedCorsDomains)
 
 	// Enable compression by wrapping the handler with the compression function provided by FastHTTP
 	compressedHandler := fasthttp.CompressHandlerBrotliLevel(handler, fasthttp.CompressBrotliBestSpeed, fasthttp.CompressBestSpeed)
@@ -60,13 +67,14 @@ func Serve(ctx *cli.Context) error {
 	}
 
 	// Setup listener and TLS
-	listener, err := net.Listen("tcp", address)
+	log.Info().Msgf("Listening on https://%s", listeningAddress)
+	listener, err := net.Listen("tcp", listeningAddress)
 	if err != nil {
-		log.Fatalf("Couldn't create listener: %s", err)
+		return fmt.Errorf("couldn't create listener: %s", err)
 	}
-	listener = tls.NewListener(listener, server.TlsConfig(mainDomainSuffix, string(GiteaRoot), GiteaApiToken))
+	listener = tls.NewListener(listener, server.TlsConfig(mainDomainSuffix, giteaRoot, giteaAPIToken))
 
-	server.SetupCertificates(mainDomainSuffix)
+	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail)
 	if os.Getenv("ENABLE_HTTP_SERVER") == "true" {
 		go (func() {
 			challengePath := []byte("/.well-known/acme-challenge/")
@@ -83,7 +91,7 @@ func Serve(ctx *cli.Context) error {
 				}
 			})
 			if err != nil {
-				log.Fatalf("Couldn't start HTTP fastServer: %s", err)
+				log.Fatal().Err(err).Msg("Couldn't start HTTP fastServer")
 			}
 		})()
 	}
@@ -91,7 +99,7 @@ func Serve(ctx *cli.Context) error {
 	// Start the web fastServer
 	err = fastServer.Serve(listener)
 	if err != nil {
-		log.Fatalf("Couldn't start fastServer: %s", err)
+		log.Fatal().Err(err).Msg("Couldn't start fastServer")
 	}
 
 	return nil

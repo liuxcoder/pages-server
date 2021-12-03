@@ -3,8 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/gob"
-	"os"
-
 	"github.com/akrylysov/pogreb"
 )
 
@@ -55,13 +53,4 @@ func PogrebGet(db *pogreb.DB, name []byte, obj interface{}) bool {
 		panic(err)
 	}
 	return true
-}
-
-// EnvOr reads an environment variable and returns a default value if it's empty.
-// TODO: to helpers.go or use CLI framework
-func EnvOr(env string, or string) string {
-	if v := os.Getenv(env); v != "" {
-		return v
-	}
-	return or
 }

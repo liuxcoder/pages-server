@@ -399,7 +399,7 @@ func mockCert(domain, msg, mainDomainSuffix string) tls.Certificate {
 	return tlsCertificate
 }
 
-func SetupCertificates(mainDomainSuffix []byte) {
+func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
 	if KeyDatabaseErr != nil {
 		panic(KeyDatabaseErr)
 	}
@@ -425,7 +425,7 @@ func SetupCertificates(mainDomainSuffix []byte) {
 			panic(err)
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = EnvOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
+		myAcmeConfig.CADirURL = acmeAPI
 		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
 		_, err := lego.NewClient(myAcmeConfig)
 		if err != nil {
@@ -437,12 +437,12 @@ func SetupCertificates(mainDomainSuffix []byte) {
 			panic(err)
 		}
 		myAcmeAccount = AcmeAccount{
-			Email:  EnvOr("ACME_EMAIL", "noreply@example.email"),
+			Email:  acmeMail,
 			Key:    privateKey,
 			KeyPEM: string(certcrypto.PEMEncode(privateKey)),
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = EnvOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
+		myAcmeConfig.CADirURL = acmeAPI
 		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
 		tempClient, err := lego.NewClient(myAcmeConfig)
 		if err != nil {
