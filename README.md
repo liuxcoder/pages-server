@@ -15,3 +15,21 @@
 - `ENABLE_HTTP_SERVER` (default: false): Set this to true to enable the HTTP-01 challenge and redirect all other HTTP requests to HTTPS. Currently only works with port 80.
 - `DNS_PROVIDER` (default: use self-signed certificate): Code of the ACME DNS provider for the main domain wildcard.  
   See https://go-acme.github.io/lego/dns/ for available values & additional environment variables.
+
+
+// Package main is the new Codeberg Pages server, a solution for serving static pages from Gitea repositories.
+//
+// Mapping custom domains is not static anymore, but can be done with DNS:
+//
+// 1) add a "domains.txt" text file to your repository, containing the allowed domains, separated by new lines. The
+// first line will be the canonical domain/URL; all other occurrences will be redirected to it.
+//
+// 2) add a CNAME entry to your domain, pointing to "[[{branch}.]{repo}.]{owner}.codeberg.page" (repo defaults to
+// "pages", "branch" defaults to the default branch if "repo" is "pages", or to "pages" if "repo" is something else):
+//      www.example.org. IN CNAME main.pages.example.codeberg.page.
+//
+// 3) if a CNAME is set for "www.example.org", you can redirect there from the naked domain by adding an ALIAS record
+// for "example.org" (if your provider allows ALIAS or similar records):
+//      example.org IN ALIAS codeberg.page.
+//
+// Certificates are generated, updated and cleaned up automatically via Let's Encrypt through a TLS challenge.
