@@ -38,7 +38,7 @@ import (
 )
 
 // TlsConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
-func TlsConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken string) *tls.Config {
+func TlsConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken, dnsProvider string, acmeUseRateLimits bool) *tls.Config {
 	return &tls.Config{
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -94,13 +94,13 @@ func TlsConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken string) *tls.Co
 			var tlsCertificate tls.Certificate
 			var err error
 			var ok bool
-			if tlsCertificate, ok = retrieveCertFromDB(sniBytes, mainDomainSuffix); !ok {
+			if tlsCertificate, ok = retrieveCertFromDB(sniBytes, mainDomainSuffix, dnsProvider, acmeUseRateLimits); !ok {
 				// request a new certificate
 				if bytes.Equal(sniBytes, mainDomainSuffix) {
 					return nil, errors.New("won't request certificate for main domain, something really bad has happened")
 				}
 
-				tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner, mainDomainSuffix)
+				tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner, dnsProvider, mainDomainSuffix, acmeUseRateLimits)
 				if err != nil {
 					return nil, err
 				}
@@ -209,7 +209,7 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	return nil
 }
 
-func retrieveCertFromDB(sni, mainDomainSuffix []byte) (tls.Certificate, bool) {
+func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool) (tls.Certificate, bool) {
 	// parse certificate from database
 	res := &certificate.Resource{}
 	if !PogrebGet(KeyDatabase, sni, res) {
@@ -240,7 +240,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte) (tls.Certificate, bool) {
 			}
 			go (func() {
 				res.CSR = nil // acme client doesn't like CSR to be set
-				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "", mainDomainSuffix)
+				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits)
 				if err != nil {
 					log.Printf("Couldn't renew certificate for %s: %s", sni, err)
 				}
@@ -253,9 +253,9 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte) (tls.Certificate, bool) {
 
 var obtainLocks = sync.Map{}
 
-func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user string, mainDomainSuffix []byte) (tls.Certificate, error) {
+func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user, dnsProvider string, mainDomainSuffix []byte, acmeUseRateLimits bool) (tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
-	if os.Getenv("DNS_PROVIDER") == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
+	if dnsProvider == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
 		domains = domains[1:]
 	}
 
@@ -266,7 +266,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			time.Sleep(100 * time.Millisecond)
 			_, working = obtainLocks.Load(name)
 		}
-		cert, ok := retrieveCertFromDB([]byte(name), mainDomainSuffix)
+		cert, ok := retrieveCertFromDB([]byte(name), mainDomainSuffix, dnsProvider, acmeUseRateLimits)
 		if !ok {
 			return tls.Certificate{}, errors.New("certificate failed in synchronous request")
 		}
@@ -282,7 +282,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	var res *certificate.Resource
 	var err error
 	if renew != nil && renew.CertURL != "" {
-		if os.Getenv("ACME_USE_RATE_LIMITS") != "false" {
+		if acmeUseRateLimits {
 			acmeClientRequestLimit.Take()
 		}
 		log.Printf("Renewing certificate for %v", domains)
@@ -299,7 +299,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			}
 		}
 
-		if os.Getenv("ACME_USE_RATE_LIMITS") != "false" {
+		if acmeUseRateLimits {
 			acmeClientOrderLimit.Take()
 			acmeClientRequestLimit.Take()
 		}
@@ -399,13 +399,9 @@ func mockCert(domain, msg, mainDomainSuffix string) tls.Certificate {
 	return tlsCertificate
 }
 
-func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
+func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider string, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer bool) {
 	if KeyDatabaseErr != nil {
-		panic(KeyDatabaseErr)
-	}
-
-	if os.Getenv("ACME_ACCEPT_TERMS") != "true" || (os.Getenv("DNS_PROVIDER") == "" && os.Getenv("ACME_API") != "https://acme.mock.directory") {
-		panic(errors.New("you must set ACME_ACCEPT_TERMS and DNS_PROVIDER, unless ACME_API is set to https://acme.mock.directory"))
+		panic(KeyDatabaseErr) // TODO: move it into own init and not panic on a unrelated topic!!!!
 	}
 
 	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
@@ -449,8 +445,8 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
 			log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
 		} else {
 			// accept terms & log in to EAB
-			if os.Getenv("ACME_EAB_KID") == "" || os.Getenv("ACME_EAB_HMAC") == "" {
-				reg, err := tempClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true"})
+			if acmeEabKID == "" || acmeEabHmac == "" {
+				reg, err := tempClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: acmeAcceptTerms})
 				if err != nil {
 					log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
 				} else {
@@ -458,9 +454,9 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
 				}
 			} else {
 				reg, err := tempClient.Registration.RegisterWithExternalAccountBinding(registration.RegisterEABOptions{
-					TermsOfServiceAgreed: os.Getenv("ACME_ACCEPT_TERMS") == "true",
-					Kid:                  os.Getenv("ACME_EAB_KID"),
-					HmacEncoded:          os.Getenv("ACME_EAB_HMAC"),
+					TermsOfServiceAgreed: acmeAcceptTerms,
+					Kid:                  acmeEabKID,
+					HmacEncoded:          acmeEabHmac,
 				})
 				if err != nil {
 					log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
@@ -494,7 +490,7 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
 		if err != nil {
 			log.Printf("[ERROR] Can't create TLS-ALPN-01 provider: %s", err)
 		}
-		if os.Getenv("ENABLE_HTTP_SERVER") == "true" {
+		if enableHTTPServer {
 			err = acmeClient.Challenge.SetHTTP01Provider(AcmeHTTPChallengeProvider{})
 			if err != nil {
 				log.Printf("[ERROR] Can't create HTTP-01 provider: %s", err)
@@ -506,14 +502,14 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
 	if err != nil {
 		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
 	} else {
-		if os.Getenv("DNS_PROVIDER") == "" {
+		if dnsProvider == "" {
 			// using mock server, don't use wildcard certs
 			err := mainDomainAcmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
 			if err != nil {
 				log.Printf("[ERROR] Can't create TLS-ALPN-01 provider: %s", err)
 			}
 		} else {
-			provider, err := dns.NewDNSChallengeProviderByName(os.Getenv("DNS_PROVIDER"))
+			provider, err := dns.NewDNSChallengeProviderByName(dnsProvider)
 			if err != nil {
 				log.Printf("[ERROR] Can't create DNS Challenge provider: %s", err)
 			}
@@ -525,7 +521,7 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
 	}
 
 	if mainCertBytes == nil {
-		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, nil, "", mainDomainSuffix)
+		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, nil, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits)
 		if err != nil {
 			log.Printf("[ERROR] Couldn't renew main domain certificate, continuing with mock certs only: %s", err)
 		}
@@ -590,7 +586,7 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail string) {
 				// renew main certificate 30 days before it expires
 				if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
 					go (func() {
-						_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, res, "", mainDomainSuffix)
+						_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits)
 						if err != nil {
 							log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", err)
 						}

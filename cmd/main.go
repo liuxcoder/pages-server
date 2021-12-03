@@ -3,10 +3,10 @@ package cmd
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -37,8 +37,19 @@ func Serve(ctx *cli.Context) error {
 	mainDomainSuffix := []byte(ctx.String("main-domain-suffix"))
 	rawInfoPage := ctx.String("raw-info-page")
 	listeningAddress := fmt.Sprintf("%s:%s", ctx.String("host"), ctx.String("port"))
+	enableHTTPServer := ctx.Bool("enable-http-server")
+
 	acmeAPI := ctx.String("acme-api")
 	acmeMail := ctx.String("acme-email")
+	acmeUseRateLimits := ctx.Bool("acme-use-rate-limits")
+	acmeAcceptTerms := ctx.Bool("acme-accept-terms")
+	acmeEabKID := ctx.String("acme-eab-kid")
+	acmeEabHmac := ctx.String("acme-eab-hmac")
+	dnsProvider := ctx.String("dns-provider")
+	if acmeAcceptTerms || (dnsProvider == "" && acmeAPI != "https://acme.mock.directory") {
+		return errors.New("you must set $ACME_ACCEPT_TERMS and $DNS_PROVIDER, unless $ACME_API is set to https://acme.mock.directory")
+	}
+
 	allowedCorsDomains := AllowedCorsDomains
 	if len(rawDomain) != 0 {
 		allowedCorsDomains = append(allowedCorsDomains, []byte(rawDomain))
@@ -72,10 +83,10 @@ func Serve(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("couldn't create listener: %s", err)
 	}
-	listener = tls.NewListener(listener, server.TlsConfig(mainDomainSuffix, giteaRoot, giteaAPIToken))
+	listener = tls.NewListener(listener, server.TlsConfig(mainDomainSuffix, giteaRoot, giteaAPIToken, dnsProvider, acmeUseRateLimits))
 
-	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail)
-	if os.Getenv("ENABLE_HTTP_SERVER") == "true" {
+	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer)
+	if enableHTTPServer {
 		go (func() {
 			challengePath := []byte("/.well-known/acme-challenge/")
 			err := fasthttp.ListenAndServe("[::]:80", func(ctx *fasthttp.RequestCtx) {

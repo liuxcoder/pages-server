@@ -45,6 +45,7 @@ var ServeFlags = []cli.Flag{
 		Value:   "https://docs.codeberg.org/pages/raw-content/",
 	},
 
+	// Server
 	&cli.StringFlag{
 		Name:    "host",
 		Usage:   "specifies host of listening address",
@@ -57,8 +58,13 @@ var ServeFlags = []cli.Flag{
 		EnvVars: []string{"PORT"},
 		Value:   "443",
 	},
+	&cli.BoolFlag{
+		Name: "enable-http-server",
+		// TODO: desc
+		EnvVars: []string{"ENABLE_HTTP_SERVER"},
+	},
 
-	// ACME_API
+	// ACME
 	&cli.StringFlag{
 		Name:    "acme-api",
 		EnvVars: []string{"ACME_API"},
@@ -68,5 +74,31 @@ var ServeFlags = []cli.Flag{
 		Name:    "acme-email",
 		EnvVars: []string{"ACME_EMAIL"},
 		Value:   "noreply@example.email",
+	},
+	&cli.BoolFlag{
+		Name: "acme-use-rate-limits",
+		// TODO: Usage
+		EnvVars: []string{"ACME_USE_RATE_LIMITS"},
+		Value:   true,
+	},
+	&cli.BoolFlag{
+		Name: "acme-accept-terms",
+		// TODO: Usage
+		EnvVars: []string{"ACME_ACCEPT_TERMS"},
+	},
+	&cli.StringFlag{
+		Name: "acme-eab-kid",
+		// TODO: Usage
+		EnvVars: []string{"ACME_EAB_KID"},
+	},
+	&cli.StringFlag{
+		Name: "acme-eab-hmac",
+		// TODO: Usage
+		EnvVars: []string{"ACME_EAB_HMAC"},
+	},
+	&cli.StringFlag{
+		Name: "dns-provider",
+		// TODO: Usage
+		EnvVars: []string{"DNS_PROVIDER"},
 	},
 }
