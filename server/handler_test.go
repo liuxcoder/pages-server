@@ -11,7 +11,7 @@ func TestHandlerPerformance(t *testing.T) {
 	testHandler := Handler(
 		[]byte("codeberg.page"),
 		[]byte("raw.codeberg.org"),
-		[]byte("https://codeberg.org"),
+		"https://codeberg.org",
 		"https://docs.codeberg.org/pages/raw-content/",
 		"",
 		[][]byte{[]byte("/.well-known/acme-challenge/")},
