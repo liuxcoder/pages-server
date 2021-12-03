@@ -16,6 +16,7 @@ import (
 	"github.com/valyala/fastjson"
 
 	"codeberg.org/codeberg/pages/html"
+	"codeberg.org/codeberg/pages/server/utils"
 )
 
 // Handler handles a single HTTP request to the web server.
@@ -31,7 +32,7 @@ func Handler(mainDomainSuffix, rawDomain []byte, giteaRoot, rawInfoPage, giteaAp
 		// Enable browser caching for up to 10 minutes
 		ctx.Response.Header.Set("Cache-Control", "public, max-age=600")
 
-		trimmedHost := TrimHostPort(ctx.Request.Host())
+		trimmedHost := utils.TrimHostPort(ctx.Request.Host())
 
 		// Add HSTS for RawDomain and MainDomainSuffix
 		if hsts := GetHSTSHeader(trimmedHost, mainDomainSuffix, rawDomain); hsts != "" {

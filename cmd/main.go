@@ -15,6 +15,7 @@ import (
 	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/server"
+	"codeberg.org/codeberg/pages/server/utils"
 )
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
@@ -91,7 +92,7 @@ func Serve(ctx *cli.Context) error {
 			challengePath := []byte("/.well-known/acme-challenge/")
 			err := fasthttp.ListenAndServe("[::]:80", func(ctx *fasthttp.RequestCtx) {
 				if bytes.HasPrefix(ctx.Path(), challengePath) {
-					challenge, ok := server.ChallengeCache.Get(string(server.TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
+					challenge, ok := server.ChallengeCache.Get(string(utils.TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
 					if !ok || challenge == nil {
 						ctx.SetStatusCode(http.StatusNotFound)
 						ctx.SetBodyString("no challenge for this token")

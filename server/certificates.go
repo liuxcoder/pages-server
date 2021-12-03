@@ -14,12 +14,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"github.com/OrlovEvgeny/go-mcache"
-	"github.com/akrylysov/pogreb/fs"
-	"github.com/go-acme/lego/v4/certificate"
-	"github.com/go-acme/lego/v4/challenge"
-	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
-	"github.com/go-acme/lego/v4/providers/dns"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -29,12 +23,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/akrylysov/pogreb"
+	"github.com/akrylysov/pogreb/fs"
 	"github.com/reugn/equalizer"
 
 	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
 	"github.com/go-acme/lego/v4/lego"
+	"github.com/go-acme/lego/v4/providers/dns"
 	"github.com/go-acme/lego/v4/registration"
+
+	"codeberg.org/codeberg/pages/server/database"
 )
 
 // TlsConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
@@ -212,7 +214,7 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool) (tls.Certificate, bool) {
 	// parse certificate from database
 	res := &certificate.Resource{}
-	if !PogrebGet(KeyDatabase, sni, res) {
+	if !database.PogrebGet(KeyDatabase, sni, res) {
 		return tls.Certificate{}, false
 	}
 
@@ -317,7 +319,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			if err == nil && tlsCertificate.Leaf.NotAfter.After(time.Now()) {
 				// avoid sending a mock cert instead of a still valid cert, instead abuse CSR field to store time to try again at
 				renew.CSR = []byte(strconv.FormatInt(time.Now().Add(6*time.Hour).Unix(), 10))
-				PogrebPut(KeyDatabase, []byte(name), renew)
+				database.PogrebPut(KeyDatabase, []byte(name), renew)
 				return tlsCertificate, nil
 			}
 		}
@@ -325,7 +327,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	}
 	log.Printf("Obtained certificate for %v", domains)
 
-	PogrebPut(KeyDatabase, []byte(name), res)
+	database.PogrebPut(KeyDatabase, []byte(name), res)
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
 		return tls.Certificate{}, err
@@ -390,7 +392,7 @@ func mockCert(domain, msg, mainDomainSuffix string) tls.Certificate {
 	if domain == "*"+mainDomainSuffix || domain == mainDomainSuffix[1:] {
 		databaseName = mainDomainSuffix
 	}
-	PogrebPut(KeyDatabase, []byte(databaseName), res)
+	database.PogrebPut(KeyDatabase, []byte(databaseName), res)
 
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
@@ -578,7 +580,7 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, 
 
 			// update main cert
 			res := &certificate.Resource{}
-			if !PogrebGet(KeyDatabase, mainDomainSuffix, res) {
+			if !database.PogrebGet(KeyDatabase, mainDomainSuffix, res) {
 				log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", "expected main domain cert to exist, but it's missing - seems like the database is corrupted")
 			} else {
 				tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
