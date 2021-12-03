@@ -92,6 +92,7 @@ func Serve(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not create database: %v", err)
 	}
+	defer keyDatabase.Sync() // database has no close ... sync behave like it
 
 	keyCache := cache.NewKeyValueCache()
 	listener = tls.NewListener(listener, server.TLSConfig(mainDomainSuffix, giteaRoot, giteaAPIToken, dnsProvider, acmeUseRateLimits, keyCache, keyDatabase))
