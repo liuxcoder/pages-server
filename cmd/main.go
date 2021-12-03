@@ -95,15 +95,16 @@ func Serve(ctx *cli.Context) error {
 	defer keyDatabase.Sync() // database has no close ... sync behave like it
 
 	keyCache := cache.NewKeyValueCache()
-	listener = tls.NewListener(listener, server.TLSConfig(mainDomainSuffix, giteaRoot, giteaAPIToken, dnsProvider, acmeUseRateLimits, keyCache, keyDatabase))
+	challengeCache := cache.NewKeyValueCache()
+	listener = tls.NewListener(listener, server.TLSConfig(mainDomainSuffix, giteaRoot, giteaAPIToken, dnsProvider, acmeUseRateLimits, keyCache, challengeCache, keyDatabase))
 
-	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, keyDatabase)
+	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, challengeCache, keyDatabase)
 	if enableHTTPServer {
 		go (func() {
 			challengePath := []byte("/.well-known/acme-challenge/")
 			err := fasthttp.ListenAndServe("[::]:80", func(ctx *fasthttp.RequestCtx) {
 				if bytes.HasPrefix(ctx.Path(), challengePath) {
-					challenge, ok := server.ChallengeCache.Get(string(utils.TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
+					challenge, ok := challengeCache.Get(string(utils.TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
 					if !ok || challenge == nil {
 						ctx.SetStatusCode(http.StatusNotFound)
 						ctx.SetBodyString("no challenge for this token")

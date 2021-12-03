@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/reugn/equalizer"
 
 	"github.com/go-acme/lego/v4/certcrypto"
@@ -39,7 +38,7 @@ import (
 )
 
 // TLSConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
-func TLSConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken, dnsProvider string, acmeUseRateLimits bool, keyCache cache.SetGetKey, keyDatabase database.KeyDB) *tls.Config {
+func TLSConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken, dnsProvider string, acmeUseRateLimits bool, keyCache, challengeCache cache.SetGetKey, keyDatabase database.KeyDB) *tls.Config {
 	return &tls.Config{
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -52,7 +51,7 @@ func TLSConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken, dnsProvider st
 			if info.SupportedProtos != nil {
 				for _, proto := range info.SupportedProtos {
 					if proto == tlsalpn01.ACMETLS1Protocol {
-						challenge, ok := ChallengeCache.Get(sni)
+						challenge, ok := challengeCache.Get(sni)
 						if !ok {
 							return nil, errors.New("no challenge for this domain")
 						}
@@ -176,29 +175,33 @@ var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15*time.Minute)
 // rate limit is 20 / second, we want 5 / second (especially as one cert takes at least two requests)
 var acmeClientRequestLimit = equalizer.NewTokenBucket(5, 1*time.Second)
 
-var ChallengeCache = mcache.New()
+type AcmeTLSChallengeProvider struct {
+	challengeCache cache.SetGetKey
+}
 
-type AcmeTLSChallengeProvider struct{}
-
+// make sure AcmeTLSChallengeProvider match Provider interface
 var _ challenge.Provider = AcmeTLSChallengeProvider{}
 
 func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
-	return ChallengeCache.Set(domain, keyAuth, 1*time.Hour)
+	return a.challengeCache.Set(domain, keyAuth, 1*time.Hour)
 }
 func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
-	ChallengeCache.Remove(domain)
+	a.challengeCache.Remove(domain)
 	return nil
 }
 
-type AcmeHTTPChallengeProvider struct{}
+type AcmeHTTPChallengeProvider struct {
+	challengeCache cache.SetGetKey
+}
 
+// make sure AcmeHTTPChallengeProvider match Provider interface
 var _ challenge.Provider = AcmeHTTPChallengeProvider{}
 
 func (a AcmeHTTPChallengeProvider) Present(domain, token, keyAuth string) error {
-	return ChallengeCache.Set(domain+"/"+token, keyAuth, 1*time.Hour)
+	return a.challengeCache.Set(domain+"/"+token, keyAuth, 1*time.Hour)
 }
 func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
-	ChallengeCache.Remove(domain + "/" + token)
+	a.challengeCache.Remove(domain + "/" + token)
 	return nil
 }
 
@@ -392,7 +395,7 @@ func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.KeyDB) 
 	return tlsCertificate
 }
 
-func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider string, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer bool, keyDatabase database.KeyDB) {
+func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider string, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer bool, challengeCache cache.SetGetKey, keyDatabase database.KeyDB) {
 	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
 	mainCertBytes, err := keyDatabase.Get(mainDomainSuffix)
 	if err != nil {
@@ -475,12 +478,12 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, 
 	if err != nil {
 		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
 	} else {
-		err = acmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
+		err = acmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
 		if err != nil {
 			log.Printf("[ERROR] Can't create TLS-ALPN-01 provider: %s", err)
 		}
 		if enableHTTPServer {
-			err = acmeClient.Challenge.SetHTTP01Provider(AcmeHTTPChallengeProvider{})
+			err = acmeClient.Challenge.SetHTTP01Provider(AcmeHTTPChallengeProvider{challengeCache})
 			if err != nil {
 				log.Printf("[ERROR] Can't create HTTP-01 provider: %s", err)
 			}
@@ -493,7 +496,7 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, 
 	} else {
 		if dnsProvider == "" {
 			// using mock server, don't use wildcard certs
-			err := mainDomainAcmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{})
+			err := mainDomainAcmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
 			if err != nil {
 				log.Printf("[ERROR] Can't create TLS-ALPN-01 provider: %s", err)
 			}
