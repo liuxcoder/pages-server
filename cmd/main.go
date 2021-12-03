@@ -15,6 +15,8 @@ import (
 	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/server"
+	"codeberg.org/codeberg/pages/server/cache"
+	"codeberg.org/codeberg/pages/server/database"
 	"codeberg.org/codeberg/pages/server/utils"
 )
 
@@ -84,9 +86,17 @@ func Serve(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("couldn't create listener: %s", err)
 	}
-	listener = tls.NewListener(listener, server.TlsConfig(mainDomainSuffix, giteaRoot, giteaAPIToken, dnsProvider, acmeUseRateLimits))
 
-	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer)
+	// TODO: make "key-database.pogreb" set via flag
+	keyDatabase, err := database.New("key-database.pogreb")
+	if err != nil {
+		return fmt.Errorf("could not create database: %v", err)
+	}
+
+	keyCache := cache.NewKeyValueCache()
+	listener = tls.NewListener(listener, server.TLSConfig(mainDomainSuffix, giteaRoot, giteaAPIToken, dnsProvider, acmeUseRateLimits, keyCache, keyDatabase))
+
+	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, keyDatabase)
 	if enableHTTPServer {
 		go (func() {
 			challengePath := []byte("/.well-known/acme-challenge/")

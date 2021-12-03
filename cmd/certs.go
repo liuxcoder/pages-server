@@ -1,11 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/urfave/cli/v2"
 
-	pages_server "codeberg.org/codeberg/pages/server"
+	"codeberg.org/codeberg/pages/server/database"
 )
 
 var Certs = &cli.Command{
@@ -23,15 +24,18 @@ func certs(ctx *cli.Context) error {
 
 		domains := ctx.Args().Slice()[2:]
 
-		if pages_server.KeyDatabaseErr != nil {
-			panic(pages_server.KeyDatabaseErr)
+		// TODO: make "key-database.pogreb" set via flag
+		keyDatabase, err := database.New("key-database.pogreb")
+		if err != nil {
+			return fmt.Errorf("could not create database: %v", err)
 		}
+
 		for _, domain := range domains {
-			if err := pages_server.KeyDatabase.Delete([]byte(domain)); err != nil {
+			if err := keyDatabase.Delete([]byte(domain)); err != nil {
 				panic(err)
 			}
 		}
-		if err := pages_server.KeyDatabase.Sync(); err != nil {
+		if err := keyDatabase.Sync(); err != nil {
 			panic(err)
 		}
 		os.Exit(0)

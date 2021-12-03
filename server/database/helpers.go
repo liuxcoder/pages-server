@@ -3,10 +3,9 @@ package database
 import (
 	"bytes"
 	"encoding/gob"
-	"github.com/akrylysov/pogreb"
 )
 
-func PogrebPut(db *pogreb.DB, name []byte, obj interface{}) {
+func PogrebPut(db KeyDB, name []byte, obj interface{}) {
 	var resGob bytes.Buffer
 	resEnc := gob.NewEncoder(&resGob)
 	err := resEnc.Encode(obj)
@@ -19,7 +18,7 @@ func PogrebPut(db *pogreb.DB, name []byte, obj interface{}) {
 	}
 }
 
-func PogrebGet(db *pogreb.DB, name []byte, obj interface{}) bool {
+func PogrebGet(db KeyDB, name []byte, obj interface{}) bool {
 	resBytes, err := db.Get(name)
 	if err != nil {
 		panic(err)
