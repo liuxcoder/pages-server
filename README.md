@@ -16,12 +16,12 @@
 - `DNS_PROVIDER` (default: use self-signed certificate): Code of the ACME DNS provider for the main domain wildcard.  
   See https://go-acme.github.io/lego/dns/ for available values & additional environment variables.
 
-
+```
 // Package main is the new Codeberg Pages server, a solution for serving static pages from Gitea repositories.
 //
 // Mapping custom domains is not static anymore, but can be done with DNS:
 //
-// 1) add a "domains.txt" text file to your repository, containing the allowed domains, separated by new lines. The
+// 1) add a ".domains" text file to your repository, containing the allowed domains, separated by new lines. The
 // first line will be the canonical domain/URL; all other occurrences will be redirected to it.
 //
 // 2) add a CNAME entry to your domain, pointing to "[[{branch}.]{repo}.]{owner}.codeberg.page" (repo defaults to
@@ -33,3 +33,4 @@
 //      example.org IN ALIAS codeberg.page.
 //
 // Certificates are generated, updated and cleaned up automatically via Let's Encrypt through a TLS challenge.
+```
