@@ -28,6 +28,7 @@ var AllowedCorsDomains = [][]byte{
 }
 
 // BlacklistedPaths specifies forbidden path prefixes for all Codeberg Pages.
+// TODO: Make it a flag too
 var BlacklistedPaths = [][]byte{
 	[]byte("/.well-known/acme-challenge/"),
 }
