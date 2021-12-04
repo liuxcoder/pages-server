@@ -41,7 +41,7 @@ var ServeFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:    "raw-info-page",
 		Usage:   "will be shown (with a redirect) when trying to access $RAW_DOMAIN directly (or without owner/repo/path)",
-		EnvVars: []string{"REDIRECT_RAW_INFO"},
+		EnvVars: []string{"RAW_INFO_PAGE"},
 		Value:   "https://docs.codeberg.org/pages/raw-content/",
 	},
 

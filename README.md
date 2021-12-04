@@ -5,7 +5,7 @@
 - `RAW_DOMAIN` (default: `raw.codeberg.org`): domain for raw resources.
 - `GITEA_ROOT` (default: `https://codeberg.org`): root of the upstream Gitea instance.
 - `GITEA_API_TOKEN` (default: empty): API token for the Gitea instance to access non-public (e.g. limited) repos.
-- `REDIRECT_RAW_INFO` (default: https://docs.codeberg.org/pages/raw-content/): info page for raw resources, shown if no resource is provided.
+- `RAW_INFO_PAGE` (default: https://docs.codeberg.org/pages/raw-content/): info page for raw resources, shown if no resource is provided.
 - `ACME_API` (default: https://acme-v02.api.letsencrypt.org/directory): set this to https://acme.mock.director to use invalid certificates without any verification (great for debugging).  
   ZeroSSL might be better in the future as it doesn't have rate limits and doesn't clash with the official Codeberg certificates (which are using Let's Encrypt), but I couldn't get it to work yet.
 - `ACME_EMAIL` (default: `noreply@example.email`): Set this to "true" to accept the Terms of Service of your ACME provider.
