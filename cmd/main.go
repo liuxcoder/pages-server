@@ -42,7 +42,7 @@ func Serve(ctx *cli.Context) error {
 	listeningAddress := fmt.Sprintf("%s:%s", ctx.String("host"), ctx.String("port"))
 	enableHTTPServer := ctx.Bool("enable-http-server")
 
-	acmeAPI := ctx.String("acme-api")
+	acmeAPI := ctx.String("acme-api-endpoint")
 	acmeMail := ctx.String("acme-email")
 	acmeUseRateLimits := ctx.Bool("acme-use-rate-limits")
 	acmeAcceptTerms := ctx.Bool("acme-accept-terms")

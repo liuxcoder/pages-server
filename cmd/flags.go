@@ -66,7 +66,7 @@ var ServeFlags = []cli.Flag{
 
 	// ACME
 	&cli.StringFlag{
-		Name:    "acme-api",
+		Name:    "acme-api-endpoint",
 		EnvVars: []string{"ACME_API"},
 		Value:   "https://acme-v02.api.letsencrypt.org/directory",
 	},
