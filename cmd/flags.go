@@ -9,7 +9,7 @@ var ServeFlags = []cli.Flag{
 	// pages, or used for comparison in CNAME lookups. Static pages can be accessed through
 	// https://{owner}.{MainDomain}[/{repo}], with repo defaulting to "pages".
 	&cli.StringFlag{
-		Name:    "main-domain-suffix",
+		Name:    "pages-domain",
 		Usage:   "specifies the main domain (starting with a dot) for which subdomains shall be served as static pages",
 		EnvVars: []string{"PAGES_DOMAIN"},
 		Value:   "codeberg.page",

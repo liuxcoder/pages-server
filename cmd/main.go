@@ -37,7 +37,7 @@ func Serve(ctx *cli.Context) error {
 	giteaRoot := strings.TrimSuffix(ctx.String("gitea-root"), "/")
 	giteaAPIToken := ctx.String("gitea-api-token")
 	rawDomain := ctx.String("raw-domain")
-	mainDomainSuffix := []byte(ctx.String("main-domain-suffix"))
+	mainDomainSuffix := []byte(ctx.String("pages-domain"))
 	rawInfoPage := ctx.String("raw-info-page")
 	listeningAddress := fmt.Sprintf("%s:%s", ctx.String("host"), ctx.String("port"))
 	enableHTTPServer := ctx.Bool("enable-http-server")
