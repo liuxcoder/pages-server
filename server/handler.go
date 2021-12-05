@@ -144,18 +144,18 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				log.Debug().Msg("missing branch")
 				html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
 				return
-			} else {
-				log.Debug().Msg("raw domain preparations, now trying with default branch")
-				tryBranch(targetRepo, "", pathElements[2:],
-					giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
-				)
-				log.Debug().Msg("tryBranch, now trying upstream")
-				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
-					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaAPIToken,
-					canonicalDomainCache, branchTimestampCache, fileResponseCache)
-				return
 			}
+
+			log.Debug().Msg("raw domain preparations, now trying with default branch")
+			tryBranch(targetRepo, "", pathElements[2:],
+				giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
+			)
+			log.Debug().Msg("tryBranch, now trying upstream")
+			tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+				targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
+				giteaRoot, giteaAPIToken,
+				canonicalDomainCache, branchTimestampCache, fileResponseCache)
+			return
 
 		} else if bytes.HasSuffix(trimmedHost, mainDomainSuffix) {
 			// Serve pages from subdomains of MainDomainSuffix
@@ -167,7 +167,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			targetPath = strings.Trim(strings.Join(pathElements[1:], "/"), "/")
 
 			if targetOwner == "www" {
-				// www.codeberg.page redirects to codeberg.page
+				// www.codeberg.page redirects to codeberg.page // TODO: rm hardcoded - use cname?
 				ctx.Redirect("https://"+string(mainDomainSuffix[1:])+string(ctx.Path()), fasthttp.StatusPermanentRedirect)
 				return
 			}
@@ -271,10 +271,10 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 					if targetOwner != "" {
 						ctx.Redirect("https://"+canonicalDomain+string(ctx.RequestURI()), fasthttp.StatusTemporaryRedirect)
 						return
-					} else {
-						html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
-						return
 					}
+
+					html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
+					return
 				}
 
 				log.Debug().Msg("tryBranch, now trying upstream")
@@ -283,10 +283,10 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
-			} else {
-				html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
-				return
 			}
+
+			html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
+			return
 		}
 	}
 }

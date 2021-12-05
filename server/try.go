@@ -20,6 +20,7 @@ func tryUpstream(ctx *fasthttp.RequestCtx,
 
 	giteaRoot, giteaAPIToken string,
 	canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey) {
+
 	// check if a canonical domain exists on a request on MainDomain
 	if bytes.HasSuffix(trimmedHost, mainDomainSuffix) {
 		canonicalDomain, _ := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, "", string(mainDomainSuffix), giteaRoot, giteaAPIToken, canonicalDomainCache)
@@ -33,8 +34,13 @@ func tryUpstream(ctx *fasthttp.RequestCtx,
 		}
 	}
 
+	targetOptions.TargetOwner = targetOwner
+	targetOptions.TargetRepo = targetRepo
+	targetOptions.TargetBranch = targetBranch
+	targetOptions.TargetPath = targetPath
+
 	// Try to request the file from the Gitea API
-	if !targetOptions.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaAPIToken, branchTimestampCache, fileResponseCache) {
+	if !targetOptions.Upstream(ctx, giteaRoot, giteaAPIToken, branchTimestampCache, fileResponseCache) {
 		html.ReturnErrorPage(ctx, ctx.Response.StatusCode())
 	}
 }

@@ -24,7 +24,12 @@ var upstreamIndexPages = []string{
 
 // Options provides various options for the upstream request.
 type Options struct {
-	DefaultMimeType    string
+	TargetOwner,
+	TargetRepo,
+	TargetBranch,
+	TargetPath,
+
+	DefaultMimeType string
 	ForbiddenMimeTypes map[string]struct{}
 	TryIndexPages      bool
 	BranchTimestamp    time.Time
@@ -41,26 +46,26 @@ var client = fasthttp.Client{
 }
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func (o *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaAPIToken string, branchTimestampCache, fileResponseCache cache.SetGetKey) (final bool) {
-	log := log.With().Strs("upstream", []string{targetOwner, targetRepo, targetBranch, targetPath}).Logger()
+func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaRoot, giteaAPIToken string, branchTimestampCache, fileResponseCache cache.SetGetKey) (final bool) {
+	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath}).Logger()
 
 	if o.ForbiddenMimeTypes == nil {
 		o.ForbiddenMimeTypes = map[string]struct{}{}
 	}
 
 	// Check if the branch exists and when it was modified
-	if o.BranchTimestamp == (time.Time{}) {
-		branch := GetBranchTimestamp(targetOwner, targetRepo, targetBranch, giteaRoot, giteaAPIToken, branchTimestampCache)
+	if o.BranchTimestamp.IsZero() {
+		branch := GetBranchTimestamp(o.TargetOwner, o.TargetRepo, o.TargetBranch, giteaRoot, giteaAPIToken, branchTimestampCache)
 
 		if branch == nil {
 			html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
 			return true
 		}
-		targetBranch = branch.Branch
+		o.TargetBranch = branch.Branch
 		o.BranchTimestamp = branch.Timestamp
 	}
 
-	if targetOwner == "" || targetRepo == "" || targetBranch == "" {
+	if o.TargetOwner == "" || o.TargetRepo == "" || o.TargetBranch == "" {
 		html.ReturnErrorPage(ctx, fasthttp.StatusBadRequest)
 		return true
 	}
@@ -75,7 +80,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, ta
 	log.Debug().Msg("preparations")
 
 	// Make a GET request to the upstream URL
-	uri := targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath
+	uri := o.TargetOwner + "/" + o.TargetRepo + "/raw/" + o.TargetBranch + "/" + o.TargetPath
 	var req *fasthttp.Request
 	var res *fasthttp.Response
 	var cachedResponse fileResponse
@@ -99,7 +104,8 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, ta
 			optionsForIndexPages.TryIndexPages = false
 			optionsForIndexPages.appendTrailingSlash = true
 			for _, indexPage := range upstreamIndexPages {
-				if optionsForIndexPages.Upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, giteaRoot, giteaAPIToken, branchTimestampCache, fileResponseCache) {
+				optionsForIndexPages.TargetPath = strings.TrimSuffix(o.TargetPath, "/") + "/" + indexPage
+				if optionsForIndexPages.Upstream(ctx, giteaRoot, giteaAPIToken, branchTimestampCache, fileResponseCache) {
 					_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(o.BranchTimestamp.Unix(), 10), fileResponse{
 						exists: false,
 					}, fileCacheTimeout)
@@ -109,7 +115,8 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, ta
 			// compatibility fix for GitHub Pages (/example → /example.html)
 			optionsForIndexPages.appendTrailingSlash = false
 			optionsForIndexPages.redirectIfExists = string(ctx.Request.URI().Path()) + ".html"
-			if optionsForIndexPages.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath+".html", giteaRoot, giteaAPIToken, branchTimestampCache, fileResponseCache) {
+			optionsForIndexPages.TargetPath = o.TargetPath + ".html"
+			if optionsForIndexPages.Upstream(ctx, giteaRoot, giteaAPIToken, branchTimestampCache, fileResponseCache) {
 				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(o.BranchTimestamp.Unix(), 10), fileResponse{
 					exists: false,
 				}, fileCacheTimeout)
@@ -148,7 +155,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, ta
 	log.Debug().Msg("error handling")
 
 	// Set the MIME type
-	mimeType := mime.TypeByExtension(path.Ext(targetPath))
+	mimeType := mime.TypeByExtension(path.Ext(o.TargetPath))
 	mimeTypeSplit := strings.SplitN(mimeType, ";", 2)
 	if _, ok := o.ForbiddenMimeTypes[mimeTypeSplit[0]]; ok || mimeType == "" {
 		if o.DefaultMimeType != "" {
