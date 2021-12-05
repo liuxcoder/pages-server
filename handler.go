@@ -446,7 +446,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			}
 			// compatibility fix for GitHub Pages (/example → /example.html)
 			optionsForIndexPages.AppendTrailingSlash = false
-			optionsForIndexPages.RedirectIfExists = string(ctx.Request.URI().Path()) + ".html"
+			optionsForIndexPages.RedirectIfExists = strings.TrimSuffix(string(ctx.Request.URI().Path()), "/") + ".html"
 			if upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath + ".html", &optionsForIndexPages) {
 				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 					exists: false,
