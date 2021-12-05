@@ -26,31 +26,28 @@ import (
 	"os"
 	"time"
 
-	_ "embed"
-
 	"github.com/valyala/fasthttp"
+
+	pages_server "codeberg.org/codeberg/pages/server"
 )
 
 // MainDomainSuffix specifies the main domain (starting with a dot) for which subdomains shall be served as static
 // pages, or used for comparison in CNAME lookups. Static pages can be accessed through
 // https://{owner}.{MainDomain}[/{repo}], with repo defaulting to "pages".
-var MainDomainSuffix = []byte("." + envOr("PAGES_DOMAIN", "codeberg.page"))
+var MainDomainSuffix = []byte("." + pages_server.EnvOr("PAGES_DOMAIN", "codeberg.page"))
 
 // GiteaRoot specifies the root URL of the Gitea instance, without a trailing slash.
-var GiteaRoot = []byte(envOr("GITEA_ROOT", "https://codeberg.org"))
+var GiteaRoot = []byte(pages_server.EnvOr("GITEA_ROOT", "https://codeberg.org"))
 
-var GiteaApiToken = envOr("GITEA_API_TOKEN", "")
-
-//go:embed 404.html
-var NotFoundPage []byte
+var GiteaApiToken = pages_server.EnvOr("GITEA_API_TOKEN", "")
 
 // RawDomain specifies the domain from which raw repository content shall be served in the following format:
 // https://{RawDomain}/{owner}/{repo}[/{branch|tag|commit}/{version}]/{filepath...}
 // (set to []byte(nil) to disable raw content hosting)
-var RawDomain = []byte(envOr("RAW_DOMAIN", "raw.codeberg.org"))
+var RawDomain = []byte(pages_server.EnvOr("RAW_DOMAIN", "raw.codeberg.org"))
 
 // RawInfoPage will be shown (with a redirect) when trying to access RawDomain directly (or without owner/repo/path).
-var RawInfoPage = envOr("REDIRECT_RAW_INFO", "https://docs.codeberg.org/pages/raw-content/")
+var RawInfoPage = pages_server.EnvOr("REDIRECT_RAW_INFO", "https://docs.codeberg.org/pages/raw-content/")
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
 var AllowedCorsDomains = [][]byte{
@@ -64,11 +61,6 @@ var BlacklistedPaths = [][]byte{
 	[]byte("/.well-known/acme-challenge/"),
 }
 
-// IndexPages lists pages that may be considered as index pages for directories.
-var IndexPages = []string{
-	"index.html",
-}
-
 // main sets up and starts the web server.
 func main() {
 	// TODO: CLI Library
@@ -77,15 +69,15 @@ func main() {
 			println("--remove-certificate requires at least one domain as an argument")
 			os.Exit(1)
 		}
-		if keyDatabaseErr != nil {
-			panic(keyDatabaseErr)
+		if pages_server.KeyDatabaseErr != nil {
+			panic(pages_server.KeyDatabaseErr)
 		}
 		for _, domain := range os.Args[2:] {
-			if err := keyDatabase.Delete([]byte(domain)); err != nil {
+			if err := pages_server.KeyDatabase.Delete([]byte(domain)); err != nil {
 				panic(err)
 			}
 		}
-		if err := keyDatabase.Sync(); err != nil {
+		if err := pages_server.KeyDatabase.Sync(); err != nil {
 			panic(err)
 		}
 		os.Exit(0)
@@ -98,10 +90,13 @@ func main() {
 	GiteaRoot = bytes.TrimSuffix(GiteaRoot, []byte{'/'})
 
 	// Use HOST and PORT environment variables to determine listening address
-	address := fmt.Sprintf("%s:%s", envOr("HOST", "[::]"), envOr("PORT", "443"))
+	address := fmt.Sprintf("%s:%s", pages_server.EnvOr("HOST", "[::]"), pages_server.EnvOr("PORT", "443"))
 	log.Printf("Listening on https://%s", address)
 
-	// Enable compression by wrapping the handler() method with the compression function provided by FastHTTP
+	// Create handler based on settings
+	handler := pages_server.Handler(MainDomainSuffix, RawDomain, GiteaRoot, RawInfoPage, GiteaApiToken, BlacklistedPaths, AllowedCorsDomains)
+
+	// Enable compression by wrapping the handler with the compression function provided by FastHTTP
 	compressedHandler := fasthttp.CompressHandlerBrotliLevel(handler, fasthttp.CompressBrotliBestSpeed, fasthttp.CompressBestSpeed)
 
 	server := &fasthttp.Server{
@@ -120,15 +115,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Couldn't create listener: %s", err)
 	}
-	listener = tls.NewListener(listener, tlsConfig)
+	listener = tls.NewListener(listener, pages_server.TlsConfig(MainDomainSuffix, string(GiteaRoot), GiteaApiToken))
 
-	setupCertificates()
+	pages_server.SetupCertificates(MainDomainSuffix)
 	if os.Getenv("ENABLE_HTTP_SERVER") == "true" {
 		go (func() {
 			challengePath := []byte("/.well-known/acme-challenge/")
 			err := fasthttp.ListenAndServe("[::]:80", func(ctx *fasthttp.RequestCtx) {
 				if bytes.HasPrefix(ctx.Path(), challengePath) {
-					challenge, ok := challengeCache.Get(string(TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
+					challenge, ok := pages_server.ChallengeCache.Get(string(pages_server.TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
 					if !ok || challenge == nil {
 						ctx.SetStatusCode(http.StatusNotFound)
 						ctx.SetBodyString("no challenge for this token")
@@ -149,13 +144,4 @@ func main() {
 	if err != nil {
 		log.Fatalf("Couldn't start server: %s", err)
 	}
-}
-
-// envOr reads an environment variable and returns a default value if it's empty.
-// TODO: to helpers.go or use CLI framework
-func envOr(env string, or string) string {
-	if v := os.Getenv(env); v != "" {
-		return v
-	}
-	return or
 }

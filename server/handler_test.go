@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -8,6 +8,16 @@ import (
 )
 
 func TestHandlerPerformance(t *testing.T) {
+	testHandler := Handler(
+		[]byte("codeberg.page"),
+		[]byte("raw.codeberg.org"),
+		[]byte("https://codeberg.org"),
+		"https://docs.codeberg.org/pages/raw-content/",
+		"",
+		[][]byte{[]byte("/.well-known/acme-challenge/")},
+		[][]byte{[]byte("raw.codeberg.org"), []byte("fonts.codeberg.org"), []byte("design.codeberg.org")},
+	)
+
 	ctx := &fasthttp.RequestCtx{
 		Request:  *fasthttp.AcquireRequest(),
 		Response: *fasthttp.AcquireResponse(),
@@ -15,7 +25,7 @@ func TestHandlerPerformance(t *testing.T) {
 	ctx.Request.SetRequestURI("http://mondstern.codeberg.page/")
 	fmt.Printf("Start: %v\n", time.Now())
 	start := time.Now()
-	handler(ctx)
+	testHandler(ctx)
 	end := time.Now()
 	fmt.Printf("Done: %v\n", time.Now())
 	if ctx.Response.StatusCode() != 200 || len(ctx.Response.Body()) < 2048 {
@@ -28,7 +38,7 @@ func TestHandlerPerformance(t *testing.T) {
 	ctx.Response.ResetBody()
 	fmt.Printf("Start: %v\n", time.Now())
 	start = time.Now()
-	handler(ctx)
+	testHandler(ctx)
 	end = time.Now()
 	fmt.Printf("Done: %v\n", time.Now())
 	if ctx.Response.StatusCode() != 200 || len(ctx.Response.Body()) < 2048 {
@@ -42,7 +52,7 @@ func TestHandlerPerformance(t *testing.T) {
 	ctx.Request.SetRequestURI("http://example.momar.xyz/")
 	fmt.Printf("Start: %v\n", time.Now())
 	start = time.Now()
-	handler(ctx)
+	testHandler(ctx)
 	end = time.Now()
 	fmt.Printf("Done: %v\n", time.Now())
 	if ctx.Response.StatusCode() != 200 || len(ctx.Response.Body()) < 1 {

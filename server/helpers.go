@@ -1,15 +1,17 @@
-package main
+package server
 
 import (
 	"bytes"
 	"encoding/gob"
+	"os"
+
 	"github.com/akrylysov/pogreb"
 )
 
 // GetHSTSHeader returns a HSTS header with includeSubdomains & preload for MainDomainSuffix and RawDomain, or an empty
 // string for custom domains.
-func GetHSTSHeader(host []byte) string {
-	if bytes.HasSuffix(host, MainDomainSuffix) || bytes.Equal(host, RawDomain) {
+func GetHSTSHeader(host, mainDomainSuffix, rawDomain []byte) string {
+	if bytes.HasSuffix(host, mainDomainSuffix) || bytes.Equal(host, rawDomain) {
 		return "max-age=63072000; includeSubdomains; preload"
 	} else {
 		return ""
@@ -53,4 +55,13 @@ func PogrebGet(db *pogreb.DB, name []byte, obj interface{}) bool {
 		panic(err)
 	}
 	return true
+}
+
+// EnvOr reads an environment variable and returns a default value if it's empty.
+// TODO: to helpers.go or use CLI framework
+func EnvOr(env string, or string) string {
+	if v := os.Getenv(env); v != "" {
+		return v
+	}
+	return or
 }

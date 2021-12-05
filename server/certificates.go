@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bytes"
@@ -37,102 +37,104 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 )
 
-// tlsConfig contains the configuration for generating, serving and cleaning up Let's Encrypt certificates.
-var tlsConfig = &tls.Config{
-	// check DNS name & get certificate from Let's Encrypt
-	GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		sni := strings.ToLower(strings.TrimSpace(info.ServerName))
-		sniBytes := []byte(sni)
-		if len(sni) < 1 {
-			return nil, errors.New("missing sni")
-		}
+// TlsConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
+func TlsConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken string) *tls.Config {
+	return &tls.Config{
+		// check DNS name & get certificate from Let's Encrypt
+		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			sni := strings.ToLower(strings.TrimSpace(info.ServerName))
+			sniBytes := []byte(sni)
+			if len(sni) < 1 {
+				return nil, errors.New("missing sni")
+			}
 
-		if info.SupportedProtos != nil {
-			for _, proto := range info.SupportedProtos {
-				if proto == tlsalpn01.ACMETLS1Protocol {
-					challenge, ok := challengeCache.Get(sni)
-					if !ok {
-						return nil, errors.New("no challenge for this domain")
+			if info.SupportedProtos != nil {
+				for _, proto := range info.SupportedProtos {
+					if proto == tlsalpn01.ACMETLS1Protocol {
+						challenge, ok := ChallengeCache.Get(sni)
+						if !ok {
+							return nil, errors.New("no challenge for this domain")
+						}
+						cert, err := tlsalpn01.ChallengeCert(sni, challenge.(string))
+						if err != nil {
+							return nil, err
+						}
+						return cert, nil
 					}
-					cert, err := tlsalpn01.ChallengeCert(sni, challenge.(string))
-					if err != nil {
-						return nil, err
-					}
-					return cert, nil
 				}
 			}
-		}
 
-		targetOwner := ""
-		if bytes.HasSuffix(sniBytes, MainDomainSuffix) || bytes.Equal(sniBytes, MainDomainSuffix[1:]) {
-			// deliver default certificate for the main domain (*.codeberg.page)
-			sniBytes = MainDomainSuffix
-			sni = string(sniBytes)
-		} else {
-			var targetRepo, targetBranch string
-			targetOwner, targetRepo, targetBranch = getTargetFromDNS(sni)
-			if targetOwner == "" {
-				// DNS not set up, return main certificate to redirect to the docs
-				sniBytes = MainDomainSuffix
+			targetOwner := ""
+			if bytes.HasSuffix(sniBytes, mainDomainSuffix) || bytes.Equal(sniBytes, mainDomainSuffix[1:]) {
+				// deliver default certificate for the main domain (*.codeberg.page)
+				sniBytes = mainDomainSuffix
 				sni = string(sniBytes)
 			} else {
-				_, _ = targetRepo, targetBranch
-				_, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, sni)
-				if !valid {
-					sniBytes = MainDomainSuffix
+				var targetRepo, targetBranch string
+				targetOwner, targetRepo, targetBranch = getTargetFromDNS(sni, string(mainDomainSuffix))
+				if targetOwner == "" {
+					// DNS not set up, return main certificate to redirect to the docs
+					sniBytes = mainDomainSuffix
 					sni = string(sniBytes)
+				} else {
+					_, _ = targetRepo, targetBranch
+					_, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaApiToken)
+					if !valid {
+						sniBytes = mainDomainSuffix
+						sni = string(sniBytes)
+					}
 				}
 			}
-		}
 
-		if tlsCertificate, ok := keyCache.Get(sni); ok {
-			// we can use an existing certificate object
-			return tlsCertificate.(*tls.Certificate), nil
-		}
-
-		var tlsCertificate tls.Certificate
-		var err error
-		var ok bool
-		if tlsCertificate, ok = retrieveCertFromDB(sniBytes); !ok {
-			// request a new certificate
-			if bytes.Equal(sniBytes, MainDomainSuffix) {
-				return nil, errors.New("won't request certificate for main domain, something really bad has happened")
+			if tlsCertificate, ok := keyCache.Get(sni); ok {
+				// we can use an existing certificate object
+				return tlsCertificate.(*tls.Certificate), nil
 			}
 
-			tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner)
+			var tlsCertificate tls.Certificate
+			var err error
+			var ok bool
+			if tlsCertificate, ok = retrieveCertFromDB(sniBytes, mainDomainSuffix); !ok {
+				// request a new certificate
+				if bytes.Equal(sniBytes, mainDomainSuffix) {
+					return nil, errors.New("won't request certificate for main domain, something really bad has happened")
+				}
+
+				tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner, mainDomainSuffix)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			err = keyCache.Set(sni, &tlsCertificate, 15*time.Minute)
 			if err != nil {
-				return nil, err
+				panic(err)
 			}
-		}
+			return &tlsCertificate, nil
+		},
+		PreferServerCipherSuites: true,
+		NextProtos: []string{
+			"http/1.1",
+			tlsalpn01.ACMETLS1Protocol,
+		},
 
-		err = keyCache.Set(sni, &tlsCertificate, 15*time.Minute)
-		if err != nil {
-			panic(err)
-		}
-		return &tlsCertificate, nil
-	},
-	PreferServerCipherSuites: true,
-	NextProtos: []string{
-		"http/1.1",
-		tlsalpn01.ACMETLS1Protocol,
-	},
-
-	// generated 2021-07-13, Mozilla Guideline v5.6, Go 1.14.4, intermediate configuration
-	// https://ssl-config.mozilla.org/#server=go&version=1.14.4&config=intermediate&guideline=5.6
-	MinVersion: tls.VersionTLS12,
-	CipherSuites: []uint16{
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-	},
+		// generated 2021-07-13, Mozilla Guideline v5.6, Go 1.14.4, intermediate configuration
+		// https://ssl-config.mozilla.org/#server=go&version=1.14.4&config=intermediate&guideline=5.6
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		},
+	}
 }
 
 // TODO: clean up & move to init
 var keyCache = mcache.New()
-var keyDatabase, keyDatabaseErr = pogreb.Open("key-database.pogreb", &pogreb.Options{
+var KeyDatabase, KeyDatabaseErr = pogreb.Open("key-database.pogreb", &pogreb.Options{
 	BackgroundSyncInterval:       30 * time.Second,
 	BackgroundCompactionInterval: 6 * time.Hour,
 	FileSystem:                   fs.OSMMap,
@@ -181,17 +183,17 @@ var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15*time.Minute)
 // rate limit is 20 / second, we want 5 / second (especially as one cert takes at least two requests)
 var acmeClientRequestLimit = equalizer.NewTokenBucket(5, 1*time.Second)
 
-var challengeCache = mcache.New()
+var ChallengeCache = mcache.New()
 
 type AcmeTLSChallengeProvider struct{}
 
 var _ challenge.Provider = AcmeTLSChallengeProvider{}
 
 func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
-	return challengeCache.Set(domain, keyAuth, 1*time.Hour)
+	return ChallengeCache.Set(domain, keyAuth, 1*time.Hour)
 }
 func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
-	challengeCache.Remove(domain)
+	ChallengeCache.Remove(domain)
 	return nil
 }
 
@@ -200,17 +202,17 @@ type AcmeHTTPChallengeProvider struct{}
 var _ challenge.Provider = AcmeHTTPChallengeProvider{}
 
 func (a AcmeHTTPChallengeProvider) Present(domain, token, keyAuth string) error {
-	return challengeCache.Set(domain+"/"+token, keyAuth, 1*time.Hour)
+	return ChallengeCache.Set(domain+"/"+token, keyAuth, 1*time.Hour)
 }
 func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
-	challengeCache.Remove(domain + "/" + token)
+	ChallengeCache.Remove(domain + "/" + token)
 	return nil
 }
 
-func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
+func retrieveCertFromDB(sni, mainDomainSuffix []byte) (tls.Certificate, bool) {
 	// parse certificate from database
 	res := &certificate.Resource{}
-	if !PogrebGet(keyDatabase, sni, res) {
+	if !PogrebGet(KeyDatabase, sni, res) {
 		return tls.Certificate{}, false
 	}
 
@@ -220,7 +222,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 	}
 
 	// TODO: document & put into own function
-	if !bytes.Equal(sni, MainDomainSuffix) {
+	if !bytes.Equal(sni, mainDomainSuffix) {
 		tlsCertificate.Leaf, err = x509.ParseCertificate(tlsCertificate.Certificate[0])
 		if err != nil {
 			panic(err)
@@ -238,7 +240,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 			}
 			go (func() {
 				res.CSR = nil // acme client doesn't like CSR to be set
-				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "")
+				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "", mainDomainSuffix)
 				if err != nil {
 					log.Printf("Couldn't renew certificate for %s: %s", sni, err)
 				}
@@ -251,7 +253,7 @@ func retrieveCertFromDB(sni []byte) (tls.Certificate, bool) {
 
 var obtainLocks = sync.Map{}
 
-func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user string) (tls.Certificate, error) {
+func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user string, mainDomainSuffix []byte) (tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
 	if os.Getenv("DNS_PROVIDER") == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
 		domains = domains[1:]
@@ -264,7 +266,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			time.Sleep(100 * time.Millisecond)
 			_, working = obtainLocks.Load(name)
 		}
-		cert, ok := retrieveCertFromDB([]byte(name))
+		cert, ok := retrieveCertFromDB([]byte(name), mainDomainSuffix)
 		if !ok {
 			return tls.Certificate{}, errors.New("certificate failed in synchronous request")
 		}
@@ -273,7 +275,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	defer obtainLocks.Delete(name)
 
 	if acmeClient == nil {
-		return mockCert(domains[0], "ACME client uninitialized. This is a server error, please report!"), nil
+		return mockCert(domains[0], "ACME client uninitialized. This is a server error, please report!", string(mainDomainSuffix)), nil
 	}
 
 	// request actual cert
@@ -315,15 +317,15 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			if err == nil && tlsCertificate.Leaf.NotAfter.After(time.Now()) {
 				// avoid sending a mock cert instead of a still valid cert, instead abuse CSR field to store time to try again at
 				renew.CSR = []byte(strconv.FormatInt(time.Now().Add(6*time.Hour).Unix(), 10))
-				PogrebPut(keyDatabase, []byte(name), renew)
+				PogrebPut(KeyDatabase, []byte(name), renew)
 				return tlsCertificate, nil
 			}
 		}
-		return mockCert(domains[0], err.Error()), err
+		return mockCert(domains[0], err.Error(), string(mainDomainSuffix)), err
 	}
 	log.Printf("Obtained certificate for %v", domains)
 
-	PogrebPut(keyDatabase, []byte(name), res)
+	PogrebPut(KeyDatabase, []byte(name), res)
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
 		return tls.Certificate{}, err
@@ -331,7 +333,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	return tlsCertificate, nil
 }
 
-func mockCert(domain string, msg string) tls.Certificate {
+func mockCert(domain, msg, mainDomainSuffix string) tls.Certificate {
 	key, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
 	if err != nil {
 		panic(err)
@@ -385,10 +387,10 @@ func mockCert(domain string, msg string) tls.Certificate {
 		Domain:            domain,
 	}
 	databaseName := domain
-	if domain == "*"+string(MainDomainSuffix) || domain == string(MainDomainSuffix[1:]) {
-		databaseName = string(MainDomainSuffix)
+	if domain == "*"+mainDomainSuffix || domain == mainDomainSuffix[1:] {
+		databaseName = mainDomainSuffix
 	}
-	PogrebPut(keyDatabase, []byte(databaseName), res)
+	PogrebPut(KeyDatabase, []byte(databaseName), res)
 
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
@@ -397,9 +399,9 @@ func mockCert(domain string, msg string) tls.Certificate {
 	return tlsCertificate
 }
 
-func setupCertificates() {
-	if keyDatabaseErr != nil {
-		panic(keyDatabaseErr)
+func SetupCertificates(mainDomainSuffix []byte) {
+	if KeyDatabaseErr != nil {
+		panic(KeyDatabaseErr)
 	}
 
 	if os.Getenv("ACME_ACCEPT_TERMS") != "true" || (os.Getenv("DNS_PROVIDER") == "" && os.Getenv("ACME_API") != "https://acme.mock.directory") {
@@ -407,7 +409,7 @@ func setupCertificates() {
 	}
 
 	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
-	mainCertBytes, err := keyDatabase.Get(MainDomainSuffix)
+	mainCertBytes, err := KeyDatabase.Get(mainDomainSuffix)
 	if err != nil {
 		// key database is not working
 		panic(err)
@@ -423,7 +425,7 @@ func setupCertificates() {
 			panic(err)
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = envOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
+		myAcmeConfig.CADirURL = EnvOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
 		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
 		_, err := lego.NewClient(myAcmeConfig)
 		if err != nil {
@@ -435,12 +437,12 @@ func setupCertificates() {
 			panic(err)
 		}
 		myAcmeAccount = AcmeAccount{
-			Email:  envOr("ACME_EMAIL", "noreply@example.email"),
+			Email:  EnvOr("ACME_EMAIL", "noreply@example.email"),
 			Key:    privateKey,
 			KeyPEM: string(certcrypto.PEMEncode(privateKey)),
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = envOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
+		myAcmeConfig.CADirURL = EnvOr("ACME_API", "https://acme-v02.api.letsencrypt.org/directory")
 		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
 		tempClient, err := lego.NewClient(myAcmeConfig)
 		if err != nil {
@@ -523,7 +525,7 @@ func setupCertificates() {
 	}
 
 	if mainCertBytes == nil {
-		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, nil, "")
+		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, nil, "", mainDomainSuffix)
 		if err != nil {
 			log.Printf("[ERROR] Couldn't renew main domain certificate, continuing with mock certs only: %s", err)
 		}
@@ -531,7 +533,7 @@ func setupCertificates() {
 
 	go (func() {
 		for {
-			err := keyDatabase.Sync()
+			err := KeyDatabase.Sync()
 			if err != nil {
 				log.Printf("[ERROR] Syncing key database failed: %s", err)
 			}
@@ -544,10 +546,10 @@ func setupCertificates() {
 			// clean up expired certs
 			now := time.Now()
 			expiredCertCount := 0
-			keyDatabaseIterator := keyDatabase.Items()
+			keyDatabaseIterator := KeyDatabase.Items()
 			key, resBytes, err := keyDatabaseIterator.Next()
 			for err == nil {
-				if !bytes.Equal(key, MainDomainSuffix) {
+				if !bytes.Equal(key, mainDomainSuffix) {
 					resGob := bytes.NewBuffer(resBytes)
 					resDec := gob.NewDecoder(resGob)
 					res := &certificate.Resource{}
@@ -558,7 +560,7 @@ func setupCertificates() {
 
 					tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 					if err != nil || !tlsCertificates[0].NotAfter.After(now) {
-						err := keyDatabase.Delete(key)
+						err := KeyDatabase.Delete(key)
 						if err != nil {
 							log.Printf("[ERROR] Deleting expired certificate for %s failed: %s", string(key), err)
 						} else {
@@ -571,7 +573,7 @@ func setupCertificates() {
 			log.Printf("[INFO] Removed %d expired certificates from the database", expiredCertCount)
 
 			// compact the database
-			result, err := keyDatabase.Compact()
+			result, err := KeyDatabase.Compact()
 			if err != nil {
 				log.Printf("[ERROR] Compacting key database failed: %s", err)
 			} else {
@@ -580,7 +582,7 @@ func setupCertificates() {
 
 			// update main cert
 			res := &certificate.Resource{}
-			if !PogrebGet(keyDatabase, MainDomainSuffix, res) {
+			if !PogrebGet(KeyDatabase, mainDomainSuffix, res) {
 				log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", "expected main domain cert to exist, but it's missing - seems like the database is corrupted")
 			} else {
 				tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
@@ -588,7 +590,7 @@ func setupCertificates() {
 				// renew main certificate 30 days before it expires
 				if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
 					go (func() {
-						_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(MainDomainSuffix), string(MainDomainSuffix[1:])}, res, "")
+						_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, res, "", mainDomainSuffix)
 						if err != nil {
 							log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", err)
 						}

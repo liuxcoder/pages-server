@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"github.com/OrlovEvgeny/go-mcache"
@@ -16,7 +16,7 @@ var dnsLookupCache = mcache.New()
 
 // getTargetFromDNS searches for CNAME or TXT entries on the request domain ending with MainDomainSuffix.
 // If everything is fine, it returns the target data.
-func getTargetFromDNS(domain string) (targetOwner, targetRepo, targetBranch string) {
+func getTargetFromDNS(domain, mainDomainSuffix string) (targetOwner, targetRepo, targetBranch string) {
 	// Get CNAME or TXT
 	var cname string
 	var err error
@@ -25,14 +25,14 @@ func getTargetFromDNS(domain string) (targetOwner, targetRepo, targetBranch stri
 	} else {
 		cname, err = net.LookupCNAME(domain)
 		cname = strings.TrimSuffix(cname, ".")
-		if err != nil || !strings.HasSuffix(cname, string(MainDomainSuffix)) {
+		if err != nil || !strings.HasSuffix(cname, mainDomainSuffix) {
 			cname = ""
 			// TODO: check if the A record matches!
 			names, err := net.LookupTXT(domain)
 			if err == nil {
 				for _, name := range names {
 					name = strings.TrimSuffix(name, ".")
-					if strings.HasSuffix(name, string(MainDomainSuffix)) {
+					if strings.HasSuffix(name, mainDomainSuffix) {
 						cname = name
 						break
 					}
@@ -44,7 +44,7 @@ func getTargetFromDNS(domain string) (targetOwner, targetRepo, targetBranch stri
 	if cname == "" {
 		return
 	}
-	cnameParts := strings.Split(strings.TrimSuffix(cname, string(MainDomainSuffix)), ".")
+	cnameParts := strings.Split(strings.TrimSuffix(cname, mainDomainSuffix), ".")
 	targetOwner = cnameParts[len(cnameParts)-1]
 	if len(cnameParts) > 1 {
 		targetRepo = cnameParts[len(cnameParts)-2]
@@ -69,7 +69,7 @@ var CanonicalDomainCacheTimeout = 15 * time.Minute
 var canonicalDomainCache = mcache.New()
 
 // checkCanonicalDomain returns the canonical domain specified in the repo (using the file `.canonical-domain`).
-func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain string) (canonicalDomain string, valid bool) {
+func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaApiToken string) (canonicalDomain string, valid bool) {
 	domains := []string{}
 	if cachedValue, ok := canonicalDomainCache.Get(targetOwner + "/" + targetRepo + "/" + targetBranch); ok {
 		domains = cachedValue.([]string)
@@ -81,7 +81,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain st
 		}
 	} else {
 		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(string(GiteaRoot) + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + GiteaApiToken)
+		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + giteaApiToken)
 		res := fasthttp.AcquireResponse()
 
 		err := upstreamClient.Do(req, res)
@@ -99,7 +99,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain st
 				}
 			}
 		}
-		domains = append(domains, targetOwner+string(MainDomainSuffix))
+		domains = append(domains, targetOwner+mainDomainSuffix)
 		if domains[len(domains)-1] == actualDomain {
 			valid = true
 		}
