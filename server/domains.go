@@ -1,11 +1,14 @@
 package server
 
 import (
-	"github.com/OrlovEvgeny/go-mcache"
-	"github.com/valyala/fasthttp"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/OrlovEvgeny/go-mcache"
+	"github.com/valyala/fasthttp"
+
+	"codeberg.org/codeberg/pages/server/upstream"
 )
 
 // DnsLookupCacheTimeout specifies the timeout for the DNS lookup cache.
@@ -84,7 +87,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + giteaApiToken)
 		res := fasthttp.AcquireResponse()
 
-		err := upstreamClient.Do(req, res)
+		err := upstream.Client.Do(req, res)
 		if err == nil && res.StatusCode() == fasthttp.StatusOK {
 			for _, domain := range strings.Split(string(res.Body()), "\n") {
 				domain = strings.ToLower(domain)
