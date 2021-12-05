@@ -15,6 +15,7 @@ import (
 
 	"codeberg.org/codeberg/pages/server"
 	"codeberg.org/codeberg/pages/server/cache"
+	"codeberg.org/codeberg/pages/server/certificates"
 	"codeberg.org/codeberg/pages/server/database"
 	"codeberg.org/codeberg/pages/server/utils"
 )
@@ -92,13 +93,13 @@ func Serve(ctx *cli.Context) error {
 	}
 	defer keyDatabase.Sync() //nolint:errcheck    // database has no close ... sync behave like it
 
-	listener = tls.NewListener(listener, server.TLSConfig(mainDomainSuffix,
+	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
 		giteaRoot, giteaAPIToken, dnsProvider,
 		acmeUseRateLimits,
 		keyCache, challengeCache, dnsLookupCache, canonicalDomainCache,
 		keyDatabase))
 
-	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, challengeCache, keyDatabase)
+	certificates.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, challengeCache, keyDatabase)
 	if enableHTTPServer {
 		go (func() {
 			challengePath := []byte("/.well-known/acme-challenge/")

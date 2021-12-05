@@ -16,3 +16,6 @@ var FileCacheTimeout = 5 * time.Minute
 
 // FileCacheSizeLimit limits the maximum file size that will be cached, and is set to 1 MB by default.
 var FileCacheSizeLimit = 1024 * 1024
+
+// CanonicalDomainCacheTimeout specifies the timeout for the canonical domain cache.
+var CanonicalDomainCacheTimeout = 15 * time.Minute

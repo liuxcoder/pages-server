@@ -9,6 +9,7 @@ import (
 
 	"codeberg.org/codeberg/pages/html"
 	"codeberg.org/codeberg/pages/server/cache"
+	"codeberg.org/codeberg/pages/server/dns"
 	"codeberg.org/codeberg/pages/server/upstream"
 	"codeberg.org/codeberg/pages/server/utils"
 )
@@ -113,7 +114,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 		var tryUpstream = func() {
 			// check if a canonical domain exists on a request on MainDomain
 			if bytes.HasSuffix(trimmedHost, mainDomainSuffix) {
-				canonicalDomain, _ := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, "", string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
+				canonicalDomain, _ := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, "", string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
 				if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], string(mainDomainSuffix)) {
 					canonicalPath := string(ctx.RequestURI())
 					if targetRepo != "pages" {
@@ -247,7 +248,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			trimmedHostStr := string(trimmedHost)
 
 			// Serve pages from external domains
-			targetOwner, targetRepo, targetBranch = getTargetFromDNS(trimmedHostStr, string(mainDomainSuffix), dnsLookupCache)
+			targetOwner, targetRepo, targetBranch = dns.GetTargetFromDNS(trimmedHostStr, string(mainDomainSuffix), dnsLookupCache)
 			if targetOwner == "" {
 				html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
 				return
@@ -264,13 +265,13 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// Try to use the given repo on the given branch or the default branch
 			log.Debug().Msg("custom domain preparations, now trying with details from DNS")
 			if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
-				canonicalDomain, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
+				canonicalDomain, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
 				if !valid {
 					html.ReturnErrorPage(ctx, fasthttp.StatusMisdirectedRequest)
 					return
 				} else if canonicalDomain != trimmedHostStr {
 					// only redirect if the target is also a codeberg page!
-					targetOwner, _, _ = getTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0], string(mainDomainSuffix), dnsLookupCache)
+					targetOwner, _, _ = dns.GetTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0], string(mainDomainSuffix), dnsLookupCache)
 					if targetOwner != "" {
 						ctx.Redirect("https://"+canonicalDomain+string(ctx.RequestURI()), fasthttp.StatusTemporaryRedirect)
 						return

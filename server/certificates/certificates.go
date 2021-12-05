@@ -1,4 +1,4 @@
-package server
+package certificates
 
 import (
 	"bytes"
@@ -35,6 +35,8 @@ import (
 
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/database"
+	dnsutils "codeberg.org/codeberg/pages/server/dns"
+	"codeberg.org/codeberg/pages/server/upstream"
 )
 
 // TLSConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
@@ -75,14 +77,14 @@ func TLSConfig(mainDomainSuffix []byte,
 				sni = string(sniBytes)
 			} else {
 				var targetRepo, targetBranch string
-				targetOwner, targetRepo, targetBranch = getTargetFromDNS(sni, string(mainDomainSuffix), dnsLookupCache)
+				targetOwner, targetRepo, targetBranch = dnsutils.GetTargetFromDNS(sni, string(mainDomainSuffix), dnsLookupCache)
 				if targetOwner == "" {
 					// DNS not set up, return main certificate to redirect to the docs
 					sniBytes = mainDomainSuffix
 					sni = string(sniBytes)
 				} else {
 					_, _ = targetRepo, targetBranch
-					_, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
+					_, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
 					if !valid {
 						sniBytes = mainDomainSuffix
 						sni = string(sniBytes)
