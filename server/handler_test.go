@@ -20,6 +20,8 @@ func TestHandlerPerformance(t *testing.T) {
 		[][]byte{[]byte("raw.codeberg.org"), []byte("fonts.codeberg.org"), []byte("design.codeberg.org")},
 		cache.NewKeyValueCache(),
 		cache.NewKeyValueCache(),
+		cache.NewKeyValueCache(),
+		cache.NewKeyValueCache(),
 	)
 
 	ctx := &fasthttp.RequestCtx{

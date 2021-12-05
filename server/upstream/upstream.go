@@ -10,10 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/codeberg/pages/html"
 
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
+
+	"codeberg.org/codeberg/pages/html"
+	"codeberg.org/codeberg/pages/server/cache"
 )
 
 // upstreamIndexPages lists pages that may be considered as index pages for directories.
@@ -39,7 +41,7 @@ var Client = fasthttp.Client{
 }
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken string, options *Options) (final bool) {
+func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken string, options *Options, branchTimestampCache, fileResponseCache cache.SetGetKey) (final bool) {
 	log := log.With().Strs("upstream", []string{targetOwner, targetRepo, targetBranch, targetPath}).Logger()
 
 	if options.ForbiddenMimeTypes == nil {
@@ -48,7 +50,7 @@ func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, t
 
 	// Check if the branch exists and when it was modified
 	if options.BranchTimestamp == (time.Time{}) {
-		branch := GetBranchTimestamp(targetOwner, targetRepo, targetBranch, giteaRoot, giteaApiToken)
+		branch := GetBranchTimestamp(targetOwner, targetRepo, targetBranch, giteaRoot, giteaApiToken, branchTimestampCache)
 
 		if branch == nil {
 			html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -97,7 +99,7 @@ func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, t
 			optionsForIndexPages.TryIndexPages = false
 			optionsForIndexPages.AppendTrailingSlash = true
 			for _, indexPage := range upstreamIndexPages {
-				if Upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, giteaRoot, giteaApiToken, &optionsForIndexPages) {
+				if Upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, giteaRoot, giteaApiToken, &optionsForIndexPages, branchTimestampCache, fileResponseCache) {
 					_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 						exists: false,
 					}, FileCacheTimeout)
@@ -107,7 +109,7 @@ func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, t
 			// compatibility fix for GitHub Pages (/example → /example.html)
 			optionsForIndexPages.AppendTrailingSlash = false
 			optionsForIndexPages.RedirectIfExists = string(ctx.Request.URI().Path()) + ".html"
-			if Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath+".html", giteaRoot, giteaApiToken, &optionsForIndexPages) {
+			if Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath+".html", giteaRoot, giteaApiToken, &optionsForIndexPages, branchTimestampCache, fileResponseCache) {
 				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 					exists: false,
 				}, FileCacheTimeout)

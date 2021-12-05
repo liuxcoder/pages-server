@@ -5,6 +5,8 @@ import (
 
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+
+	"codeberg.org/codeberg/pages/server/cache"
 )
 
 type branchTimestamp struct {
@@ -14,7 +16,7 @@ type branchTimestamp struct {
 
 // GetBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
 // (or nil if the branch doesn't exist)
-func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaApiToken string) *branchTimestamp {
+func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaApiToken string, branchTimestampCache cache.SetGetKey) *branchTimestamp {
 	if result, ok := branchTimestampCache.Get(owner + "/" + repo + "/" + branch); ok {
 		if result == nil {
 			return nil

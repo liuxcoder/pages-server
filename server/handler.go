@@ -18,7 +18,7 @@ import (
 func Handler(mainDomainSuffix, rawDomain []byte,
 	giteaRoot, rawInfoPage, giteaApiToken string,
 	blacklistedPaths, allowedCorsDomains [][]byte,
-	dnsLookupCache, canonicalDomainCache cache.SetGetKey) func(ctx *fasthttp.RequestCtx) {
+	dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey) func(ctx *fasthttp.RequestCtx) {
 	return func(ctx *fasthttp.RequestCtx) {
 		log := log.With().Str("Handler", string(ctx.Request.Header.RequestURI())).Logger()
 
@@ -85,7 +85,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			}
 
 			// Check if the branch exists, otherwise treat it as a file path
-			branchTimestampResult := upstream.GetBranchTimestamp(targetOwner, repo, branch, giteaRoot, giteaApiToken)
+			branchTimestampResult := upstream.GetBranchTimestamp(targetOwner, repo, branch, giteaRoot, giteaApiToken, branchTimestampCache)
 			if branchTimestampResult == nil {
 				// branch doesn't exist
 				return false
@@ -126,7 +126,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			}
 
 			// Try to request the file from the Gitea API
-			if !upstream.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken, targetOptions) {
+			if !upstream.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken, targetOptions, branchTimestampCache, fileResponseCache) {
 				html.ReturnErrorPage(ctx, ctx.Response.StatusCode())
 			}
 		}
