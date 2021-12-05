@@ -11,6 +11,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -107,9 +108,8 @@ func TLSConfig(mainDomainSuffix []byte,
 				}
 			}
 
-			err = keyCache.Set(sni, &tlsCertificate, 15*time.Minute)
-			if err != nil {
-				panic(err)
+			if err := keyCache.Set(sni, &tlsCertificate, 15*time.Minute); err != nil {
+				return nil, err
 			}
 			return &tlsCertificate, nil
 		},
@@ -323,13 +323,12 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 	var myAcmeConfig *lego.Config
 
 	if account, err := ioutil.ReadFile(configFile); err == nil {
-		err = json.Unmarshal(account, &myAcmeAccount)
-		if err != nil {
-			panic(err)
+		if err := json.Unmarshal(account, &myAcmeAccount); err != nil {
+			return nil, err
 		}
 		myAcmeAccount.Key, err = certcrypto.ParsePEMPrivateKey([]byte(myAcmeAccount.KeyPEM))
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
 		myAcmeConfig.CADirURL = acmeAPI
@@ -348,7 +347,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	myAcmeAccount = AcmeAccount{
 		Email:  acmeMail,
@@ -384,12 +383,12 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 		}
 
 		if myAcmeAccount.Registration != nil {
-			acmeAccountJson, err := json.Marshal(myAcmeAccount)
+			acmeAccountJSON, err := json.Marshal(myAcmeAccount)
 			if err != nil {
 				log.Printf("[FAIL] Error during json.Marshal(myAcmeAccount), waiting for manual restart to avoid rate limits: %s", err)
 				select {}
 			}
-			err = ioutil.WriteFile(configFile, acmeAccountJson, 0600)
+			err = ioutil.WriteFile(configFile, acmeAccountJSON, 0600)
 			if err != nil {
 				log.Printf("[FAIL] Error during ioutil.WriteFile(\"acme-account.json\"), waiting for manual restart to avoid rate limits: %s", err)
 				select {}
@@ -400,12 +399,11 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 	return myAcmeConfig, nil
 }
 
-func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, certDB database.CertDB) {
-	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
+func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, certDB database.CertDB) error {
+	// getting main cert before ACME account so that we can fail here without hitting rate limits
 	mainCertBytes, err := certDB.Get(mainDomainSuffix)
 	if err != nil {
-		// key database is not working
-		panic(err)
+		return fmt.Errorf("cert database is not working")
 	}
 
 	acmeClient, err = lego.NewClient(acmeConfig)
@@ -452,6 +450,8 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 			log.Printf("[ERROR] Couldn't renew main domain certificate, continuing with mock certs only: %s", err)
 		}
 	}
+
+	return nil
 }
 
 func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) {
