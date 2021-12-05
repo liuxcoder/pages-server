@@ -2,6 +2,7 @@ package certificates
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -446,7 +447,7 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 	}
 }
 
-func MaintainCertDB(mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, keyDatabase database.CertDB) {
+func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, keyDatabase database.CertDB) {
 	for {
 		// clean up expired certs
 		now := time.Now()
@@ -503,6 +504,10 @@ func MaintainCertDB(mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimi
 			}
 		}
 
-		time.Sleep(12 * time.Hour)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(interval):
+		}
 	}
 }

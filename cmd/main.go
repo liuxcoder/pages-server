@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -109,8 +111,10 @@ func Serve(ctx *cli.Context) error {
 
 	certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, keyDatabase)
 
-	// TODO: make it graceful
-	go certificates.MaintainCertDB(mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase)
+	interval := 12 * time.Hour
+	certMaintainCtx, cancelCertMaintain := context.WithCancel(context.Background())
+	defer cancelCertMaintain()
+	go certificates.MaintainCertDB(certMaintainCtx, interval, mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase)
 
 	if enableHTTPServer {
 		go func() {
