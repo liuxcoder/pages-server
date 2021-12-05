@@ -27,7 +27,7 @@ func SetupServer(handler fasthttp.RequestHandler) *fasthttp.Server {
 	}
 }
 
-func SetupHttpACMEChallengeServer(challengeCache cache.SetGetKey) *fasthttp.Server {
+func SetupHTTPACMEChallengeServer(challengeCache cache.SetGetKey) *fasthttp.Server {
 	challengePath := []byte("/.well-known/acme-challenge/")
 
 	return &fasthttp.Server{

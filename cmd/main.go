@@ -80,7 +80,7 @@ func Serve(ctx *cli.Context) error {
 		dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache)
 
 	fastServer := server.SetupServer(handler)
-	httpServer := server.SetupHttpACMEChallengeServer(challengeCache)
+	httpServer := server.SetupHTTPACMEChallengeServer(challengeCache)
 
 	// Setup listener and TLS
 	log.Info().Msgf("Listening on https://%s", listeningAddress)
