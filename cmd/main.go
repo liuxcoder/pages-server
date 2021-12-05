@@ -109,6 +109,9 @@ func Serve(ctx *cli.Context) error {
 
 	certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, keyDatabase)
 
+	// TODO: make it graceful
+	go certificates.MaintainCertDB(mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase)
+
 	if enableHTTPServer {
 		go func() {
 			err := httpServer.ListenAndServe("[::]:80")
