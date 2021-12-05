@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 
@@ -33,7 +32,7 @@ type Options struct {
 	BranchTimestamp     time.Time
 }
 
-var Client = fasthttp.Client{
+var client = fasthttp.Client{
 	ReadTimeout:        10 * time.Second,
 	MaxConnDuration:    60 * time.Second,
 	MaxConnWaitTimeout: 1000 * time.Millisecond,
@@ -41,7 +40,7 @@ var Client = fasthttp.Client{
 }
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken string, options *Options, branchTimestampCache, fileResponseCache cache.SetGetKey) (final bool) {
+func (options *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken string, branchTimestampCache, fileResponseCache cache.SetGetKey) (final bool) {
 	log := log.With().Strs("upstream", []string{targetOwner, targetRepo, targetBranch, targetPath}).Logger()
 
 	if options.ForbiddenMimeTypes == nil {
@@ -87,7 +86,7 @@ func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, t
 		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + uri + "?access_token=" + giteaApiToken)
 		res = fasthttp.AcquireResponse()
 		res.SetBodyStream(&strings.Reader{}, -1)
-		err = Client.Do(req, res)
+		err = client.Do(req, res)
 	}
 	log.Debug().Msg("acquisition")
 
@@ -99,7 +98,7 @@ func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, t
 			optionsForIndexPages.TryIndexPages = false
 			optionsForIndexPages.AppendTrailingSlash = true
 			for _, indexPage := range upstreamIndexPages {
-				if Upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, giteaRoot, giteaApiToken, &optionsForIndexPages, branchTimestampCache, fileResponseCache) {
+				if optionsForIndexPages.Upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, giteaRoot, giteaApiToken, branchTimestampCache, fileResponseCache) {
 					_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 						exists: false,
 					}, FileCacheTimeout)
@@ -109,7 +108,7 @@ func Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, t
 			// compatibility fix for GitHub Pages (/example → /example.html)
 			optionsForIndexPages.AppendTrailingSlash = false
 			optionsForIndexPages.RedirectIfExists = string(ctx.Request.URI().Path()) + ".html"
-			if Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath+".html", giteaRoot, giteaApiToken, &optionsForIndexPages, branchTimestampCache, fileResponseCache) {
+			if optionsForIndexPages.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath+".html", giteaRoot, giteaApiToken, branchTimestampCache, fileResponseCache) {
 				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 					exists: false,
 				}, FileCacheTimeout)

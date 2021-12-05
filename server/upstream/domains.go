@@ -24,7 +24,7 @@ func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + giteaApiToken)
 		res := fasthttp.AcquireResponse()
 
-		err := Client.Do(req, res)
+		err := client.Do(req, res)
 		if err == nil && res.StatusCode() == fasthttp.StatusOK {
 			for _, domain := range strings.Split(string(res.Body()), "\n") {
 				domain = strings.ToLower(domain)

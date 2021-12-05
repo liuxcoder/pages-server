@@ -126,7 +126,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			}
 
 			// Try to request the file from the Gitea API
-			if !upstream.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken, targetOptions, branchTimestampCache, fileResponseCache) {
+			if !targetOptions.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath, giteaRoot, giteaApiToken, branchTimestampCache, fileResponseCache) {
 				html.ReturnErrorPage(ctx, ctx.Response.StatusCode())
 			}
 		}
