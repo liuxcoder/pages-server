@@ -102,7 +102,12 @@ func Serve(ctx *cli.Context) error {
 		keyCache, challengeCache, dnsLookupCache, canonicalDomainCache,
 		keyDatabase))
 
-	certificates.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, challengeCache, keyDatabase)
+	acmeConfig, err := certificates.SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, acmeAcceptTerms)
+	if err != nil {
+		return err
+	}
+
+	certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, keyDatabase)
 
 	if enableHTTPServer {
 		go func() {

@@ -2,7 +2,6 @@ package certificates
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -12,14 +11,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/reugn/equalizer"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
@@ -28,6 +24,8 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/providers/dns"
 	"github.com/go-acme/lego/v4/registration"
+	"github.com/reugn/equalizer"
+	"github.com/rs/zerolog/log"
 
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/database"
@@ -145,26 +143,6 @@ func checkUserLimit(user string) error {
 		return errors.New("rate limit exceeded: 10 certificates per user per 24 hours")
 	}
 	return nil
-}
-
-var myAcmeAccount AcmeAccount
-var myAcmeConfig *lego.Config
-
-type AcmeAccount struct {
-	Email        string
-	Registration *registration.Resource
-	Key          crypto.PrivateKey `json:"-"`
-	KeyPEM       string            `json:"Key"`
-}
-
-func (u *AcmeAccount) GetEmail() string {
-	return u.Email
-}
-func (u AcmeAccount) GetRegistration() *registration.Resource {
-	return u.Registration
-}
-func (u *AcmeAccount) GetPrivateKey() crypto.PrivateKey {
-	return u.Key
 }
 
 var acmeClient, mainDomainAcmeClient *lego.Client
@@ -331,15 +309,12 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	return tlsCertificate, nil
 }
 
-func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider string, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer bool, challengeCache cache.SetGetKey, keyDatabase database.KeyDB) {
-	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
-	mainCertBytes, err := keyDatabase.Get(mainDomainSuffix)
-	if err != nil {
-		// key database is not working
-		panic(err)
-	}
+func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcceptTerms bool) (*lego.Config, error) {
+	const configFile = "acme-account.json"
+	var myAcmeAccount AcmeAccount
+	var myAcmeConfig *lego.Config
 
-	if account, err := ioutil.ReadFile("acme-account.json"); err == nil {
+	if account, err := ioutil.ReadFile(configFile); err == nil {
 		err = json.Unmarshal(account, &myAcmeAccount)
 		if err != nil {
 			panic(err)
@@ -351,66 +326,81 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, 
 		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
 		myAcmeConfig.CADirURL = acmeAPI
 		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
+
+		// Validate Config
 		_, err := lego.NewClient(myAcmeConfig)
 		if err != nil {
+			// TODO: should we fail hard instead?
 			log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
 		}
-	} else if os.IsNotExist(err) {
-		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			panic(err)
-		}
-		myAcmeAccount = AcmeAccount{
-			Email:  acmeMail,
-			Key:    privateKey,
-			KeyPEM: string(certcrypto.PEMEncode(privateKey)),
-		}
-		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = acmeAPI
-		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
-		tempClient, err := lego.NewClient(myAcmeConfig)
-		if err != nil {
-			log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
-		} else {
-			// accept terms & log in to EAB
-			if acmeEabKID == "" || acmeEabHmac == "" {
-				reg, err := tempClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: acmeAcceptTerms})
-				if err != nil {
-					log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
-				} else {
-					myAcmeAccount.Registration = reg
-				}
-			} else {
-				reg, err := tempClient.Registration.RegisterWithExternalAccountBinding(registration.RegisterEABOptions{
-					TermsOfServiceAgreed: acmeAcceptTerms,
-					Kid:                  acmeEabKID,
-					HmacEncoded:          acmeEabHmac,
-				})
-				if err != nil {
-					log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
-				} else {
-					myAcmeAccount.Registration = reg
-				}
-			}
+		return myAcmeConfig, nil
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
 
-			if myAcmeAccount.Registration != nil {
-				acmeAccountJson, err := json.Marshal(myAcmeAccount)
-				if err != nil {
-					log.Printf("[FAIL] Error during json.Marshal(myAcmeAccount), waiting for manual restart to avoid rate limits: %s", err)
-					select {}
-				}
-				err = ioutil.WriteFile("acme-account.json", acmeAccountJson, 0600)
-				if err != nil {
-					log.Printf("[FAIL] Error during ioutil.WriteFile(\"acme-account.json\"), waiting for manual restart to avoid rate limits: %s", err)
-					select {}
-				}
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	myAcmeAccount = AcmeAccount{
+		Email:  acmeMail,
+		Key:    privateKey,
+		KeyPEM: string(certcrypto.PEMEncode(privateKey)),
+	}
+	myAcmeConfig = lego.NewConfig(&myAcmeAccount)
+	myAcmeConfig.CADirURL = acmeAPI
+	myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
+	tempClient, err := lego.NewClient(myAcmeConfig)
+	if err != nil {
+		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
+	} else {
+		// accept terms & log in to EAB
+		if acmeEabKID == "" || acmeEabHmac == "" {
+			reg, err := tempClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: acmeAcceptTerms})
+			if err != nil {
+				log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
+			} else {
+				myAcmeAccount.Registration = reg
+			}
+		} else {
+			reg, err := tempClient.Registration.RegisterWithExternalAccountBinding(registration.RegisterEABOptions{
+				TermsOfServiceAgreed: acmeAcceptTerms,
+				Kid:                  acmeEabKID,
+				HmacEncoded:          acmeEabHmac,
+			})
+			if err != nil {
+				log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
+			} else {
+				myAcmeAccount.Registration = reg
 			}
 		}
-	} else {
+
+		if myAcmeAccount.Registration != nil {
+			acmeAccountJson, err := json.Marshal(myAcmeAccount)
+			if err != nil {
+				log.Printf("[FAIL] Error during json.Marshal(myAcmeAccount), waiting for manual restart to avoid rate limits: %s", err)
+				select {}
+			}
+			err = ioutil.WriteFile(configFile, acmeAccountJson, 0600)
+			if err != nil {
+				log.Printf("[FAIL] Error during ioutil.WriteFile(\"acme-account.json\"), waiting for manual restart to avoid rate limits: %s", err)
+				select {}
+			}
+		}
+	}
+
+	return myAcmeConfig, nil
+}
+
+func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, keyDatabase database.KeyDB) {
+	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
+	mainCertBytes, err := keyDatabase.Get(mainDomainSuffix)
+	if err != nil {
+		// key database is not working
 		panic(err)
 	}
 
-	acmeClient, err = lego.NewClient(myAcmeConfig)
+	acmeClient, err = lego.NewClient(acmeConfig)
 	if err != nil {
 		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
 	} else {
@@ -426,7 +416,7 @@ func SetupCertificates(mainDomainSuffix []byte, acmeAPI, acmeMail, acmeEabHmac, 
 		}
 	}
 
-	mainDomainAcmeClient, err = lego.NewClient(myAcmeConfig)
+	mainDomainAcmeClient, err = lego.NewClient(acmeConfig)
 	if err != nil {
 		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
 	} else {
