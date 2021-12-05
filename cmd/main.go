@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -77,19 +76,7 @@ func Serve(ctx *cli.Context) error {
 		BlacklistedPaths, allowedCorsDomains,
 		dnsLookupCache, canonicalDomainCache)
 
-	// Enable compression by wrapping the handler with the compression function provided by FastHTTP
-	compressedHandler := fasthttp.CompressHandlerBrotliLevel(handler, fasthttp.CompressBrotliBestSpeed, fasthttp.CompressBestSpeed)
-
-	fastServer := &fasthttp.Server{
-		Handler:                      compressedHandler,
-		DisablePreParseMultipartForm: true,
-		MaxRequestBodySize:           0,
-		NoDefaultServerHeader:        true,
-		NoDefaultDate:                true,
-		ReadTimeout:                  30 * time.Second, // needs to be this high for ACME certificates with ZeroSSL & HTTP-01 challenge
-		Concurrency:                  1024 * 32,        // TODO: adjust bottlenecks for best performance with Gitea!
-		MaxConnsPerIP:                100,
-	}
+	fastServer, err := server.SetupServer(handler)
 
 	// Setup listener and TLS
 	log.Info().Msgf("Listening on https://%s", listeningAddress)
