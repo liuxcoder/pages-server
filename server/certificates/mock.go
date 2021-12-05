@@ -74,7 +74,9 @@ func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.CertDB)
 	if domain == "*"+mainDomainSuffix || domain == mainDomainSuffix[1:] {
 		databaseName = mainDomainSuffix
 	}
-	database.PogrebPut(keyDatabase, []byte(databaseName), res)
+	if err := keyDatabase.Put(databaseName, res); err != nil {
+		panic(err)
+	}
 
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {

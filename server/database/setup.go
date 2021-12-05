@@ -1,14 +1,16 @@
 package database
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/akrylysov/pogreb"
 	"github.com/akrylysov/pogreb/fs"
+	"github.com/go-acme/lego/v4/certificate"
+	"github.com/rs/zerolog/log"
 )
 
 type aDB struct {
@@ -23,12 +25,27 @@ func (p aDB) Close() error {
 	return p.intern.Sync()
 }
 
-func (p aDB) Put(key []byte, value []byte) error {
-	return p.intern.Put(key, value)
+func (p aDB) Put(name string, cert *certificate.Resource) error {
+	var resGob bytes.Buffer
+	if err := gob.NewEncoder(&resGob).Encode(cert); err != nil {
+		return err
+	}
+	return p.intern.Put([]byte(name), resGob.Bytes())
 }
 
-func (p aDB) Get(key []byte) ([]byte, error) {
-	return p.intern.Get(key)
+func (p aDB) Get(name []byte) (*certificate.Resource, error) {
+	cert := &certificate.Resource{}
+	resBytes, err := p.intern.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	if resBytes == nil {
+		return nil, nil
+	}
+	if err = gob.NewDecoder(bytes.NewBuffer(resBytes)).Decode(cert); err != nil {
+		return nil, err
+	}
+	return cert, nil
 }
 
 func (p aDB) Delete(key []byte) error {

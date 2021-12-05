@@ -188,8 +188,11 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 
 func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, keyDatabase database.CertDB) (tls.Certificate, bool) {
 	// parse certificate from database
-	res := &certificate.Resource{}
-	if !database.PogrebGet(keyDatabase, sni, res) {
+	res, err := keyDatabase.Get(sni)
+	if err != nil {
+		panic(err) // TODO: no panic
+	}
+	if res == nil {
 		return tls.Certificate{}, false
 	}
 
@@ -294,7 +297,9 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			if err == nil && tlsCertificate.Leaf.NotAfter.After(time.Now()) {
 				// avoid sending a mock cert instead of a still valid cert, instead abuse CSR field to store time to try again at
 				renew.CSR = []byte(strconv.FormatInt(time.Now().Add(6*time.Hour).Unix(), 10))
-				database.PogrebPut(keyDatabase, []byte(name), renew)
+				if err := keyDatabase.Put(name, renew); err != nil {
+					return mockCert(domains[0], err.Error(), string(mainDomainSuffix), keyDatabase), err
+				}
 				return tlsCertificate, nil
 			}
 		}
@@ -302,7 +307,9 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	}
 	log.Printf("Obtained certificate for %v", domains)
 
-	database.PogrebPut(keyDatabase, []byte(name), res)
+	if err := keyDatabase.Put(name, res); err != nil {
+		return tls.Certificate{}, err
+	}
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
 		return tls.Certificate{}, err
@@ -447,12 +454,12 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 	}
 }
 
-func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, keyDatabase database.CertDB) {
+func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) {
 	for {
 		// clean up expired certs
 		now := time.Now()
 		expiredCertCount := 0
-		keyDatabaseIterator := keyDatabase.Items()
+		keyDatabaseIterator := certDB.Items()
 		key, resBytes, err := keyDatabaseIterator.Next()
 		for err == nil {
 			if !bytes.Equal(key, mainDomainSuffix) {
@@ -466,7 +473,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 
 				tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 				if err != nil || !tlsCertificates[0].NotAfter.After(now) {
-					err := keyDatabase.Delete(key)
+					err := certDB.Delete(key)
 					if err != nil {
 						log.Printf("[ERROR] Deleting expired certificate for %s failed: %s", string(key), err)
 					} else {
@@ -479,7 +486,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 		log.Printf("[INFO] Removed %d expired certificates from the database", expiredCertCount)
 
 		// compact the database
-		result, err := keyDatabase.Compact()
+		result, err := certDB.Compact()
 		if err != nil {
 			log.Printf("[ERROR] Compacting key database failed: %s", err)
 		} else {
@@ -487,16 +494,18 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 		}
 
 		// update main cert
-		res := &certificate.Resource{}
-		if !database.PogrebGet(keyDatabase, mainDomainSuffix, res) {
-			log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", "expected main domain cert to exist, but it's missing - seems like the database is corrupted")
+		res, err := certDB.Get(mainDomainSuffix)
+		if err != nil {
+			log.Err(err).Msgf("could not get cert for domain '%s'", mainDomainSuffix)
+		} else if res == nil {
+			log.Error().Msgf("Couldn't renew certificate for main domain: %s", "expected main domain cert to exist, but it's missing - seems like the database is corrupted")
 		} else {
 			tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 
 			// renew main certificate 30 days before it expires
 			if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
 				go (func() {
-					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, keyDatabase)
+					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 					if err != nil {
 						log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", err)
 					}
