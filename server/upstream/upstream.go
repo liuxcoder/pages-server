@@ -114,7 +114,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaRoot, giteaAPIToken st
 			}
 			// compatibility fix for GitHub Pages (/example → /example.html)
 			optionsForIndexPages.appendTrailingSlash = false
-			optionsForIndexPages.redirectIfExists = string(ctx.Request.URI().Path()) + ".html"
+			optionsForIndexPages.redirectIfExists = strings.TrimSuffix(string(ctx.Request.URI().Path()), "/") + ".html"
 			optionsForIndexPages.TargetPath = o.TargetPath + ".html"
 			if optionsForIndexPages.Upstream(ctx, giteaRoot, giteaAPIToken, branchTimestampCache, fileResponseCache) {
 				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(o.BranchTimestamp.Unix(), 10), fileResponse{
