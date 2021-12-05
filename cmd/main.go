@@ -6,18 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"strings"
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/server"
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/certificates"
 	"codeberg.org/codeberg/pages/server/database"
-	"codeberg.org/codeberg/pages/server/utils"
 )
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
@@ -77,7 +74,8 @@ func Serve(ctx *cli.Context) error {
 		BlacklistedPaths, allowedCorsDomains,
 		dnsLookupCache, canonicalDomainCache)
 
-	fastServer, err := server.SetupServer(handler)
+	fastServer := server.SetupServer(handler)
+	httpServer := server.SetupHttpACMEChallengeServer(challengeCache)
 
 	// Setup listener and TLS
 	log.Info().Msgf("Listening on https://%s", listeningAddress)
@@ -100,31 +98,20 @@ func Serve(ctx *cli.Context) error {
 		keyDatabase))
 
 	certificates.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, challengeCache, keyDatabase)
+
 	if enableHTTPServer {
-		go (func() {
-			challengePath := []byte("/.well-known/acme-challenge/")
-			err := fasthttp.ListenAndServe("[::]:80", func(ctx *fasthttp.RequestCtx) {
-				if bytes.HasPrefix(ctx.Path(), challengePath) {
-					challenge, ok := challengeCache.Get(string(utils.TrimHostPort(ctx.Host())) + "/" + string(bytes.TrimPrefix(ctx.Path(), challengePath)))
-					if !ok || challenge == nil {
-						ctx.SetStatusCode(http.StatusNotFound)
-						ctx.SetBodyString("no challenge for this token")
-					}
-					ctx.SetBodyString(challenge.(string))
-				} else {
-					ctx.Redirect("https://"+string(ctx.Host())+string(ctx.RequestURI()), http.StatusMovedPermanently)
-				}
-			})
+		go func() {
+			err := httpServer.ListenAndServe("[::]:80")
 			if err != nil {
-				log.Fatal().Err(err).Msg("Couldn't start HTTP fastServer")
+				log.Panic().Err(err).Msg("Couldn't start HTTP fastServer")
 			}
-		})()
+		}()
 	}
 
 	// Start the web fastServer
 	err = fastServer.Serve(listener)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Couldn't start fastServer")
+		log.Panic().Err(err).Msg("Couldn't start fastServer")
 	}
 
 	return nil
