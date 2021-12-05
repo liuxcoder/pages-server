@@ -2,8 +2,9 @@ package html
 
 import (
 	"bytes"
-	"github.com/valyala/fasthttp"
 	"strconv"
+
+	"github.com/valyala/fasthttp"
 )
 
 // ReturnErrorPage sets the response status code and writes NotFoundPage to the response body, with "%status" replaced

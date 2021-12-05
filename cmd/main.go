@@ -49,7 +49,7 @@ func Serve(ctx *cli.Context) error {
 	acmeEabKID := ctx.String("acme-eab-kid")
 	acmeEabHmac := ctx.String("acme-eab-hmac")
 	dnsProvider := ctx.String("dns-provider")
-	if acmeAcceptTerms || (dnsProvider == "" && acmeAPI != "https://acme.mock.directory") {
+	if (!acmeAcceptTerms || dnsProvider == "") && acmeAPI != "https://acme.mock.directory" {
 		return errors.New("you must set $ACME_ACCEPT_TERMS and $DNS_PROVIDER, unless $ACME_API is set to https://acme.mock.directory")
 	}
 
@@ -109,7 +109,9 @@ func Serve(ctx *cli.Context) error {
 		return err
 	}
 
-	certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, certDB)
+	if err := certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, certDB); err != nil {
+		return err
+	}
 
 	interval := 12 * time.Hour
 	certMaintainCtx, cancelCertMaintain := context.WithCancel(context.Background())
