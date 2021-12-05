@@ -2,23 +2,23 @@ package main
 
 import (
 	"bytes"
-	debug_stepper "codeberg.org/codeberg/pages/debug-stepper"
 	"fmt"
-	"github.com/OrlovEvgeny/go-mcache"
-	"github.com/valyala/fasthttp"
-	"github.com/valyala/fastjson"
 	"io"
 	"mime"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/OrlovEvgeny/go-mcache"
+	"github.com/rs/zerolog/log"
+	"github.com/valyala/fasthttp"
+	"github.com/valyala/fastjson"
 )
 
 // handler handles a single HTTP request to the web server.
 func handler(ctx *fasthttp.RequestCtx) {
-	s := debug_stepper.Start("handler")
-	defer s.Complete()
+	log := log.With().Str("handler", string(ctx.Request.Header.RequestURI())).Logger()
 
 	ctx.Response.Header.Set("Server", "Codeberg Pages")
 
@@ -129,11 +129,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	s.Step("preparations")
+	log.Debug().Msg("preparations")
 
 	if RawDomain != nil && bytes.Equal(trimmedHost, RawDomain) {
 		// Serve raw content from RawDomain
-		s.Debug("raw domain")
+		log.Debug().Msg("raw domain")
 
 		targetOptions.TryIndexPages = false
 		targetOptions.ForbiddenMimeTypes["text/html"] = struct{}{}
@@ -150,30 +150,30 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 		// raw.codeberg.org/example/myrepo/@main/index.html
 		if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
-			s.Step("raw domain preparations, now trying with specified branch")
+			log.Debug().Msg("raw domain preparations, now trying with specified branch")
 			if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
 				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			) {
-				s.Step("tryBranch, now trying upstream")
+				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream()
 				return
 			}
-			s.Debug("missing branch")
+			log.Debug().Msg("missing branch")
 			returnErrorPage(ctx, fasthttp.StatusFailedDependency)
 			return
 		} else {
-			s.Step("raw domain preparations, now trying with default branch")
+			log.Debug().Msg("raw domain preparations, now trying with default branch")
 			tryBranch(targetRepo, "", pathElements[2:],
 				string(GiteaRoot)+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			)
-			s.Step("tryBranch, now trying upstream")
+			log.Debug().Msg("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		}
 
 	} else if bytes.HasSuffix(trimmedHost, MainDomainSuffix) {
 		// Serve pages from subdomains of MainDomainSuffix
-		s.Debug("main domain suffix")
+		log.Debug().Msg("main domain suffix")
 
 		pathElements := strings.Split(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/")
 		targetOwner = string(bytes.TrimSuffix(trimmedHost, MainDomainSuffix))
@@ -182,7 +182,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 		if targetOwner == "www" {
 			// www.codeberg.page redirects to codeberg.page
-			ctx.Redirect("https://" + string(MainDomainSuffix[1:]) + string(ctx.Path()), fasthttp.StatusPermanentRedirect)
+			ctx.Redirect("https://"+string(MainDomainSuffix[1:])+string(ctx.Path()), fasthttp.StatusPermanentRedirect)
 			return
 		}
 
@@ -195,11 +195,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 				return
 			}
 
-			s.Step("main domain preparations, now trying with specified repo & branch")
+			log.Debug().Msg("main domain preparations, now trying with specified repo & branch")
 			if tryBranch(pathElements[0], pathElements[1][1:], pathElements[2:],
 				"/"+pathElements[0]+"/%p",
 			) {
-				s.Step("tryBranch, now trying upstream")
+				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream()
 			} else {
 				returnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -210,9 +210,9 @@ func handler(ctx *fasthttp.RequestCtx) {
 		// Check if the first directory is a branch for the "pages" repo
 		// example.codeberg.page/@main/index.html
 		if strings.HasPrefix(pathElements[0], "@") {
-			s.Step("main domain preparations, now trying with specified branch")
+			log.Debug().Msg("main domain preparations, now trying with specified branch")
 			if tryBranch("pages", pathElements[0][1:], pathElements[1:], "/%p") {
-				s.Step("tryBranch, now trying upstream")
+				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream()
 			} else {
 				returnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -223,18 +223,18 @@ func handler(ctx *fasthttp.RequestCtx) {
 		// Check if the first directory is a repo with a "pages" branch
 		// example.codeberg.page/myrepo/index.html
 		// example.codeberg.page/pages/... is not allowed here.
-		s.Step("main domain preparations, now trying with specified repo")
+		log.Debug().Msg("main domain preparations, now trying with specified repo")
 		if pathElements[0] != "pages" && tryBranch(pathElements[0], "pages", pathElements[1:], "") {
-			s.Step("tryBranch, now trying upstream")
+			log.Debug().Msg("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		}
 
 		// Try to use the "pages" repo on its default branch
 		// example.codeberg.page/index.html
-		s.Step("main domain preparations, now trying with default repo/branch")
+		log.Debug().Msg("main domain preparations, now trying with default repo/branch")
 		if tryBranch("pages", "", pathElements, "") {
-			s.Step("tryBranch, now trying upstream")
+			log.Debug().Msg("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		}
@@ -261,7 +261,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		}
 
 		// Try to use the given repo on the given branch or the default branch
-		s.Step("custom domain preparations, now trying with details from DNS")
+		log.Debug().Msg("custom domain preparations, now trying with details from DNS")
 		if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
 			canonicalDomain, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr)
 			if !valid {
@@ -279,7 +279,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 				}
 			}
 
-			s.Step("tryBranch, now trying upstream")
+			log.Debug().Msg("tryBranch, now trying upstream")
 			tryUpstream()
 			return
 		} else {
@@ -380,9 +380,8 @@ var upstreamClient = fasthttp.Client{
 }
 
 // upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, targetBranch string, targetPath string, options *upstreamOptions) (final bool) {
-	s := debug_stepper.Start("upstream")
-	defer s.Complete()
+func upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRepo, targetBranch, targetPath string, options *upstreamOptions) (final bool) {
+	log := log.With().Strs("upstream", []string{targetOwner, targetRepo, targetBranch, targetPath}).Logger()
 
 	if options.ForbiddenMimeTypes == nil {
 		options.ForbiddenMimeTypes = map[string]struct{}{}
@@ -412,7 +411,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			return true
 		}
 	}
-	s.Step("preparations")
+	log.Debug().Msg("preparations")
 
 	// Make a GET request to the upstream URL
 	uri := targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/" + targetPath
@@ -429,7 +428,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		res.SetBodyStream(&strings.Reader{}, -1)
 		err = upstreamClient.Do(req, res)
 	}
-	s.Step("acquisition")
+	log.Debug().Msg("acquisition")
 
 	// Handle errors
 	if (res == nil && !cachedResponse.exists) || (res != nil && res.StatusCode() == fasthttp.StatusNotFound) {
@@ -449,7 +448,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 			// compatibility fix for GitHub Pages (/example → /example.html)
 			optionsForIndexPages.AppendTrailingSlash = false
 			optionsForIndexPages.RedirectIfExists = string(ctx.Request.URI().Path()) + ".html"
-			if upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath + ".html", &optionsForIndexPages) {
+			if upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath+".html", &optionsForIndexPages) {
 				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 					exists: false,
 				}, FileCacheTimeout)
@@ -485,7 +484,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		ctx.Redirect(options.RedirectIfExists, fasthttp.StatusTemporaryRedirect)
 		return true
 	}
-	s.Step("error handling")
+	log.Debug().Msg("error handling")
 
 	// Set the MIME type
 	mimeType := mime.TypeByExtension(path.Ext(targetPath))
@@ -503,7 +502,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 	ctx.Response.SetStatusCode(fasthttp.StatusOK)
 	ctx.Response.Header.SetLastModified(options.BranchTimestamp)
 
-	s.Step("response preparations")
+	log.Debug().Msg("response preparations")
 
 	// Write the response body to the original request
 	var cacheBodyWriter bytes.Buffer
@@ -522,7 +521,7 @@ func upstream(ctx *fasthttp.RequestCtx, targetOwner string, targetRepo string, t
 		returnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
 	}
-	s.Step("response")
+	log.Debug().Msg("response")
 
 	if res != nil && ctx.Err() == nil {
 		cachedResponse.exists = true
