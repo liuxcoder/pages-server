@@ -31,7 +31,7 @@ func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaApiToken string, br
 		// TODO: use header for API key?
 		status, body, err := fasthttp.GetTimeout(body, giteaRoot+"/api/v1/repos/"+owner+"/"+repo+"?access_token="+giteaApiToken, 5*time.Second)
 		if err != nil || status != 200 {
-			_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, nil, DefaultBranchCacheTimeout)
+			_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, nil, defaultBranchCacheTimeout)
 			return nil
 		}
 		result.Branch = fastjson.GetString(body, "default_branch")
@@ -44,7 +44,7 @@ func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaApiToken string, br
 	}
 
 	result.Timestamp, _ = time.Parse(time.RFC3339, fastjson.GetString(body, "commit", "timestamp"))
-	_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, result, BranchExistanceCacheTimeout)
+	_ = branchTimestampCache.Set(owner+"/"+repo+"/"+branch, result, branchExistenceCacheTimeout)
 	return result
 }
 

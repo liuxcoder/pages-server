@@ -2,5 +2,5 @@ package dns
 
 import "time"
 
-// DnsLookupCacheTimeout specifies the timeout for the DNS lookup cache.
-var DnsLookupCacheTimeout = 15 * time.Minute
+// lookupCacheTimeout specifies the timeout for the DNS lookup cache.
+var lookupCacheTimeout = 15 * time.Minute

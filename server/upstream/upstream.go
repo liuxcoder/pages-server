@@ -101,7 +101,7 @@ func (options *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRe
 				if optionsForIndexPages.Upstream(ctx, targetOwner, targetRepo, targetBranch, strings.TrimSuffix(targetPath, "/")+"/"+indexPage, giteaRoot, giteaApiToken, branchTimestampCache, fileResponseCache) {
 					_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 						exists: false,
-					}, FileCacheTimeout)
+					}, fileCacheTimeout)
 					return true
 				}
 			}
@@ -111,7 +111,7 @@ func (options *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRe
 			if optionsForIndexPages.Upstream(ctx, targetOwner, targetRepo, targetBranch, targetPath+".html", giteaRoot, giteaApiToken, branchTimestampCache, fileResponseCache) {
 				_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 					exists: false,
-				}, FileCacheTimeout)
+				}, fileCacheTimeout)
 				return true
 			}
 		}
@@ -120,7 +120,7 @@ func (options *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRe
 			// Update cache if the request is fresh
 			_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), fileResponse{
 				exists: false,
-			}, FileCacheTimeout)
+			}, fileCacheTimeout)
 		}
 		return false
 	}
@@ -167,7 +167,7 @@ func (options *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRe
 	// Write the response body to the original request
 	var cacheBodyWriter bytes.Buffer
 	if res != nil {
-		if res.Header.ContentLength() > FileCacheSizeLimit {
+		if res.Header.ContentLength() > fileCacheSizeLimit {
 			err = res.BodyWriteTo(ctx.Response.BodyWriter())
 		} else {
 			// TODO: cache is half-empty if request is cancelled - does the ctx.Err() below do the trick?
@@ -187,7 +187,7 @@ func (options *Options) Upstream(ctx *fasthttp.RequestCtx, targetOwner, targetRe
 		cachedResponse.exists = true
 		cachedResponse.mimeType = mimeType
 		cachedResponse.body = cacheBodyWriter.Bytes()
-		_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), cachedResponse, FileCacheTimeout)
+		_ = fileResponseCache.Set(uri+"?timestamp="+strconv.FormatInt(options.BranchTimestamp.Unix(), 10), cachedResponse, fileCacheTimeout)
 	}
 
 	return true

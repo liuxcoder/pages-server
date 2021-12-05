@@ -46,7 +46,7 @@ func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 		if targetRepo != "" && targetRepo != "pages" {
 			domains[len(domains)-1] += "/" + targetRepo
 		}
-		_ = canonicalDomainCache.Set(targetOwner+"/"+targetRepo+"/"+targetBranch, domains, CanonicalDomainCacheTimeout)
+		_ = canonicalDomainCache.Set(targetOwner+"/"+targetRepo+"/"+targetBranch, domains, canonicalDomainCacheTimeout)
 	}
 	canonicalDomain = domains[0]
 	return

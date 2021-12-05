@@ -134,7 +134,7 @@ func TLSConfig(mainDomainSuffix []byte,
 	}
 }
 
-func CheckUserLimit(user string) error {
+func checkUserLimit(user string) error {
 	userLimit, ok := acmeClientCertificateLimitPerUser[user]
 	if !ok {
 		// Each Codeberg user can only add 10 new domains per day.
@@ -292,7 +292,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	}
 	if res == nil {
 		if user != "" {
-			if err := CheckUserLimit(user); err != nil {
+			if err := checkUserLimit(user); err != nil {
 				return tls.Certificate{}, err
 			}
 		}

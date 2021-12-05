@@ -32,7 +32,7 @@ func GetTargetFromDNS(domain, mainDomainSuffix string, dnsLookupCache cache.SetG
 				}
 			}
 		}
-		_ = dnsLookupCache.Set(domain, cname, DnsLookupCacheTimeout)
+		_ = dnsLookupCache.Set(domain, cname, lookupCacheTimeout)
 	}
 	if cname == "" {
 		return
