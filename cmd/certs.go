@@ -35,7 +35,7 @@ func certs(ctx *cli.Context) error {
 				panic(err)
 			}
 		}
-		if err := keyDatabase.Sync(); err != nil {
+		if err := keyDatabase.Close(); err != nil {
 			panic(err)
 		}
 		os.Exit(0)

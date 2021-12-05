@@ -94,7 +94,7 @@ func Serve(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not create database: %v", err)
 	}
-	defer keyDatabase.Sync() //nolint:errcheck    // database has no close ... sync behave like it
+	defer keyDatabase.Close() //nolint:errcheck    // database has no close ... sync behave like it
 
 	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
 		giteaRoot, giteaAPIToken, dnsProvider,

@@ -38,7 +38,7 @@ func TLSConfig(mainDomainSuffix []byte,
 	giteaRoot, giteaApiToken, dnsProvider string,
 	acmeUseRateLimits bool,
 	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
-	keyDatabase database.KeyDB) *tls.Config {
+	keyDatabase database.CertDB) *tls.Config {
 	return &tls.Config{
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -185,7 +185,7 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	return nil
 }
 
-func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, keyDatabase database.KeyDB) (tls.Certificate, bool) {
+func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, keyDatabase database.CertDB) (tls.Certificate, bool) {
 	// parse certificate from database
 	res := &certificate.Resource{}
 	if !database.PogrebGet(keyDatabase, sni, res) {
@@ -229,7 +229,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUs
 
 var obtainLocks = sync.Map{}
 
-func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user, dnsProvider string, mainDomainSuffix []byte, acmeUseRateLimits bool, keyDatabase database.KeyDB) (tls.Certificate, error) {
+func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user, dnsProvider string, mainDomainSuffix []byte, acmeUseRateLimits bool, keyDatabase database.CertDB) (tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
 	if dnsProvider == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
 		domains = domains[1:]
@@ -392,7 +392,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 	return myAcmeConfig, nil
 }
 
-func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, keyDatabase database.KeyDB) {
+func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, keyDatabase database.CertDB) {
 	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
 	mainCertBytes, err := keyDatabase.Get(mainDomainSuffix)
 	if err != nil {

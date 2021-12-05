@@ -17,7 +17,7 @@ import (
 	"codeberg.org/codeberg/pages/server/database"
 )
 
-func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.KeyDB) tls.Certificate {
+func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.CertDB) tls.Certificate {
 	key, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
 	if err != nil {
 		panic(err)
