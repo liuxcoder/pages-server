@@ -16,7 +16,7 @@ import (
 
 // Handler handles a single HTTP request to the web server.
 func Handler(mainDomainSuffix, rawDomain []byte,
-	giteaRoot, rawInfoPage, giteaApiToken string,
+	giteaRoot, rawInfoPage, giteaAPIToken string,
 	blacklistedPaths, allowedCorsDomains [][]byte,
 	dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey) func(ctx *fasthttp.RequestCtx) {
 	return func(ctx *fasthttp.RequestCtx) {
@@ -85,7 +85,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			}
 
 			// Check if the branch exists, otherwise treat it as a file path
-			branchTimestampResult := upstream.GetBranchTimestamp(targetOwner, repo, branch, giteaRoot, giteaApiToken, branchTimestampCache)
+			branchTimestampResult := upstream.GetBranchTimestamp(targetOwner, repo, branch, giteaRoot, giteaAPIToken, branchTimestampCache)
 			if branchTimestampResult == nil {
 				// branch doesn't exist
 				return false
@@ -137,7 +137,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 					log.Debug().Msg("tryBranch, now trying upstream")
 					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-						giteaRoot, giteaApiToken,
+						giteaRoot, giteaAPIToken,
 						canonicalDomainCache, branchTimestampCache, fileResponseCache)
 					return
 				}
@@ -152,7 +152,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaApiToken,
+					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
 			}
@@ -188,7 +188,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 					log.Debug().Msg("tryBranch, now trying upstream")
 					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-						giteaRoot, giteaApiToken,
+						giteaRoot, giteaAPIToken,
 						canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				} else {
 					html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -204,7 +204,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 					log.Debug().Msg("tryBranch, now trying upstream")
 					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-						giteaRoot, giteaApiToken,
+						giteaRoot, giteaAPIToken,
 						canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				} else {
 					html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -220,7 +220,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaApiToken,
+					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
 			}
@@ -232,7 +232,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaApiToken,
+					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
 			}
@@ -261,7 +261,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// Try to use the given repo on the given branch or the default branch
 			log.Debug().Msg("custom domain preparations, now trying with details from DNS")
 			if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
-				canonicalDomain, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
+				canonicalDomain, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), giteaRoot, giteaAPIToken, canonicalDomainCache)
 				if !valid {
 					html.ReturnErrorPage(ctx, fasthttp.StatusMisdirectedRequest)
 					return
@@ -280,7 +280,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				log.Debug().Msg("tryBranch, now trying upstream")
 				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaApiToken,
+					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
 			} else {
