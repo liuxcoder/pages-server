@@ -36,10 +36,10 @@ import (
 
 // TLSConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
 func TLSConfig(mainDomainSuffix []byte,
-	giteaRoot, giteaApiToken, dnsProvider string,
+	giteaRoot, giteaAPIToken, dnsProvider string,
 	acmeUseRateLimits bool,
 	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
-	keyDatabase database.CertDB) *tls.Config {
+	certDB database.CertDB) *tls.Config {
 	return &tls.Config{
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -79,7 +79,7 @@ func TLSConfig(mainDomainSuffix []byte,
 					sni = string(sniBytes)
 				} else {
 					_, _ = targetRepo, targetBranch
-					_, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
+					_, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaAPIToken, canonicalDomainCache)
 					if !valid {
 						sniBytes = mainDomainSuffix
 						sni = string(sniBytes)
@@ -95,13 +95,13 @@ func TLSConfig(mainDomainSuffix []byte,
 			var tlsCertificate tls.Certificate
 			var err error
 			var ok bool
-			if tlsCertificate, ok = retrieveCertFromDB(sniBytes, mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase); !ok {
+			if tlsCertificate, ok = retrieveCertFromDB(sniBytes, mainDomainSuffix, dnsProvider, acmeUseRateLimits, certDB); !ok {
 				// request a new certificate
 				if bytes.Equal(sniBytes, mainDomainSuffix) {
 					return nil, errors.New("won't request certificate for main domain, something really bad has happened")
 				}
 
-				tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner, dnsProvider, mainDomainSuffix, acmeUseRateLimits, keyDatabase)
+				tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner, dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 				if err != nil {
 					return nil, err
 				}
@@ -186,9 +186,9 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	return nil
 }
 
-func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, keyDatabase database.CertDB) (tls.Certificate, bool) {
+func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) (tls.Certificate, bool) {
 	// parse certificate from database
-	res, err := keyDatabase.Get(sni)
+	res, err := certDB.Get(sni)
 	if err != nil {
 		panic(err) // TODO: no panic
 	}
@@ -220,7 +220,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUs
 			}
 			go (func() {
 				res.CSR = nil // acme client doesn't like CSR to be set
-				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, keyDatabase)
+				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 				if err != nil {
 					log.Printf("Couldn't renew certificate for %s: %s", sni, err)
 				}
@@ -400,9 +400,9 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 	return myAcmeConfig, nil
 }
 
-func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, keyDatabase database.CertDB) {
+func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, certDB database.CertDB) {
 	// getting main cert before ACME account so that we can panic here on database failure without hitting rate limits
-	mainCertBytes, err := keyDatabase.Get(mainDomainSuffix)
+	mainCertBytes, err := certDB.Get(mainDomainSuffix)
 	if err != nil {
 		// key database is not working
 		panic(err)
@@ -447,7 +447,7 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 	}
 
 	if mainCertBytes == nil {
-		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, nil, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, keyDatabase)
+		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, nil, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 		if err != nil {
 			log.Printf("[ERROR] Couldn't renew main domain certificate, continuing with mock certs only: %s", err)
 		}

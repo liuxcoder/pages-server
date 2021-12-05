@@ -92,29 +92,29 @@ func Serve(ctx *cli.Context) error {
 	}
 
 	// TODO: make "key-database.pogreb" set via flag
-	keyDatabase, err := database.New("key-database.pogreb")
+	certDB, err := database.New("key-database.pogreb")
 	if err != nil {
 		return fmt.Errorf("could not create database: %v", err)
 	}
-	defer keyDatabase.Close() //nolint:errcheck    // database has no close ... sync behave like it
+	defer certDB.Close() //nolint:errcheck    // database has no close ... sync behave like it
 
 	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
 		giteaRoot, giteaAPIToken, dnsProvider,
 		acmeUseRateLimits,
 		keyCache, challengeCache, dnsLookupCache, canonicalDomainCache,
-		keyDatabase))
+		certDB))
 
 	acmeConfig, err := certificates.SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, acmeAcceptTerms)
 	if err != nil {
 		return err
 	}
 
-	certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, keyDatabase)
+	certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, certDB)
 
 	interval := 12 * time.Hour
 	certMaintainCtx, cancelCertMaintain := context.WithCancel(context.Background())
 	defer cancelCertMaintain()
-	go certificates.MaintainCertDB(certMaintainCtx, interval, mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase)
+	go certificates.MaintainCertDB(certMaintainCtx, interval, mainDomainSuffix, dnsProvider, acmeUseRateLimits, certDB)
 
 	if enableHTTPServer {
 		go func() {
