@@ -5,21 +5,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OrlovEvgeny/go-mcache"
 	"github.com/valyala/fasthttp"
 
+	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/upstream"
 )
 
 // DnsLookupCacheTimeout specifies the timeout for the DNS lookup cache.
 var DnsLookupCacheTimeout = 15 * time.Minute
 
-// dnsLookupCache stores DNS lookups for custom domains
-var dnsLookupCache = mcache.New()
-
 // getTargetFromDNS searches for CNAME or TXT entries on the request domain ending with MainDomainSuffix.
 // If everything is fine, it returns the target data.
-func getTargetFromDNS(domain, mainDomainSuffix string) (targetOwner, targetRepo, targetBranch string) {
+func getTargetFromDNS(domain, mainDomainSuffix string, dnsLookupCache cache.SetGetKey) (targetOwner, targetRepo, targetBranch string) {
 	// Get CNAME or TXT
 	var cname string
 	var err error
@@ -68,11 +65,8 @@ func getTargetFromDNS(domain, mainDomainSuffix string) (targetOwner, targetRepo,
 // CanonicalDomainCacheTimeout specifies the timeout for the canonical domain cache.
 var CanonicalDomainCacheTimeout = 15 * time.Minute
 
-// canonicalDomainCache stores canonical domains
-var canonicalDomainCache = mcache.New()
-
 // checkCanonicalDomain returns the canonical domain specified in the repo (using the file `.canonical-domain`).
-func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaApiToken string) (canonicalDomain string, valid bool) {
+func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaApiToken string, canonicalDomainCache cache.SetGetKey) (canonicalDomain string, valid bool) {
 	domains := []string{}
 	if cachedValue, ok := canonicalDomainCache.Get(targetOwner + "/" + targetRepo + "/" + targetBranch); ok {
 		domains = cachedValue.([]string)

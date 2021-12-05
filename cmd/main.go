@@ -64,8 +64,18 @@ func Serve(ctx *cli.Context) error {
 		mainDomainSuffix = append([]byte{'.'}, mainDomainSuffix...)
 	}
 
+	keyCache := cache.NewKeyValueCache()
+	challengeCache := cache.NewKeyValueCache()
+	// canonicalDomainCache stores canonical domains
+	var canonicalDomainCache = cache.NewKeyValueCache()
+	// dnsLookupCache stores DNS lookups for custom domains
+	var dnsLookupCache = cache.NewKeyValueCache()
+
 	// Create handler based on settings
-	handler := server.Handler(mainDomainSuffix, []byte(rawDomain), giteaRoot, rawInfoPage, giteaAPIToken, BlacklistedPaths, allowedCorsDomains)
+	handler := server.Handler(mainDomainSuffix, []byte(rawDomain),
+		giteaRoot, rawInfoPage, giteaAPIToken,
+		BlacklistedPaths, allowedCorsDomains,
+		dnsLookupCache, canonicalDomainCache)
 
 	// Enable compression by wrapping the handler with the compression function provided by FastHTTP
 	compressedHandler := fasthttp.CompressHandlerBrotliLevel(handler, fasthttp.CompressBrotliBestSpeed, fasthttp.CompressBestSpeed)
@@ -93,11 +103,13 @@ func Serve(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not create database: %v", err)
 	}
-	defer keyDatabase.Sync() // database has no close ... sync behave like it
+	defer keyDatabase.Sync() //nolint:errcheck    // database has no close ... sync behave like it
 
-	keyCache := cache.NewKeyValueCache()
-	challengeCache := cache.NewKeyValueCache()
-	listener = tls.NewListener(listener, server.TLSConfig(mainDomainSuffix, giteaRoot, giteaAPIToken, dnsProvider, acmeUseRateLimits, keyCache, challengeCache, keyDatabase))
+	listener = tls.NewListener(listener, server.TLSConfig(mainDomainSuffix,
+		giteaRoot, giteaAPIToken, dnsProvider,
+		acmeUseRateLimits,
+		keyCache, challengeCache, dnsLookupCache, canonicalDomainCache,
+		keyDatabase))
 
 	server.SetupCertificates(mainDomainSuffix, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider, acmeUseRateLimits, acmeAcceptTerms, enableHTTPServer, challengeCache, keyDatabase)
 	if enableHTTPServer {

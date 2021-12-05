@@ -5,6 +5,8 @@ import (
 	"github.com/valyala/fasthttp"
 	"testing"
 	"time"
+
+	"codeberg.org/codeberg/pages/server/cache"
 )
 
 func TestHandlerPerformance(t *testing.T) {
@@ -16,6 +18,8 @@ func TestHandlerPerformance(t *testing.T) {
 		"",
 		[][]byte{[]byte("/.well-known/acme-challenge/")},
 		[][]byte{[]byte("raw.codeberg.org"), []byte("fonts.codeberg.org"), []byte("design.codeberg.org")},
+		cache.NewKeyValueCache(),
+		cache.NewKeyValueCache(),
 	)
 
 	ctx := &fasthttp.RequestCtx{

@@ -38,7 +38,11 @@ import (
 )
 
 // TLSConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
-func TLSConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken, dnsProvider string, acmeUseRateLimits bool, keyCache, challengeCache cache.SetGetKey, keyDatabase database.KeyDB) *tls.Config {
+func TLSConfig(mainDomainSuffix []byte,
+	giteaRoot, giteaApiToken, dnsProvider string,
+	acmeUseRateLimits bool,
+	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
+	keyDatabase database.KeyDB) *tls.Config {
 	return &tls.Config{
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -71,14 +75,14 @@ func TLSConfig(mainDomainSuffix []byte, giteaRoot, giteaApiToken, dnsProvider st
 				sni = string(sniBytes)
 			} else {
 				var targetRepo, targetBranch string
-				targetOwner, targetRepo, targetBranch = getTargetFromDNS(sni, string(mainDomainSuffix))
+				targetOwner, targetRepo, targetBranch = getTargetFromDNS(sni, string(mainDomainSuffix), dnsLookupCache)
 				if targetOwner == "" {
 					// DNS not set up, return main certificate to redirect to the docs
 					sniBytes = mainDomainSuffix
 					sni = string(sniBytes)
 				} else {
 					_, _ = targetRepo, targetBranch
-					_, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaApiToken)
+					_, valid := checkCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaApiToken, canonicalDomainCache)
 					if !valid {
 						sniBytes = mainDomainSuffix
 						sni = string(sniBytes)
