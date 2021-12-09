@@ -8,9 +8,10 @@ import (
 	"codeberg.org/codeberg/pages/server/cache"
 )
 
-// CheckCanonicalDomain returns the canonical domain specified in the repo (using the file `.canonical-domain`).
-func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaApiToken string, canonicalDomainCache cache.SetGetKey) (canonicalDomain string, valid bool) {
+// CheckCanonicalDomain returns the canonical domain specified in the repo (using the `.domains` file).
+func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaAPIToken string, canonicalDomainCache cache.SetGetKey) (string, bool) {
 	domains := []string{}
+	valid := false
 	if cachedValue, ok := canonicalDomainCache.Get(targetOwner + "/" + targetRepo + "/" + targetBranch); ok {
 		domains = cachedValue.([]string)
 		for _, domain := range domains {
@@ -21,7 +22,7 @@ func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 		}
 	} else {
 		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + giteaApiToken)
+		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + giteaAPIToken)
 		res := fasthttp.AcquireResponse()
 
 		err := client.Do(req, res)
@@ -48,6 +49,5 @@ func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 		}
 		_ = canonicalDomainCache.Set(targetOwner+"/"+targetRepo+"/"+targetBranch, domains, canonicalDomainCacheTimeout)
 	}
-	canonicalDomain = domains[0]
-	return
+	return domains[0], valid
 }

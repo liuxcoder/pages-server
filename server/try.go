@@ -29,7 +29,7 @@ func tryUpstream(ctx *fasthttp.RequestCtx,
 			if targetRepo != "pages" {
 				path := strings.SplitN(canonicalPath, "/", 3)
 				if len(path) >= 3 {
-					canonicalPath = "/" + strings.SplitN(canonicalPath, "/", 3)[2]
+					canonicalPath = "/" + path[2]
 				}
 			}
 			ctx.Redirect("https://"+canonicalDomain+canonicalPath, fasthttp.StatusTemporaryRedirect)
