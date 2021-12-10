@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
@@ -34,6 +35,11 @@ var BlacklistedPaths = [][]byte{
 
 // Serve sets up and starts the web server.
 func Serve(ctx *cli.Context) error {
+	verbose := ctx.Bool("verbose")
+	if !verbose {
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+
 	giteaRoot := strings.TrimSuffix(ctx.String("gitea-root"), "/")
 	giteaAPIToken := ctx.String("gitea-api-token")
 	rawDomain := ctx.String("raw-domain")

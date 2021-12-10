@@ -5,6 +5,12 @@ import (
 )
 
 var ServeFlags = []cli.Flag{
+	&cli.BoolFlag{
+		Name: "verbose",
+		// TODO: Usage
+		EnvVars: []string{"DEBUG"},
+	},
+	
 	// MainDomainSuffix specifies the main domain (starting with a dot) for which subdomains shall be served as static
 	// pages, or used for comparison in CNAME lookups. Static pages can be accessed through
 	// https://{owner}.{MainDomain}[/{repo}], with repo defaulting to "pages".
