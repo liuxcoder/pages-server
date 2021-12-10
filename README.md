@@ -2,7 +2,7 @@
 
 - `HOST` & `PORT` (default: `[::]` & `443`): listen address.
 - `PAGES_DOMAIN` (default: `codeberg.page`): main domain for pages.
-- `RAW_DOMAIN` (default: `raw.codeberg.org`): domain for raw resources.
+- `RAW_DOMAIN` (default: `raw.codeberg.page`): domain for raw resources.
 - `GITEA_ROOT` (default: `https://codeberg.org`): root of the upstream Gitea instance.
 - `GITEA_API_TOKEN` (default: empty): API token for the Gitea instance to access non-public (e.g. limited) repos.
 - `RAW_INFO_PAGE` (default: https://docs.codeberg.org/pages/raw-content/): info page for raw resources, shown if no resource is provided.
@@ -15,6 +15,7 @@
 - `ENABLE_HTTP_SERVER` (default: false): Set this to true to enable the HTTP-01 challenge and redirect all other HTTP requests to HTTPS. Currently only works with port 80.
 - `DNS_PROVIDER` (default: use self-signed certificate): Code of the ACME DNS provider for the main domain wildcard.  
   See https://go-acme.github.io/lego/dns/ for available values & additional environment variables.
+- `DEBUG` (default: false): Set this to true to enable debug logging.
 
 ```
 // Package main is the new Codeberg Pages server, a solution for serving static pages from Gitea repositories.
@@ -29,8 +30,10 @@
 //      www.example.org. IN CNAME main.pages.example.codeberg.page.
 //
 // 3) if a CNAME is set for "www.example.org", you can redirect there from the naked domain by adding an ALIAS record
-// for "example.org" (if your provider allows ALIAS or similar records):
+// for "example.org" (if your provider allows ALIAS or similar records, otherwise use A/AAAA), together with a TXT
+// record that points to your repo (just like the CNAME record):
 //      example.org IN ALIAS codeberg.page.
+//      example.org IN TXT main.pages.example.codeberg.page.
 //
 // Certificates are generated, updated and cleaned up automatically via Let's Encrypt through a TLS challenge.
 ```

@@ -35,14 +35,14 @@ var ServeFlags = []cli.Flag{
 		Name:    "raw-domain",
 		Usage:   "specifies the domain from which raw repository content shall be served, not set disable raw content hosting",
 		EnvVars: []string{"RAW_DOMAIN"},
-		Value:   "raw.codeberg.org",
+		Value:   "raw.codeberg.page",
 	},
 	// RawInfoPage will be shown (with a redirect) when trying to access RawDomain directly (or without owner/repo/path).
 	&cli.StringFlag{
 		Name:    "raw-info-page",
 		Usage:   "will be shown (with a redirect) when trying to access $RAW_DOMAIN directly (or without owner/repo/path)",
 		EnvVars: []string{"RAW_INFO_PAGE"},
-		Value:   "https://docs.codeberg.org/pages/raw-content/",
+		Value:   "https://docs.codeberg.org/codeberg-pages/raw-content/",
 	},
 
 	// Server
