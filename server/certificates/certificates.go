@@ -209,7 +209,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUs
 		}
 
 		// renew certificates 7 days before they expire
-		if !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(-7 * 24 * time.Hour)) {
+		if !tlsCertificate.Leaf.NotAfter.After(time.Now().Add(7 * 24 * time.Hour)) {
 			// TODO: add ValidUntil to custom res struct
 			if res.CSR != nil && len(res.CSR) > 0 {
 				// CSR stores the time when the renewal shall be tried again
@@ -503,7 +503,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 			tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 
 			// renew main certificate 30 days before it expires
-			if !tlsCertificates[0].NotAfter.After(time.Now().Add(-30 * 24 * time.Hour)) {
+			if !tlsCertificates[0].NotAfter.After(time.Now().Add(30 * 24 * time.Hour)) {
 				go (func() {
 					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 					if err != nil {
