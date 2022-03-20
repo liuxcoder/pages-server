@@ -2,43 +2,70 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-
+	"github.com/akrylysov/pogreb"
 	"github.com/urfave/cli/v2"
 
 	"codeberg.org/codeberg/pages/server/database"
 )
 
 var Certs = &cli.Command{
-	Name:   "certs",
-	Usage:  "manage certs manually",
-	Action: certs,
+	Name:  "certs",
+	Usage: "manage certs manually",
+	Subcommands: []*cli.Command{
+		&cli.Command{
+			Name:   "list",
+			Usage:  "list all certificates in the database",
+			Action: listCerts,
+		},
+		&cli.Command{
+			Name:   "remove",
+			Usage:  "remove a certificate from the database",
+			Action: removeCert,
+		},
+	},
 }
 
-func certs(ctx *cli.Context) error {
-	if ctx.Args().Len() >= 1 && ctx.Args().First() == "--remove-certificate" {
-		if ctx.Args().Len() == 1 {
-			println("--remove-certificate requires at least one domain as an argument")
-			os.Exit(1)
-		}
+func listCerts(ctx *cli.Context) error {
+	// TODO: make "key-database.pogreb" set via flag
+	keyDatabase, err := database.New("key-database.pogreb")
+	if err != nil {
+		return fmt.Errorf("could not create database: %v", err)
+	}
 
-		domains := ctx.Args().Slice()[2:]
-
-		// TODO: make "key-database.pogreb" set via flag
-		keyDatabase, err := database.New("key-database.pogreb")
+	items := keyDatabase.Items()
+	for domain, _, err := items.Next(); err != pogreb.ErrIterationDone; domain, _, err = items.Next() {
 		if err != nil {
-			return fmt.Errorf("could not create database: %v", err)
+			return err
 		}
+		if domain[0] == '.' {
+			fmt.Printf("*")
+		}
+		fmt.Printf("%s\n", domain)
+	}
+	return nil
+}
 
-		for _, domain := range domains {
-			if err := keyDatabase.Delete([]byte(domain)); err != nil {
-				panic(err)
-			}
+func removeCert(ctx *cli.Context) error {
+	if ctx.Args().Len() < 1 {
+		return fmt.Errorf("'certs remove' requires at least one domain as an argument")
+	}
+
+	domains := ctx.Args().Slice()
+
+	// TODO: make "key-database.pogreb" set via flag
+	keyDatabase, err := database.New("key-database.pogreb")
+	if err != nil {
+		return fmt.Errorf("could not create database: %v", err)
+	}
+
+	for _, domain := range domains {
+		fmt.Printf("Removing domain %s from the database...\n", domain)
+		if err := keyDatabase.Delete([]byte(domain)); err != nil {
+			return err
 		}
-		if err := keyDatabase.Close(); err != nil {
-			panic(err)
-		}
-		os.Exit(0)
+	}
+	if err := keyDatabase.Close(); err != nil {
+		return err
 	}
 	return nil
 }
