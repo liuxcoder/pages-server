@@ -9,10 +9,8 @@ import (
 	"codeberg.org/codeberg/pages/cmd"
 )
 
-var (
-	// can be changed with -X on compile
-	version = "dev"
-)
+// can be changed with -X on compile
+var version = "dev"
 
 func main() {
 	app := cli.NewApp()

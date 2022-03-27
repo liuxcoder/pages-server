@@ -19,9 +19,11 @@ var _ registration.User = &AcmeAccount{}
 func (u *AcmeAccount) GetEmail() string {
 	return u.Email
 }
+
 func (u AcmeAccount) GetRegistration() *registration.Resource {
 	return u.Registration
 }
+
 func (u *AcmeAccount) GetPrivateKey() crypto.PrivateKey {
 	return u.Key
 }

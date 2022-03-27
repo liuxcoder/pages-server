@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/akrylysov/pogreb"
 	"github.com/urfave/cli/v2"
 
@@ -12,12 +13,12 @@ var Certs = &cli.Command{
 	Name:  "certs",
 	Usage: "manage certs manually",
 	Subcommands: []*cli.Command{
-		&cli.Command{
+		{
 			Name:   "list",
 			Usage:  "list all certificates in the database",
 			Action: listCerts,
 		},
-		&cli.Command{
+		{
 			Name:   "remove",
 			Usage:  "remove a certificate from the database",
 			Action: removeCert,

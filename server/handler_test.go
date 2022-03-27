@@ -2,9 +2,10 @@ package server
 
 import (
 	"fmt"
-	"github.com/valyala/fasthttp"
 	"testing"
 	"time"
+
+	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/server/cache"
 )

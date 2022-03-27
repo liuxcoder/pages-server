@@ -19,8 +19,8 @@ func tryUpstream(ctx *fasthttp.RequestCtx,
 	targetOwner, targetRepo, targetBranch, targetPath,
 
 	giteaRoot, giteaAPIToken string,
-	canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey) {
-
+	canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey,
+) {
 	// check if a canonical domain exists on a request on MainDomain
 	if bytes.HasSuffix(trimmedHost, mainDomainSuffix) {
 		canonicalDomain, _ := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, "", string(mainDomainSuffix), giteaRoot, giteaAPIToken, canonicalDomainCache)

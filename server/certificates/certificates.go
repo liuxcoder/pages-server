@@ -40,7 +40,8 @@ func TLSConfig(mainDomainSuffix []byte,
 	giteaRoot, giteaAPIToken, dnsProvider string,
 	acmeUseRateLimits bool,
 	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
-	certDB database.CertDB) *tls.Config {
+	certDB database.CertDB,
+) *tls.Config {
 	return &tls.Config{
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -146,8 +147,10 @@ func checkUserLimit(user string) error {
 	return nil
 }
 
-var acmeClient, mainDomainAcmeClient *lego.Client
-var acmeClientCertificateLimitPerUser = map[string]*equalizer.TokenBucket{}
+var (
+	acmeClient, mainDomainAcmeClient  *lego.Client
+	acmeClientCertificateLimitPerUser = map[string]*equalizer.TokenBucket{}
+)
 
 // rate limit is 300 / 3 hours, we want 200 / 2 hours but to refill more often, so that's 25 new domains every 15 minutes
 // TODO: when this is used a lot, we probably have to think of a somewhat better solution?
@@ -166,6 +169,7 @@ var _ challenge.Provider = AcmeTLSChallengeProvider{}
 func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
 	return a.challengeCache.Set(domain, keyAuth, 1*time.Hour)
 }
+
 func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
 	a.challengeCache.Remove(domain)
 	return nil
@@ -181,6 +185,7 @@ var _ challenge.Provider = AcmeHTTPChallengeProvider{}
 func (a AcmeHTTPChallengeProvider) Present(domain, token, keyAuth string) error {
 	return a.challengeCache.Set(domain+"/"+token, keyAuth, 1*time.Hour)
 }
+
 func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	a.challengeCache.Remove(domain + "/" + token)
 	return nil
@@ -388,7 +393,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 				log.Printf("[FAIL] Error during json.Marshal(myAcmeAccount), waiting for manual restart to avoid rate limits: %s", err)
 				select {}
 			}
-			err = ioutil.WriteFile(configFile, acmeAccountJSON, 0600)
+			err = ioutil.WriteFile(configFile, acmeAccountJSON, 0o600)
 			if err != nil {
 				log.Printf("[FAIL] Error during ioutil.WriteFile(\"acme-account.json\"), waiting for manual restart to avoid rate limits: %s", err)
 				select {}

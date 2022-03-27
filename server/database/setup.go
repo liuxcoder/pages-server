@@ -13,6 +13,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var _ CertDB = aDB{}
+
 type aDB struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -63,20 +65,6 @@ func (p aDB) Items() *pogreb.ItemIterator {
 var _ CertDB = &aDB{}
 
 func (p aDB) sync() {
-	for {
-		err := p.intern.Sync()
-		if err != nil {
-			log.Err(err).Msg("Syncing cert database failed")
-		}
-		select {
-		case <-p.ctx.Done():
-			return
-		case <-time.After(p.syncInterval):
-		}
-	}
-}
-
-func (p aDB) compact() {
 	for {
 		err := p.intern.Sync()
 		if err != nil {

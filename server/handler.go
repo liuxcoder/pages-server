@@ -18,7 +18,8 @@ import (
 func Handler(mainDomainSuffix, rawDomain []byte,
 	giteaRoot, rawInfoPage, giteaAPIToken string,
 	blacklistedPaths, allowedCorsDomains [][]byte,
-	dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey) func(ctx *fasthttp.RequestCtx) {
+	dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey,
+) func(ctx *fasthttp.RequestCtx) {
 	return func(ctx *fasthttp.RequestCtx) {
 		log := log.With().Str("Handler", string(ctx.Request.Header.RequestURI())).Logger()
 
@@ -72,14 +73,14 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 
 		// Prepare request information to Gitea
 		var targetOwner, targetRepo, targetBranch, targetPath string
-		var targetOptions = &upstream.Options{
+		targetOptions := &upstream.Options{
 			ForbiddenMimeTypes: map[string]struct{}{},
 			TryIndexPages:      true,
 		}
 
 		// tryBranch checks if a branch exists and populates the target variables. If canonicalLink is non-empty, it will
 		// also disallow search indexing and add a Link header to the canonical URL.
-		var tryBranch = func(repo string, branch string, path []string, canonicalLink string) bool {
+		tryBranch := func(repo, branch string, path []string, canonicalLink string) bool {
 			if repo == "" {
 				return false
 			}

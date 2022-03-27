@@ -72,14 +72,14 @@ func Serve(ctx *cli.Context) error {
 	keyCache := cache.NewKeyValueCache()
 	challengeCache := cache.NewKeyValueCache()
 	// canonicalDomainCache stores canonical domains
-	var canonicalDomainCache = cache.NewKeyValueCache()
+	canonicalDomainCache := cache.NewKeyValueCache()
 	// dnsLookupCache stores DNS lookups for custom domains
-	var dnsLookupCache = cache.NewKeyValueCache()
+	dnsLookupCache := cache.NewKeyValueCache()
 	// branchTimestampCache stores branch timestamps for faster cache checking
-	var branchTimestampCache = cache.NewKeyValueCache()
+	branchTimestampCache := cache.NewKeyValueCache()
 	// fileResponseCache stores responses from the Gitea server
 	// TODO: make this an MRU cache with a size limit
-	var fileResponseCache = cache.NewKeyValueCache()
+	fileResponseCache := cache.NewKeyValueCache()
 
 	// Create handler based on settings
 	handler := server.Handler(mainDomainSuffix, []byte(rawDomain),

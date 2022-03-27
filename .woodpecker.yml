@@ -1,0 +1,25 @@
+pipeline:
+  # use vendor to cache dependencies
+  vendor:
+    image: golang
+    commands:
+      - go mod vendor
+
+  lint:
+    image: golangci/golangci-lint:v1.45.2
+    commands:
+      - go version
+      - go install mvdan.cc/gofumpt@latest
+      - "[ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }"
+      - golangci-lint run
+
+  # # TODO: make tests work
+  # test:
+  #   image: golang
+  #   commands:
+  #     - go test ./...
+
+  build:
+    image: golang
+    commands:
+      - go build
