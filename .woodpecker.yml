@@ -13,11 +13,10 @@ pipeline:
       - "[ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }"
       - golangci-lint run
 
-  # # TODO: make tests work
-  # test:
-  #   image: golang
-  #   commands:
-  #     - go test ./...
+  test:
+    image: golang
+    commands:
+      - go test ./...
 
   build:
     image: golang
