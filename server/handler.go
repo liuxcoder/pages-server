@@ -54,19 +54,19 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 		}
 
 		// Allow CORS for specified domains
+		allowCors := false
+		for _, allowedCorsDomain := range allowedCorsDomains {
+			if bytes.Equal(trimmedHost, allowedCorsDomain) {
+				allowCors = true
+				break
+			}
+		}
+		if allowCors {
+			ctx.Response.Header.Set("Access-Control-Allow-Origin", "*")
+			ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET, HEAD")
+		}
+		ctx.Response.Header.Set("Allow", "GET, HEAD, OPTIONS")
 		if ctx.IsOptions() {
-			allowCors := false
-			for _, allowedCorsDomain := range allowedCorsDomains {
-				if bytes.Equal(trimmedHost, allowedCorsDomain) {
-					allowCors = true
-					break
-				}
-			}
-			if allowCors {
-				ctx.Response.Header.Set("Access-Control-Allow-Origin", "*")
-				ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET, HEAD")
-			}
-			ctx.Response.Header.Set("Allow", "GET, HEAD, OPTIONS")
 			ctx.Response.Header.SetStatusCode(fasthttp.StatusNoContent)
 			return
 		}
