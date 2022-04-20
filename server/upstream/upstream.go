@@ -38,11 +38,13 @@ type Options struct {
 	redirectIfExists    string
 }
 
-var client = fasthttp.Client{
-	ReadTimeout:        10 * time.Second,
-	MaxConnDuration:    60 * time.Second,
-	MaxConnWaitTimeout: 1000 * time.Millisecond,
-	MaxConnsPerHost:    128 * 16, // TODO: adjust bottlenecks for best performance with Gitea!
+func getFastHTTPClient(timeout time.Duration) *fasthttp.Client {
+	return &fasthttp.Client{
+		ReadTimeout:        timeout,
+		MaxConnDuration:    60 * time.Second,
+		MaxConnWaitTimeout: 1000 * time.Millisecond,
+		MaxConnsPerHost:    128 * 16, // TODO: adjust bottlenecks for best performance with Gitea!
+	}
 }
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
@@ -80,7 +82,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaRoot, giteaAPIToken st
 	log.Debug().Msg("preparations")
 
 	// Make a GET request to the upstream URL
-	uri := o.TargetOwner + "/" + o.TargetRepo + "/raw/" + o.TargetBranch + "/" + o.TargetPath
+	uri := path.Join(o.TargetOwner, o.TargetRepo, "raw", o.TargetBranch, o.TargetPath)
 	var req *fasthttp.Request
 	var res *fasthttp.Response
 	var cachedResponse fileResponse
@@ -89,10 +91,11 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaRoot, giteaAPIToken st
 		cachedResponse = cachedValue.(fileResponse)
 	} else {
 		req = fasthttp.AcquireRequest()
-		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + uri + "?access_token=" + giteaAPIToken)
+		req.SetRequestURI(path.Join(giteaRoot, giteaAPIRepos, uri))
+		req.Header.Set(fasthttp.HeaderAuthorization, giteaAPIToken)
 		res = fasthttp.AcquireResponse()
 		res.SetBodyStream(&strings.Reader{}, -1)
-		err = client.Do(req, res)
+		err = getFastHTTPClient(10*time.Second).Do(req, res)
 	}
 	log.Debug().Msg("acquisition")
 

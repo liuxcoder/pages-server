@@ -3,15 +3,19 @@ package upstream
 import (
 	"strings"
 
-	"github.com/valyala/fasthttp"
-
 	"codeberg.org/codeberg/pages/server/cache"
 )
 
 // CheckCanonicalDomain returns the canonical domain specified in the repo (using the `.domains` file).
 func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaAPIToken string, canonicalDomainCache cache.SetGetKey) (string, bool) {
-	domains := []string{}
-	valid := false
+	return checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaAPIToken, canonicalDomainCache)
+}
+
+func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaAPIToken string, canonicalDomainCache cache.SetGetKey) (string, bool) {
+	var (
+		domains []string
+		valid   bool
+	)
 	if cachedValue, ok := canonicalDomainCache.Get(targetOwner + "/" + targetRepo + "/" + targetBranch); ok {
 		domains = cachedValue.([]string)
 		for _, domain := range domains {
@@ -21,13 +25,9 @@ func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 			}
 		}
 	} else {
-		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(giteaRoot + "/api/v1/repos/" + targetOwner + "/" + targetRepo + "/raw/" + targetBranch + "/.domains" + "?access_token=" + giteaAPIToken)
-		res := fasthttp.AcquireResponse()
-
-		err := client.Do(req, res)
-		if err == nil && res.StatusCode() == fasthttp.StatusOK {
-			for _, domain := range strings.Split(string(res.Body()), "\n") {
+		body, err := giteaRawContent(giteaRoot, targetRepo, targetBranch, giteaRoot, giteaAPIToken, canonicalDomainConfig)
+		if err == nil {
+			for _, domain := range strings.Split(string(body), "\n") {
 				domain = strings.ToLower(domain)
 				domain = strings.TrimSpace(domain)
 				domain = strings.TrimPrefix(domain, "http://")

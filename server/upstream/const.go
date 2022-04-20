@@ -19,3 +19,5 @@ var fileCacheSizeLimit = 1024 * 1024
 
 // canonicalDomainCacheTimeout specifies the timeout for the canonical domain cache.
 var canonicalDomainCacheTimeout = 15 * time.Minute
+
+const canonicalDomainConfig = ".domains"
