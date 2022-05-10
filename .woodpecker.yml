@@ -11,7 +11,7 @@ pipeline:
       - go version
       - go install mvdan.cc/gofumpt@latest
       - "[ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }"
-      - golangci-lint run
+      - golangci-lint run --timeout 5m
 
   test:
     image: golang

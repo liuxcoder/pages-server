@@ -13,7 +13,7 @@ build:
 
 lint: tool-golangci tool-gofumpt
     [ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }; \
-    golangci-lint run
+    golangci-lint run --timeout 5m
 
 tool-golangci:
     @hash golangci-lint> /dev/null 2>&1; if [ $? -ne 0 ]; then \
