@@ -25,7 +25,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 			}
 		}
 	} else {
-		body, err := giteaRawContent(giteaRoot, targetRepo, targetBranch, giteaRoot, giteaAPIToken, canonicalDomainConfig)
+		body, err := giteaRawContent(targetOwner, targetRepo, targetBranch, giteaRoot, giteaAPIToken, canonicalDomainConfig)
 		if err == nil {
 			for _, domain := range strings.Split(string(body), "\n") {
 				domain = strings.ToLower(domain)
