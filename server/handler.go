@@ -135,7 +135,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
 					giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 				) {
-					log.Debug().Msg("tryBranch, now trying upstream")
+					log.Debug().Msg("tryBranch, now trying upstream 1")
 					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 						giteaRoot, giteaAPIToken,
@@ -151,7 +151,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			tryBranch(targetRepo, "", pathElements[2:],
 				giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			)
-			log.Debug().Msg("tryBranch, now trying upstream")
+			log.Debug().Msg("tryBranch, now trying upstream 2")
 			tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 				targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 				giteaRoot, giteaAPIToken,
@@ -186,7 +186,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				if tryBranch(pathElements[0], pathElements[1][1:], pathElements[2:],
 					"/"+pathElements[0]+"/%p",
 				) {
-					log.Debug().Msg("tryBranch, now trying upstream")
+					log.Debug().Msg("tryBranch, now trying upstream 3")
 					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 						giteaRoot, giteaAPIToken,
@@ -202,7 +202,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			if strings.HasPrefix(pathElements[0], "@") {
 				log.Debug().Msg("main domain preparations, now trying with specified branch")
 				if tryBranch("pages", pathElements[0][1:], pathElements[1:], "/%p") {
-					log.Debug().Msg("tryBranch, now trying upstream")
+					log.Debug().Msg("tryBranch, now trying upstream 4")
 					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 						giteaRoot, giteaAPIToken,
@@ -218,7 +218,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// example.codeberg.page/pages/... is not allowed here.
 			log.Debug().Msg("main domain preparations, now trying with specified repo")
 			if pathElements[0] != "pages" && tryBranch(pathElements[0], "pages", pathElements[1:], "") {
-				log.Debug().Msg("tryBranch, now trying upstream")
+				log.Debug().Msg("tryBranch, now trying upstream 5")
 				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 					giteaRoot, giteaAPIToken,
@@ -230,7 +230,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// example.codeberg.page/index.html
 			log.Debug().Msg("main domain preparations, now trying with default repo/branch")
 			if tryBranch("pages", "", pathElements, "") {
-				log.Debug().Msg("tryBranch, now trying upstream")
+				log.Debug().Msg("tryBranch, now trying upstream 6")
 				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 					giteaRoot, giteaAPIToken,
@@ -278,7 +278,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 					return
 				}
 
-				log.Debug().Msg("tryBranch, now trying upstream")
+				log.Debug().Msg("tryBranch, now trying upstream 7")
 				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 					giteaRoot, giteaAPIToken,
