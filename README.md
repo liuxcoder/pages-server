@@ -97,3 +97,12 @@ After scanning the code, you should quickly be able to understand their function
 
 Again: Feel free to get in touch with us for any questions that might arise.
 Thank you very much.
+
+
+### Test Server
+
+run `just dev`
+now this pages should work:
+ - https://magiclike.localhost.mock.directory:4430/
+ - https://momar.localhost.mock.directory:4430/ci-testing/
+ - https://momar.localhost.mock.directory:4430/pag/@master/
