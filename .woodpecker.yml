@@ -1,7 +1,7 @@
 pipeline:
   # use vendor to cache dependencies
   vendor:
-    image: golang
+    image: golang:1.18
     commands:
       - go mod vendor
 
@@ -14,11 +14,11 @@ pipeline:
       - golangci-lint run --timeout 5m
 
   test:
-    image: golang
+    image: golang:1.18
     commands:
       - go test ./...
 
   build:
-    image: golang
+    image: golang:1.18
     commands:
       - go build
