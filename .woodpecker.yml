@@ -8,19 +8,30 @@ pipeline:
       - go mod vendor
 
   lint:
-    image: golangci/golangci-lint:v1.45.2
+    image: golangci/golangci-lint:latest
+    pull: true
     commands:
       - go version
       - go install mvdan.cc/gofumpt@latest
       - "[ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }"
-      - golangci-lint run --timeout 5m
+      - golangci-lint run --timeout 5m --build-tags integration
 
   test:
     image: golang:1.18
     commands:
-      - go test ./...
+      - go test -race codeberg.org/codeberg/pages/server/...
 
   build:
     image: golang:1.18
     commands:
       - go build
+
+  integration-tests:
+    image: golang:1.18
+    commands:
+      - go test -race -tags integration codeberg.org/codeberg/pages/integration/...
+    environment:
+      - ACME_API=https://acme.mock.directory
+      - PAGES_DOMAIN=localhost.mock.directory
+      - RAW_DOMAIN=raw.localhost.mock.directory
+      - PORT=4430

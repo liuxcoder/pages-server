@@ -13,7 +13,7 @@ build:
 
 lint: tool-golangci tool-gofumpt
     [ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }; \
-    golangci-lint run --timeout 5m
+    golangci-lint run --timeout 5m --build-tags integration
 
 fmt: tool-gofumpt
     gofumpt -w --extra .

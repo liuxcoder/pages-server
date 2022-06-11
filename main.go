@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 
 	"codeberg.org/codeberg/pages/cmd"
