@@ -18,6 +18,7 @@ import (
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/certificates"
 	"codeberg.org/codeberg/pages/server/database"
+	"codeberg.org/codeberg/pages/server/gitea"
 )
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
@@ -81,9 +82,12 @@ func Serve(ctx *cli.Context) error {
 	// TODO: make this an MRU cache with a size limit
 	fileResponseCache := cache.NewKeyValueCache()
 
+	giteaClient := gitea.NewClient(giteaRoot, giteaAPIToken)
+
 	// Create handler based on settings
 	handler := server.Handler(mainDomainSuffix, []byte(rawDomain),
-		giteaRoot, rawInfoPage, giteaAPIToken,
+		giteaClient,
+		giteaRoot, rawInfoPage,
 		BlacklistedPaths, allowedCorsDomains,
 		dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache)
 
@@ -105,7 +109,8 @@ func Serve(ctx *cli.Context) error {
 	defer certDB.Close() //nolint:errcheck    // database has no close ... sync behave like it
 
 	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
-		giteaRoot, giteaAPIToken, dnsProvider,
+		giteaClient,
+		dnsProvider,
 		acmeUseRateLimits,
 		keyCache, challengeCache, dnsLookupCache, canonicalDomainCache,
 		certDB))
@@ -126,6 +131,7 @@ func Serve(ctx *cli.Context) error {
 
 	if enableHTTPServer {
 		go func() {
+			log.Info().Timestamp().Msg("Start listening on :80")
 			err := httpServer.ListenAndServe("[::]:80")
 			if err != nil {
 				log.Panic().Err(err).Msg("Couldn't start HTTP fastServer")
@@ -134,6 +140,7 @@ func Serve(ctx *cli.Context) error {
 	}
 
 	// Start the web fastServer
+	log.Info().Timestamp().Msgf("Start listening on %s", listener.Addr())
 	err = fastServer.Serve(listener)
 	if err != nil {
 		log.Panic().Err(err).Msg("Couldn't start fastServer")

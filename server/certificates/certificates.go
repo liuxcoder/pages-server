@@ -32,12 +32,14 @@ import (
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/database"
 	dnsutils "codeberg.org/codeberg/pages/server/dns"
+	"codeberg.org/codeberg/pages/server/gitea"
 	"codeberg.org/codeberg/pages/server/upstream"
 )
 
 // TLSConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
 func TLSConfig(mainDomainSuffix []byte,
-	giteaRoot, giteaAPIToken, dnsProvider string,
+	giteaClient *gitea.Client,
+	dnsProvider string,
 	acmeUseRateLimits bool,
 	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
 	certDB database.CertDB,
@@ -81,7 +83,7 @@ func TLSConfig(mainDomainSuffix []byte,
 					sni = string(sniBytes)
 				} else {
 					_, _ = targetRepo, targetBranch
-					_, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), giteaRoot, giteaAPIToken, canonicalDomainCache)
+					_, valid := upstream.CheckCanonicalDomain(giteaClient, targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), canonicalDomainCache)
 					if !valid {
 						sniBytes = mainDomainSuffix
 						sni = string(sniBytes)
@@ -193,7 +195,7 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 
 func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) (tls.Certificate, bool) {
 	// parse certificate from database
-	res, err := certDB.Get(sni)
+	res, err := certDB.Get(string(sni))
 	if err != nil {
 		panic(err) // TODO: no panic
 	}
@@ -406,7 +408,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 
 func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, certDB database.CertDB) error {
 	// getting main cert before ACME account so that we can fail here without hitting rate limits
-	mainCertBytes, err := certDB.Get(mainDomainSuffix)
+	mainCertBytes, err := certDB.Get(string(mainDomainSuffix))
 	if err != nil {
 		return fmt.Errorf("cert database is not working")
 	}
@@ -478,7 +480,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 
 				tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 				if err != nil || !tlsCertificates[0].NotAfter.After(now) {
-					err := certDB.Delete(key)
+					err := certDB.Delete(string(key))
 					if err != nil {
 						log.Printf("[ERROR] Deleting expired certificate for %s failed: %s", string(key), err)
 					} else {
@@ -491,15 +493,15 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 		log.Printf("[INFO] Removed %d expired certificates from the database", expiredCertCount)
 
 		// compact the database
-		result, err := certDB.Compact()
+		msg, err := certDB.Compact()
 		if err != nil {
 			log.Printf("[ERROR] Compacting key database failed: %s", err)
 		} else {
-			log.Printf("[INFO] Compacted key database (%+v)", result)
+			log.Printf("[INFO] Compacted key database (%s)", msg)
 		}
 
 		// update main cert
-		res, err := certDB.Get(mainDomainSuffix)
+		res, err := certDB.Get(string(mainDomainSuffix))
 		if err != nil {
 			log.Err(err).Msgf("could not get cert for domain '%s'", mainDomainSuffix)
 		} else if res == nil {

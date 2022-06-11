@@ -61,7 +61,7 @@ func removeCert(ctx *cli.Context) error {
 
 	for _, domain := range domains {
 		fmt.Printf("Removing domain %s from the database...\n", domain)
-		if err := keyDatabase.Delete([]byte(domain)); err != nil {
+		if err := keyDatabase.Delete(domain); err != nil {
 			return err
 		}
 	}

@@ -8,15 +8,16 @@ import (
 	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/server/cache"
+	"codeberg.org/codeberg/pages/server/gitea"
 )
 
 func TestHandlerPerformance(t *testing.T) {
+	giteaRoot := "https://codeberg.org"
+	giteaClient := gitea.NewClient(giteaRoot, "")
 	testHandler := Handler(
-		[]byte("codeberg.page"),
-		[]byte("raw.codeberg.org"),
-		"https://codeberg.org",
-		"https://docs.codeberg.org/pages/raw-content/",
-		"",
+		[]byte("codeberg.page"), []byte("raw.codeberg.org"),
+		giteaClient,
+		giteaRoot, "https://docs.codeberg.org/pages/raw-content/",
 		[][]byte{[]byte("/.well-known/acme-challenge/")},
 		[][]byte{[]byte("raw.codeberg.org"), []byte("fonts.codeberg.org"), []byte("design.codeberg.org")},
 		cache.NewKeyValueCache(),

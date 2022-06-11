@@ -8,8 +8,8 @@ import (
 type CertDB interface {
 	Close() error
 	Put(name string, cert *certificate.Resource) error
-	Get(name []byte) (*certificate.Resource, error)
-	Delete(key []byte) error
-	Compact() (pogreb.CompactionResult, error)
+	Get(name string) (*certificate.Resource, error)
+	Delete(key string) error
+	Compact() (string, error)
 	Items() *pogreb.ItemIterator
 }

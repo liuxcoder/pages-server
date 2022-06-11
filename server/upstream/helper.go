@@ -1,9 +1,14 @@
 package upstream
 
 import (
+	"mime"
+	"path"
+	"strconv"
+	"strings"
 	"time"
 
 	"codeberg.org/codeberg/pages/server/cache"
+	"codeberg.org/codeberg/pages/server/gitea"
 )
 
 type branchTimestamp struct {
@@ -13,7 +18,7 @@ type branchTimestamp struct {
 
 // GetBranchTimestamp finds the default branch (if branch is "") and returns the last modification time of the branch
 // (or nil if the branch doesn't exist)
-func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaAPIToken string, branchTimestampCache cache.SetGetKey) *branchTimestamp {
+func GetBranchTimestamp(giteaClient *gitea.Client, owner, repo, branch string, branchTimestampCache cache.SetGetKey) *branchTimestamp {
 	if result, ok := branchTimestampCache.Get(owner + "/" + repo + "/" + branch); ok {
 		if result == nil {
 			return nil
@@ -25,7 +30,7 @@ func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaAPIToken string, br
 	}
 	if len(branch) == 0 {
 		// Get default branch
-		defaultBranch, err := giteaGetRepoDefaultBranch(giteaRoot, owner, repo, giteaAPIToken)
+		defaultBranch, err := giteaClient.GiteaGetRepoDefaultBranch(owner, repo)
 		if err != nil {
 			_ = branchTimestampCache.Set(owner+"/"+repo+"/", nil, defaultBranchCacheTimeout)
 			return nil
@@ -33,7 +38,7 @@ func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaAPIToken string, br
 		result.Branch = defaultBranch
 	}
 
-	timestamp, err := giteaGetRepoBranchTimestamp(giteaRoot, owner, repo, branch, giteaAPIToken)
+	timestamp, err := giteaClient.GiteaGetRepoBranchTimestamp(owner, repo, result.Branch)
 	if err != nil {
 		return nil
 	}
@@ -42,8 +47,26 @@ func GetBranchTimestamp(owner, repo, branch, giteaRoot, giteaAPIToken string, br
 	return result
 }
 
-type fileResponse struct {
-	exists   bool
-	mimeType string
-	body     []byte
+func (o *Options) getMimeTypeByExtension() string {
+	if o.ForbiddenMimeTypes == nil {
+		o.ForbiddenMimeTypes = make(map[string]bool)
+	}
+	mimeType := mime.TypeByExtension(path.Ext(o.TargetPath))
+	mimeTypeSplit := strings.SplitN(mimeType, ";", 2)
+	if o.ForbiddenMimeTypes[mimeTypeSplit[0]] || mimeType == "" {
+		if o.DefaultMimeType != "" {
+			mimeType = o.DefaultMimeType
+		} else {
+			mimeType = "application/octet-stream"
+		}
+	}
+	return mimeType
+}
+
+func (o *Options) generateUri() string {
+	return path.Join(o.TargetOwner, o.TargetRepo, "raw", o.TargetBranch, o.TargetPath)
+}
+
+func (o *Options) timestamp() string {
+	return strconv.FormatInt(o.BranchTimestamp.Unix(), 10)
 }

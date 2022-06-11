@@ -35,9 +35,9 @@ func (p aDB) Put(name string, cert *certificate.Resource) error {
 	return p.intern.Put([]byte(name), resGob.Bytes())
 }
 
-func (p aDB) Get(name []byte) (*certificate.Resource, error) {
+func (p aDB) Get(name string) (*certificate.Resource, error) {
 	cert := &certificate.Resource{}
-	resBytes, err := p.intern.Get(name)
+	resBytes, err := p.intern.Get([]byte(name))
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +50,16 @@ func (p aDB) Get(name []byte) (*certificate.Resource, error) {
 	return cert, nil
 }
 
-func (p aDB) Delete(key []byte) error {
-	return p.intern.Delete(key)
+func (p aDB) Delete(key string) error {
+	return p.intern.Delete([]byte(key))
 }
 
-func (p aDB) Compact() (pogreb.CompactionResult, error) {
-	return p.intern.Compact()
+func (p aDB) Compact() (string, error) {
+	result, err := p.intern.Compact()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%+v", result), nil
 }
 
 func (p aDB) Items() *pogreb.ItemIterator {

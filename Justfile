@@ -15,6 +15,9 @@ lint: tool-golangci tool-gofumpt
     [ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }; \
     golangci-lint run --timeout 5m
 
+fmt: tool-gofumpt
+    gofumpt -w --extra .
+
 tool-golangci:
     @hash golangci-lint> /dev/null 2>&1; if [ $? -ne 0 ]; then \
     go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \

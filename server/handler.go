@@ -4,19 +4,22 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/html"
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/dns"
+	"codeberg.org/codeberg/pages/server/gitea"
 	"codeberg.org/codeberg/pages/server/upstream"
 	"codeberg.org/codeberg/pages/server/utils"
 )
 
 // Handler handles a single HTTP request to the web server.
 func Handler(mainDomainSuffix, rawDomain []byte,
-	giteaRoot, rawInfoPage, giteaAPIToken string,
+	giteaClient *gitea.Client,
+	giteaRoot, rawInfoPage string,
 	blacklistedPaths, allowedCorsDomains [][]byte,
 	dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey,
 ) func(ctx *fasthttp.RequestCtx) {
@@ -74,21 +77,21 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 		// Prepare request information to Gitea
 		var targetOwner, targetRepo, targetBranch, targetPath string
 		targetOptions := &upstream.Options{
-			ForbiddenMimeTypes: map[string]struct{}{},
-			TryIndexPages:      true,
+			TryIndexPages: true,
 		}
 
 		// tryBranch checks if a branch exists and populates the target variables. If canonicalLink is non-empty, it will
 		// also disallow search indexing and add a Link header to the canonical URL.
-		tryBranch := func(repo, branch string, path []string, canonicalLink string) bool {
+		tryBranch := func(log zerolog.Logger, repo, branch string, path []string, canonicalLink string) bool {
 			if repo == "" {
+				log.Debug().Msg("tryBranch: repo == ''")
 				return false
 			}
 
 			// Check if the branch exists, otherwise treat it as a file path
-			branchTimestampResult := upstream.GetBranchTimestamp(targetOwner, repo, branch, giteaRoot, giteaAPIToken, branchTimestampCache)
+			branchTimestampResult := upstream.GetBranchTimestamp(giteaClient, targetOwner, repo, branch, branchTimestampCache)
 			if branchTimestampResult == nil {
-				// branch doesn't exist
+				log.Debug().Msg("tryBranch: branch doesn't exist")
 				return false
 			}
 
@@ -108,6 +111,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				)
 			}
 
+			log.Debug().Msg("tryBranch: true")
 			return true
 		}
 
@@ -117,7 +121,10 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			log.Debug().Msg("raw domain")
 
 			targetOptions.TryIndexPages = false
-			targetOptions.ForbiddenMimeTypes["text/html"] = struct{}{}
+			if targetOptions.ForbiddenMimeTypes == nil {
+				targetOptions.ForbiddenMimeTypes = make(map[string]bool)
+			}
+			targetOptions.ForbiddenMimeTypes["text/html"] = true
 			targetOptions.DefaultMimeType = "text/plain; charset=utf-8"
 
 			pathElements := strings.Split(string(bytes.Trim(ctx.Request.URI().Path(), "/")), "/")
@@ -132,13 +139,13 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// raw.codeberg.org/example/myrepo/@main/index.html
 			if len(pathElements) > 2 && strings.HasPrefix(pathElements[2], "@") {
 				log.Debug().Msg("raw domain preparations, now trying with specified branch")
-				if tryBranch(targetRepo, pathElements[2][1:], pathElements[3:],
+				if tryBranch(log,
+					targetRepo, pathElements[2][1:], pathElements[3:],
 					giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 				) {
 					log.Debug().Msg("tryBranch, now trying upstream 1")
-					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+					tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-						giteaRoot, giteaAPIToken,
 						canonicalDomainCache, branchTimestampCache, fileResponseCache)
 					return
 				}
@@ -148,13 +155,13 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			}
 
 			log.Debug().Msg("raw domain preparations, now trying with default branch")
-			tryBranch(targetRepo, "", pathElements[2:],
+			tryBranch(log,
+				targetRepo, "", pathElements[2:],
 				giteaRoot+"/"+targetOwner+"/"+targetRepo+"/src/branch/%b/%p",
 			)
 			log.Debug().Msg("tryBranch, now trying upstream 2")
-			tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 				targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-				giteaRoot, giteaAPIToken,
 				canonicalDomainCache, branchTimestampCache, fileResponseCache)
 			return
 
@@ -183,13 +190,13 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				}
 
 				log.Debug().Msg("main domain preparations, now trying with specified repo & branch")
-				if tryBranch(pathElements[0], pathElements[1][1:], pathElements[2:],
+				if tryBranch(log,
+					pathElements[0], pathElements[1][1:], pathElements[2:],
 					"/"+pathElements[0]+"/%p",
 				) {
 					log.Debug().Msg("tryBranch, now trying upstream 3")
-					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+					tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-						giteaRoot, giteaAPIToken,
 						canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				} else {
 					html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -201,11 +208,11 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// example.codeberg.page/@main/index.html
 			if strings.HasPrefix(pathElements[0], "@") {
 				log.Debug().Msg("main domain preparations, now trying with specified branch")
-				if tryBranch("pages", pathElements[0][1:], pathElements[1:], "/%p") {
+				if tryBranch(log,
+					"pages", pathElements[0][1:], pathElements[1:], "/%p") {
 					log.Debug().Msg("tryBranch, now trying upstream 4")
-					tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+					tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 						targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-						giteaRoot, giteaAPIToken,
 						canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				} else {
 					html.ReturnErrorPage(ctx, fasthttp.StatusFailedDependency)
@@ -217,11 +224,11 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// example.codeberg.page/myrepo/index.html
 			// example.codeberg.page/pages/... is not allowed here.
 			log.Debug().Msg("main domain preparations, now trying with specified repo")
-			if pathElements[0] != "pages" && tryBranch(pathElements[0], "pages", pathElements[1:], "") {
+			if pathElements[0] != "pages" && tryBranch(log,
+				pathElements[0], "pages", pathElements[1:], "") {
 				log.Debug().Msg("tryBranch, now trying upstream 5")
-				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+				tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
 			}
@@ -229,11 +236,11 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// Try to use the "pages" repo on its default branch
 			// example.codeberg.page/index.html
 			log.Debug().Msg("main domain preparations, now trying with default repo/branch")
-			if tryBranch("pages", "", pathElements, "") {
+			if tryBranch(log,
+				"pages", "", pathElements, "") {
 				log.Debug().Msg("tryBranch, now trying upstream 6")
-				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+				tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
 			}
@@ -261,8 +268,9 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 
 			// Try to use the given repo on the given branch or the default branch
 			log.Debug().Msg("custom domain preparations, now trying with details from DNS")
-			if tryBranch(targetRepo, targetBranch, pathElements, canonicalLink) {
-				canonicalDomain, valid := upstream.CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), giteaRoot, giteaAPIToken, canonicalDomainCache)
+			if tryBranch(log,
+				targetRepo, targetBranch, pathElements, canonicalLink) {
+				canonicalDomain, valid := upstream.CheckCanonicalDomain(giteaClient, targetOwner, targetRepo, targetBranch, trimmedHostStr, string(mainDomainSuffix), canonicalDomainCache)
 				if !valid {
 					html.ReturnErrorPage(ctx, fasthttp.StatusMisdirectedRequest)
 					return
@@ -279,9 +287,8 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				}
 
 				log.Debug().Msg("tryBranch, now trying upstream 7")
-				tryUpstream(ctx, mainDomainSuffix, trimmedHost,
+				tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
-					giteaRoot, giteaAPIToken,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
 				return
 			}

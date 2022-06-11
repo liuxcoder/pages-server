@@ -4,14 +4,11 @@ import (
 	"strings"
 
 	"codeberg.org/codeberg/pages/server/cache"
+	"codeberg.org/codeberg/pages/server/gitea"
 )
 
 // CheckCanonicalDomain returns the canonical domain specified in the repo (using the `.domains` file).
-func CheckCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaAPIToken string, canonicalDomainCache cache.SetGetKey) (string, bool) {
-	return checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaAPIToken, canonicalDomainCache)
-}
-
-func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix, giteaRoot, giteaAPIToken string, canonicalDomainCache cache.SetGetKey) (string, bool) {
+func CheckCanonicalDomain(giteaClient *gitea.Client, targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix string, canonicalDomainCache cache.SetGetKey) (string, bool) {
 	var (
 		domains []string
 		valid   bool
@@ -25,7 +22,7 @@ func checkCanonicalDomain(targetOwner, targetRepo, targetBranch, actualDomain, m
 			}
 		}
 	} else {
-		body, err := giteaRawContent(targetOwner, targetRepo, targetBranch, giteaRoot, giteaAPIToken, canonicalDomainConfig)
+		body, err := giteaClient.GiteaRawContent(targetOwner, targetRepo, targetBranch, canonicalDomainConfig)
 		if err == nil {
 			for _, domain := range strings.Split(string(body), "\n") {
 				domain = strings.ToLower(domain)
