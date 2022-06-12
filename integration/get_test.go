@@ -49,6 +49,19 @@ func TestGetContent(t *testing.T) {
 	assert.True(t, getSize(resp.Body) > 1000)
 }
 
+func TestGetNotFound(t *testing.T) {
+	log.Printf("== TestGetNotFound ==\n")
+	// test custom not found pages
+	resp, err := getTestHTTPSClient().Get("https://crystal.localhost.mock.directory:4430/pages-404-demo/blah")
+	assert.NoError(t, err)
+	if !assert.EqualValues(t, http.StatusNotFound, resp.StatusCode) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header["Content-Type"][0])
+	assert.EqualValues(t, "37", resp.Header["Content-Length"][0])
+	assert.EqualValues(t, 37, getSize(resp.Body))
+}
+
 func getTestHTTPSClient() *http.Client {
 	cookieJar, _ := cookiejar.New(nil)
 	return &http.Client{

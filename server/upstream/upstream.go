@@ -21,6 +21,11 @@ var upstreamIndexPages = []string{
 	"index.html",
 }
 
+// upstreamNotFoundPages lists pages that may be considered as custom 404 Not Found pages.
+var upstreamNotFoundPages = []string{
+	"404.html",
+}
+
 // Options provides various options for the upstream request.
 type Options struct {
 	TargetOwner,
@@ -107,6 +112,21 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 			}
 		}
 		ctx.Response.SetStatusCode(fasthttp.StatusNotFound)
+		if o.TryIndexPages {
+			// copy the o struct & try if a not found page exists
+			optionsForNotFoundPages := *o
+			optionsForNotFoundPages.TryIndexPages = false
+			optionsForNotFoundPages.appendTrailingSlash = false
+			for _, notFoundPage := range upstreamNotFoundPages {
+				optionsForNotFoundPages.TargetPath = "/" + notFoundPage
+				if optionsForNotFoundPages.Upstream(ctx, giteaClient, branchTimestampCache, fileResponseCache) {
+					_ = fileResponseCache.Set(uri+"?timestamp="+o.timestamp(), gitea.FileResponse{
+						Exists: false,
+					}, fileCacheTimeout)
+					return true
+				}
+			}
+		}
 		if res != nil {
 			// Update cache if the request is fresh
 			_ = fileResponseCache.Set(uri+"?timestamp="+o.timestamp(), gitea.FileResponse{
@@ -141,8 +161,10 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	mimeType := o.getMimeTypeByExtension()
 	ctx.Response.Header.SetContentType(mimeType)
 
-	// Everything's okay so far
-	ctx.Response.SetStatusCode(fasthttp.StatusOK)
+	if ctx.Response.StatusCode() != fasthttp.StatusNotFound {
+		// Everything's okay so far
+		ctx.Response.SetStatusCode(fasthttp.StatusOK)
+	}
 	ctx.Response.Header.SetLastModified(o.BranchTimestamp)
 
 	log.Debug().Msg("response preparations")
