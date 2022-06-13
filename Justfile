@@ -27,3 +27,9 @@ tool-gofumpt:
     @hash gofumpt> /dev/null 2>&1; if [ $? -ne 0 ]; then \
     go install mvdan.cc/gofumpt@latest; \
     fi
+
+test:
+    go test -race codeberg.org/codeberg/pages/server/...
+
+integration:
+    go test -race -tags integration codeberg.org/codeberg/pages/integration/...

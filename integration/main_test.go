@@ -16,14 +16,14 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	log.Printf("=== TestMain: START Server ==\n")
+	log.Printf("=== TestMain: START Server ===\n")
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	if err := startServer(serverCtx); err != nil {
 		log.Fatal().Msgf("could not start server: %v", err)
 	}
 	defer func() {
 		serverCancel()
-		log.Printf("=== TestMain: Server STOPED ==\n")
+		log.Printf("=== TestMain: Server STOPED ===\n")
 	}()
 
 	time.Sleep(20 * time.Second)
