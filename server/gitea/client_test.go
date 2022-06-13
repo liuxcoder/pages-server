@@ -1,23 +1,23 @@
 package gitea
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestJoinURL(t *testing.T) {
-	url := joinURL("")
-	assert.EqualValues(t, "", url)
+	baseURL := ""
+	assert.EqualValues(t, "/", joinURL(baseURL))
+	assert.EqualValues(t, "/", joinURL(baseURL, "", ""))
 
-	url = joinURL("", "", "")
-	assert.EqualValues(t, "", url)
+	baseURL = "http://wwow.url.com"
+	assert.EqualValues(t, "http://wwow.url.com/a/b/c/d", joinURL(baseURL, "a", "b/c/", "d"))
 
-	url = joinURL("http://wwow.url.com", "a", "b/c/", "d")
-	// assert.EqualValues(t, "http://wwow.url.com/a/b/c/d", url)
-	assert.EqualValues(t, "http://wwow.url.coma/b/c/d", url)
-
-	url = joinURL("h:://wrong", "acdc")
-	// assert.EqualValues(t, "h:://wrong/acdc", url)
-	assert.EqualValues(t, "h:://wrongacdc", url)
+	baseURL = "http://wow.url.com/subpath/2"
+	assert.EqualValues(t, "http://wow.url.com/subpath/2/content.pdf", joinURL(baseURL, "/content.pdf"))
+	assert.EqualValues(t, "http://wow.url.com/subpath/2/wonderful.jpg", joinURL(baseURL, "wonderful.jpg"))
+	assert.EqualValues(t, "http://wow.url.com/subpath/2/raw/wonderful.jpg?ref=main", joinURL(baseURL, "raw", "wonderful.jpg"+"?ref="+url.QueryEscape("main")))
+	assert.EqualValues(t, "http://wow.url.com/subpath/2/raw/wonderful.jpg%3Fref=main", joinURL(baseURL, "raw", "wonderful.jpg%3Fref=main"))
 }

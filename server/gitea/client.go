@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"path"
+	"strings"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -29,18 +29,33 @@ type FileResponse struct {
 	Body     []byte
 }
 
-func joinURL(giteaRoot string, paths ...string) string { return giteaRoot + path.Join(paths...) }
+// TODO: once golang v1.19 is min requirement, we can switch to 'JoinPath()' of 'net/url' package
+func joinURL(baseURL string, paths ...string) string {
+	p := make([]string, 0, len(paths))
+	for i := range paths {
+		path := strings.TrimSpace(paths[i])
+		path = strings.Trim(path, "/")
+		if len(path) != 0 {
+			p = append(p, path)
+		}
+	}
+
+	return baseURL + "/" + strings.Join(p, "/")
+}
 
 func (f FileResponse) IsEmpty() bool { return len(f.Body) != 0 }
 
-func NewClient(giteaRoot, giteaAPIToken string) *Client {
+func NewClient(giteaRoot, giteaAPIToken string) (*Client, error) {
+	rootURL, err := url.Parse(giteaRoot)
+	giteaRoot = strings.Trim(rootURL.String(), "/")
+
 	return &Client{
 		giteaRoot:      giteaRoot,
 		giteaAPIToken:  giteaAPIToken,
 		infoTimeout:    5 * time.Second,
 		contentTimeout: 10 * time.Second,
 		fastClient:     getFastHTTPClient(),
-	}
+	}, err
 }
 
 func (client *Client) GiteaRawContent(targetOwner, targetRepo, ref, resource string) ([]byte, error) {

@@ -82,7 +82,10 @@ func Serve(ctx *cli.Context) error {
 	// TODO: make this an MRU cache with a size limit
 	fileResponseCache := cache.NewKeyValueCache()
 
-	giteaClient := gitea.NewClient(giteaRoot, giteaAPIToken)
+	giteaClient, err := gitea.NewClient(giteaRoot, giteaAPIToken)
+	if err != nil {
+		return fmt.Errorf("could not create new gitea client: %v", err)
+	}
 
 	// Create handler based on settings
 	handler := server.Handler(mainDomainSuffix, []byte(rawDomain),

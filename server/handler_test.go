@@ -13,7 +13,7 @@ import (
 
 func TestHandlerPerformance(t *testing.T) {
 	giteaRoot := "https://codeberg.org"
-	giteaClient := gitea.NewClient(giteaRoot, "")
+	giteaClient, _ := gitea.NewClient(giteaRoot, "")
 	testHandler := Handler(
 		[]byte("codeberg.page"), []byte("raw.codeberg.org"),
 		giteaClient,
