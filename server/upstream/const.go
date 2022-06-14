@@ -12,6 +12,7 @@ var branchExistenceCacheTimeout = 5 * time.Minute
 
 // fileCacheTimeout specifies the timeout for the file content cache - you might want to make this quite long, depending
 // on your available memory.
+// TODO: move as option into cache interface
 var fileCacheTimeout = 5 * time.Minute
 
 // fileCacheSizeLimit limits the maximum file size that will be cached, and is set to 1 MB by default.

@@ -25,6 +25,7 @@ type Client struct {
 
 type FileResponse struct {
 	Exists   bool
+	ETag     []byte
 	MimeType string
 	Body     []byte
 }

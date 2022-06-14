@@ -161,6 +161,14 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	mimeType := o.getMimeTypeByExtension()
 	ctx.Response.Header.SetContentType(mimeType)
 
+	// Set ETag
+	if cachedResponse.Exists {
+		ctx.Response.Header.SetBytesV(fasthttp.HeaderETag, cachedResponse.ETag)
+	} else if res != nil {
+		cachedResponse.ETag = res.Header.Peek(fasthttp.HeaderETag)
+		ctx.Response.Header.SetBytesV(fasthttp.HeaderETag, cachedResponse.ETag)
+	}
+
 	if ctx.Response.StatusCode() != fasthttp.StatusNotFound {
 		// Everything's okay so far
 		ctx.Response.SetStatusCode(fasthttp.StatusOK)
