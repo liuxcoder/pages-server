@@ -14,6 +14,7 @@ import (
 	"codeberg.org/codeberg/pages/server/gitea"
 	"codeberg.org/codeberg/pages/server/upstream"
 	"codeberg.org/codeberg/pages/server/utils"
+	"codeberg.org/codeberg/pages/server/version"
 )
 
 // Handler handles a single HTTP request to the web server.
@@ -26,7 +27,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 	return func(ctx *fasthttp.RequestCtx) {
 		log := log.With().Str("Handler", string(ctx.Request.Header.RequestURI())).Logger()
 
-		ctx.Response.Header.Set("Server", "Codeberg Pages")
+		ctx.Response.Header.Set("Server", "CodebergPages/"+version.Version)
 
 		// Force new default from specification (since November 2020) - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy#strict-origin-when-cross-origin
 		ctx.Response.Header.Set("Referrer-Policy", "strict-origin-when-cross-origin")

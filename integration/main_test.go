@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 		log.Printf("=== TestMain: Server STOPED ===\n")
 	}()
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	os.Exit(m.Run())
 }

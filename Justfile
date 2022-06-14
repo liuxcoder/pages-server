@@ -11,6 +11,9 @@ dev:
 build:
     CGO_ENABLED=0 go build -ldflags '-s -w' -v -o build/codeberg-pages-server ./
 
+build-tag VERSION:
+    CGO_ENABLED=0 go build -ldflags '-s -w -X "codeberg.org/codeberg/pages/server/version.Version={{VERSION}}"' -v -o build/codeberg-pages-server ./
+
 lint: tool-golangci tool-gofumpt
     [ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }; \
     golangci-lint run --timeout 5m --build-tags integration
@@ -31,5 +34,11 @@ tool-gofumpt:
 test:
     go test -race codeberg.org/codeberg/pages/server/...
 
+test-run TEST:
+    go test -race -run "^{{TEST}}$" codeberg.org/codeberg/pages/server/...
+
 integration:
     go test -race -tags integration codeberg.org/codeberg/pages/integration/...
+
+integration-run TEST:
+    go test -race -tags integration -run "^{{TEST}}$" codeberg.org/codeberg/pages/integration/...
