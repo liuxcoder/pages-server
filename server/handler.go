@@ -89,6 +89,10 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 				return false
 			}
 
+			// Replace "~" to "/" so we can access branch that contains slash character
+			// Branch name cannot contain "~" so doing this is okay
+			branch = strings.ReplaceAll(branch, "~", "/")
+
 			// Check if the branch exists, otherwise treat it as a file path
 			branchTimestampResult := upstream.GetBranchTimestamp(giteaClient, targetOwner, repo, branch, branchTimestampCache)
 			if branchTimestampResult == nil {

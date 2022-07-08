@@ -49,6 +49,16 @@ func TestGetContent(t *testing.T) {
 	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
 	assert.True(t, getSize(resp.Body) > 1000)
 	assert.Len(t, resp.Header.Get("ETag"), 42)
+
+	// access branch name contains '/'
+	resp, err = getTestHTTPSClient().Get("https://blumia.localhost.mock.directory:4430/pages-server-integration-tests/@docs~main/")
+	assert.NoError(t, err)
+	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+	assert.True(t, getSize(resp.Body) > 100)
+	assert.Len(t, resp.Header.Get("ETag"), 42)
 }
 
 func TestCustomDomain(t *testing.T) {

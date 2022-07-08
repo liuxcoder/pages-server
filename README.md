@@ -18,7 +18,8 @@ Mapping custom domains is not static anymore, but can be done with DNS:
 first line will be the canonical domain/URL; all other occurrences will be redirected to it.
 
 2) add a CNAME entry to your domain, pointing to `[[{branch}.]{repo}.]{owner}.codeberg.page` (repo defaults to
-"pages", "branch" defaults to the default branch if "repo" is "pages", or to "pages" if "repo" is something else):
+"pages", "branch" defaults to the default branch if "repo" is "pages", or to "pages" if "repo" is something else.
+If the branch name contains slash characters, you need to replace "/" in the branch name to "~"):
 	`www.example.org. IN CNAME main.pages.example.codeberg.page.`
 
 3) if a CNAME is set for "www.example.org", you can redirect there from the naked domain by adding an ALIAS record
