@@ -5,11 +5,19 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/utils"
 )
+
+type fasthttpLogger struct{}
+
+func (fasthttpLogger) Printf(format string, args ...interface{}) {
+	log.Printf("[FASTHTTP] "+format, args...)
+}
 
 func SetupServer(handler fasthttp.RequestHandler) *fasthttp.Server {
 	// Enable compression by wrapping the handler with the compression function provided by FastHTTP
@@ -21,6 +29,7 @@ func SetupServer(handler fasthttp.RequestHandler) *fasthttp.Server {
 		NoDefaultServerHeader:        true,
 		NoDefaultDate:                true,
 		ReadTimeout:                  30 * time.Second, // needs to be this high for ACME certificates with ZeroSSL & HTTP-01 challenge
+		Logger:                       fasthttpLogger{},
 	}
 }
 
