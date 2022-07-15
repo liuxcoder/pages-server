@@ -26,6 +26,17 @@ pipeline:
     when:
       event: [ "pull_request", "push" ]
 
+  build-docker:
+    image: plugins/kaniko
+    settings:
+      dockerfile: Dockerfile
+      no_push: true
+      repo: Codeberg/pages-server
+      tags: latest
+    when:
+      event: [ "pull_request", "push" ]
+      path: Dockerfile
+
   build-tag:
     group: compliant
     image: a6543/golang_just
