@@ -181,6 +181,9 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	var cacheBodyWriter bytes.Buffer
 	if res != nil {
 		if res.Header.ContentLength() > fileCacheSizeLimit {
+			// fasthttp else will set "Content-Length: 0"
+			ctx.Response.SetBodyStream(&strings.Reader{}, -1)
+
 			err = res.BodyWriteTo(ctx.Response.BodyWriter())
 		} else {
 			// TODO: cache is half-empty if request is cancelled - does the ctx.Err() below do the trick?

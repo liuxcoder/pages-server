@@ -82,7 +82,6 @@ func (client *Client) ServeRawContent(uri string) (*fasthttp.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	// resp.SetBodyStream(&strings.Reader{}, -1)
 
 	if err != nil {
 		return nil, err

@@ -59,6 +59,8 @@ func TestGetContent(t *testing.T) {
 	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
 	assert.True(t, getSize(resp.Body) > 100)
 	assert.Len(t, resp.Header.Get("ETag"), 42)
+
+	// TODO: test get of non cachable content (content size > fileCacheSizeLimit)
 }
 
 func TestCustomDomain(t *testing.T) {
