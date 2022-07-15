@@ -199,7 +199,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	}
 	log.Debug().Msg("response")
 
-	if res != nil && ctx.Err() == nil {
+	if res != nil && res.Header.ContentLength() > fileCacheSizeLimit && ctx.Err() == nil {
 		cachedResponse.Exists = true
 		cachedResponse.MimeType = mimeType
 		cachedResponse.Body = cacheBodyWriter.Bytes()
