@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -329,7 +328,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 	var myAcmeAccount AcmeAccount
 	var myAcmeConfig *lego.Config
 
-	if account, err := ioutil.ReadFile(configFile); err == nil {
+	if account, err := os.ReadFile(configFile); err == nil {
 		if err := json.Unmarshal(account, &myAcmeAccount); err != nil {
 			return nil, err
 		}
@@ -395,9 +394,9 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 				log.Printf("[FAIL] Error during json.Marshal(myAcmeAccount), waiting for manual restart to avoid rate limits: %s", err)
 				select {}
 			}
-			err = ioutil.WriteFile(configFile, acmeAccountJSON, 0o600)
+			err = os.WriteFile(configFile, acmeAccountJSON, 0o600)
 			if err != nil {
-				log.Printf("[FAIL] Error during ioutil.WriteFile(\"acme-account.json\"), waiting for manual restart to avoid rate limits: %s", err)
+				log.Printf("[FAIL] Error during os.WriteFile(\"acme-account.json\"), waiting for manual restart to avoid rate limits: %s", err)
 				select {}
 			}
 		}
