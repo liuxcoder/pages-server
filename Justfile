@@ -6,7 +6,8 @@ dev:
     export PAGES_DOMAIN=localhost.mock.directory
     export RAW_DOMAIN=raw.localhost.mock.directory
     export PORT=4430
-    go run . --verbose
+    export LOG_LEVEL=trace
+    go run .
 
 build:
     CGO_ENABLED=0 go build -ldflags '-s -w' -v -o build/codeberg-pages-server ./
