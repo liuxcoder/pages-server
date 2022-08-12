@@ -32,7 +32,6 @@ pipeline:
     settings:
       dockerfile: Dockerfile
       no_push: true
-      repo: Codeberg/pages-server
       tags: latest
     when:
       event: [ "pull_request", "push" ]
@@ -85,7 +84,7 @@ pipeline:
     settings:
       registry: codeberg.org
       dockerfile: Dockerfile
-      repo: Codeberg/pages-server
+      repo: codeberg/pages-server
       tags: next
       username:
         from_secret: bot_user
@@ -99,7 +98,7 @@ pipeline:
     settings:
       registry: codeberg.org
       dockerfile: Dockerfile
-      repo: Codeberg/pages-server
+      repo: codeberg/pages-server
       tag: [ latest, "${CI_COMMIT_TAG}" ]
       username:
         from_secret: bot_user
