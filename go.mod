@@ -6,8 +6,8 @@ require (
 	github.com/OrlovEvgeny/go-mcache v0.0.0-20200121124330-1a8195b34f3a
 	github.com/akrylysov/pogreb v0.10.1
 	github.com/go-acme/lego/v4 v4.5.3
+	github.com/joho/godotenv v1.4.0
 	github.com/reugn/equalizer v0.0.0-20210216135016-a959c509d7ad
-	github.com/rs/zerolog v1.26.0
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/valyala/fasthttp v1.31.0
@@ -60,7 +60,6 @@ require (
 	github.com/infobloxopen/infoblox-go-client v1.1.1 // indirect
 	github.com/jarcoal/httpmock v1.0.6 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/joho/godotenv v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/klauspost/compress v1.13.4 // indirect
@@ -72,7 +71,8 @@ require (
 	github.com/liquidweb/go-lwApi v0.0.5 // indirect
 	github.com/liquidweb/liquidweb-cli v0.6.9 // indirect
 	github.com/liquidweb/liquidweb-go v1.6.3 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
@@ -92,6 +92,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/otp v1.3.0 // indirect
+	github.com/rs/zerolog v1.27.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/sacloud/libsacloud v1.36.2 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7.0.20210127161313-bd30bebeac4f // indirect
@@ -111,7 +112,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
 	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
+	golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6 // indirect
 	google.golang.org/api v0.20.0 // indirect

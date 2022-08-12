@@ -5,12 +5,6 @@ import (
 )
 
 var ServeFlags = []cli.Flag{
-	&cli.BoolFlag{
-		Name: "verbose",
-		// TODO: Usage
-		EnvVars: []string{"DEBUG"},
-	},
-
 	// MainDomainSuffix specifies the main domain (starting with a dot) for which subdomains shall be served as static
 	// pages, or used for comparison in CNAME lookups. Static pages can be accessed through
 	// https://{owner}.{MainDomain}[/{repo}], with repo defaulting to "pages".
@@ -68,6 +62,12 @@ var ServeFlags = []cli.Flag{
 		Name: "enable-http-server",
 		// TODO: desc
 		EnvVars: []string{"ENABLE_HTTP_SERVER"},
+	},
+	&cli.StringFlag{
+		Name:    "log-level",
+		Value:   "warn",
+		Usage:   "specify at which log level should be logged. Possible options: info, warn, error, fatal",
+		EnvVars: []string{"LOG_LEVEL"},
 	},
 
 	// ACME

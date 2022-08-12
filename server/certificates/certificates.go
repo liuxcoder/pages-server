@@ -228,7 +228,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUs
 				res.CSR = nil // acme client doesn't like CSR to be set
 				tlsCertificate, err = obtainCert(acmeClient, []string{string(sni)}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 				if err != nil {
-					log.Printf("Couldn't renew certificate for %s: %s", sni, err)
+					log.Error().Msgf("Couldn't renew certificate for %s: %v", string(sni), err)
 				}
 			})()
 		}
@@ -271,10 +271,10 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 		if acmeUseRateLimits {
 			acmeClientRequestLimit.Take()
 		}
-		log.Printf("Renewing certificate for %v", domains)
+		log.Debug().Msgf("Renewing certificate for: %v", domains)
 		res, err = acmeClient.Certificate.Renew(*renew, true, false, "")
 		if err != nil {
-			log.Printf("Couldn't renew certificate for %v, trying to request a new one: %s", domains, err)
+			log.Error().Err(err).Msgf("Couldn't renew certificate for %v, trying to request a new one", domains)
 			res = nil
 		}
 	}
@@ -289,7 +289,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			acmeClientOrderLimit.Take()
 			acmeClientRequestLimit.Take()
 		}
-		log.Printf("Requesting new certificate for %v", domains)
+		log.Debug().Msgf("Re-requesting new certificate for %v", domains)
 		res, err = acmeClient.Certificate.Obtain(certificate.ObtainRequest{
 			Domains:    domains,
 			Bundle:     true,
@@ -297,7 +297,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 		})
 	}
 	if err != nil {
-		log.Printf("Couldn't obtain certificate for %v: %s", domains, err)
+		log.Error().Err(err).Msgf("Couldn't obtain again a certificate or %v", domains)
 		if renew != nil && renew.CertURL != "" {
 			tlsCertificate, err := tls.X509KeyPair(renew.Certificate, renew.PrivateKey)
 			if err == nil && tlsCertificate.Leaf.NotAfter.After(time.Now()) {
@@ -311,7 +311,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 		}
 		return mockCert(domains[0], err.Error(), string(mainDomainSuffix), keyDatabase), err
 	}
-	log.Printf("Obtained certificate for %v", domains)
+	log.Debug().Msgf("Obtained certificate for %v", domains)
 
 	if err := keyDatabase.Put(name, res); err != nil {
 		return tls.Certificate{}, err
@@ -344,7 +344,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 		_, err := lego.NewClient(myAcmeConfig)
 		if err != nil {
 			// TODO: should we fail hard instead?
-			log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
+			log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
 		}
 		return myAcmeConfig, nil
 	} else if !os.IsNotExist(err) {
@@ -365,13 +365,13 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 	myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
 	tempClient, err := lego.NewClient(myAcmeConfig)
 	if err != nil {
-		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
+		log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
 	} else {
 		// accept terms & log in to EAB
 		if acmeEabKID == "" || acmeEabHmac == "" {
 			reg, err := tempClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: acmeAcceptTerms})
 			if err != nil {
-				log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
+				log.Error().Err(err).Msg("Can't register ACME account, continuing with mock certs only")
 			} else {
 				myAcmeAccount.Registration = reg
 			}
@@ -382,7 +382,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 				HmacEncoded:          acmeEabHmac,
 			})
 			if err != nil {
-				log.Printf("[ERROR] Can't register ACME account, continuing with mock certs only: %s", err)
+				log.Error().Err(err).Msg("Can't register ACME account, continuing with mock certs only")
 			} else {
 				myAcmeAccount.Registration = reg
 			}
@@ -391,12 +391,12 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 		if myAcmeAccount.Registration != nil {
 			acmeAccountJSON, err := json.Marshal(myAcmeAccount)
 			if err != nil {
-				log.Printf("[FAIL] Error during json.Marshal(myAcmeAccount), waiting for manual restart to avoid rate limits: %s", err)
+				log.Error().Err(err).Msg("json.Marshalfailed, waiting for manual restart to avoid rate limits")
 				select {}
 			}
 			err = os.WriteFile(configFile, acmeAccountJSON, 0o600)
 			if err != nil {
-				log.Printf("[FAIL] Error during os.WriteFile(\"acme-account.json\"), waiting for manual restart to avoid rate limits: %s", err)
+				log.Error().Err(err).Msg("os.WriteFile failed, waiting for manual restart to avoid rate limits")
 				select {}
 			}
 		}
@@ -414,38 +414,38 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 
 	acmeClient, err = lego.NewClient(acmeConfig)
 	if err != nil {
-		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
+		log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
 	} else {
 		err = acmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
 		if err != nil {
-			log.Printf("[ERROR] Can't create TLS-ALPN-01 provider: %s", err)
+			log.Error().Err(err).Msg("Can't create TLS-ALPN-01 provider")
 		}
 		if enableHTTPServer {
 			err = acmeClient.Challenge.SetHTTP01Provider(AcmeHTTPChallengeProvider{challengeCache})
 			if err != nil {
-				log.Printf("[ERROR] Can't create HTTP-01 provider: %s", err)
+				log.Error().Err(err).Msg("Can't create HTTP-01 provider")
 			}
 		}
 	}
 
 	mainDomainAcmeClient, err = lego.NewClient(acmeConfig)
 	if err != nil {
-		log.Printf("[ERROR] Can't create ACME client, continuing with mock certs only: %s", err)
+		log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
 	} else {
 		if dnsProvider == "" {
 			// using mock server, don't use wildcard certs
 			err := mainDomainAcmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
 			if err != nil {
-				log.Printf("[ERROR] Can't create TLS-ALPN-01 provider: %s", err)
+				log.Error().Err(err).Msg("Can't create TLS-ALPN-01 provider")
 			}
 		} else {
 			provider, err := dns.NewDNSChallengeProviderByName(dnsProvider)
 			if err != nil {
-				log.Printf("[ERROR] Can't create DNS Challenge provider: %s", err)
+				log.Error().Err(err).Msg("Can't create DNS Challenge provider")
 			}
 			err = mainDomainAcmeClient.Challenge.SetDNS01Provider(provider)
 			if err != nil {
-				log.Printf("[ERROR] Can't create DNS-01 provider: %s", err)
+				log.Error().Err(err).Msg("Can't create DNS-01 provider")
 			}
 		}
 	}
@@ -453,7 +453,7 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 	if mainCertBytes == nil {
 		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, nil, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 		if err != nil {
-			log.Printf("[ERROR] Couldn't renew main domain certificate, continuing with mock certs only: %s", err)
+			log.Error().Err(err).Msg("Couldn't renew main domain certificate, continuing with mock certs only")
 		}
 	}
 
@@ -481,7 +481,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 				if err != nil || !tlsCertificates[0].NotAfter.After(now) {
 					err := certDB.Delete(string(key))
 					if err != nil {
-						log.Printf("[ERROR] Deleting expired certificate for %s failed: %s", string(key), err)
+						log.Error().Err(err).Msgf("Deleting expired certificate for %q failed", string(key))
 					} else {
 						expiredCertCount++
 					}
@@ -489,22 +489,22 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 			}
 			key, resBytes, err = keyDatabaseIterator.Next()
 		}
-		log.Printf("[INFO] Removed %d expired certificates from the database", expiredCertCount)
+		log.Debug().Msgf("Removed %d expired certificates from the database", expiredCertCount)
 
 		// compact the database
 		msg, err := certDB.Compact()
 		if err != nil {
-			log.Printf("[ERROR] Compacting key database failed: %s", err)
+			log.Error().Err(err).Msg("Compacting key database failed")
 		} else {
-			log.Printf("[INFO] Compacted key database (%s)", msg)
+			log.Debug().Msgf("Compacted key database: %s", msg)
 		}
 
 		// update main cert
 		res, err := certDB.Get(string(mainDomainSuffix))
 		if err != nil {
-			log.Err(err).Msgf("could not get cert for domain '%s'", mainDomainSuffix)
+			log.Error().Msgf("Couldn't get cert for domain %q", mainDomainSuffix)
 		} else if res == nil {
-			log.Error().Msgf("Couldn't renew certificate for main domain: %s", "expected main domain cert to exist, but it's missing - seems like the database is corrupted")
+			log.Error().Msgf("Couldn't renew certificate for main domain %q expected main domain cert to exist, but it's missing - seems like the database is corrupted", string(mainDomainSuffix))
 		} else {
 			tlsCertificates, err := certcrypto.ParsePEMBundle(res.Certificate)
 
@@ -513,7 +513,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 				go (func() {
 					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + string(mainDomainSuffix), string(mainDomainSuffix[1:])}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
 					if err != nil {
-						log.Printf("[ERROR] Couldn't renew certificate for main domain: %s", err)
+						log.Error().Err(err).Msg("Couldn't renew certificate for main domain")
 					}
 				})()
 			}

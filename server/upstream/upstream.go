@@ -3,7 +3,6 @@ package upstream
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -33,7 +32,10 @@ type Options struct {
 	TargetBranch,
 	TargetPath,
 
-	DefaultMimeType string
+	// Used for debugging purposes.
+	Host string
+
+	DefaultMimeType    string
 	ForbiddenMimeTypes map[string]bool
 	TryIndexPages      bool
 	BranchTimestamp    time.Time
@@ -44,7 +46,7 @@ type Options struct {
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
 func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, branchTimestampCache, fileResponseCache cache.SetGetKey) (final bool) {
-	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath}).Logger()
+	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath, o.Host}).Logger()
 
 	// Check if the branch exists and when it was modified
 	if o.BranchTimestamp.IsZero() {
@@ -70,7 +72,8 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 			return true
 		}
 	}
-	log.Debug().Msg("preparations")
+
+	log.Debug().Msg("Preparing")
 
 	// Make a GET request to the upstream URL
 	uri := o.generateUri()
@@ -82,7 +85,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	} else {
 		res, err = giteaClient.ServeRawContent(uri)
 	}
-	log.Debug().Msg("acquisition")
+	log.Debug().Msg("Aquisting")
 
 	// Handle errors
 	if (err != nil && errors.Is(err, gitea.ErrorNotFound)) || (res == nil && !cachedResponse.Exists) {
@@ -136,7 +139,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 		return false
 	}
 	if res != nil && (err != nil || res.StatusCode() != fasthttp.StatusOK) {
-		fmt.Printf("Couldn't fetch contents from \"%s\": %s (status code %d)\n", uri, err, res.StatusCode())
+		log.Warn().Msgf("Couldn't fetch contents from %q: %v (status code %d)", uri, err, res.StatusCode())
 		html.ReturnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
 	}
@@ -155,7 +158,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 		ctx.Redirect(o.redirectIfExists, fasthttp.StatusTemporaryRedirect)
 		return true
 	}
-	log.Debug().Msg("error handling")
+	log.Debug().Msg("Handling error")
 
 	// Set the MIME type
 	mimeType := o.getMimeTypeByExtension()
@@ -175,7 +178,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	}
 	ctx.Response.Header.SetLastModified(o.BranchTimestamp)
 
-	log.Debug().Msg("response preparations")
+	log.Debug().Msg("Prepare response")
 
 	// Write the response body to the original request
 	var cacheBodyWriter bytes.Buffer
@@ -193,11 +196,11 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 		_, err = ctx.Write(cachedResponse.Body)
 	}
 	if err != nil {
-		fmt.Printf("Couldn't write body for \"%s\": %s\n", uri, err)
+		log.Error().Err(err).Msgf("Couldn't write body for %q", uri)
 		html.ReturnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
 	}
-	log.Debug().Msg("response")
+	log.Debug().Msg("Sending response")
 
 	if res != nil && res.Header.ContentLength() <= fileCacheSizeLimit && ctx.Err() == nil {
 		cachedResponse.Exists = true

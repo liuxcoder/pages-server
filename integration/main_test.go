@@ -5,25 +5,25 @@ package integration
 
 import (
 	"context"
+	"log"
 	"os"
 	"testing"
 	"time"
 
 	"codeberg.org/codeberg/pages/cmd"
 
-	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 )
 
 func TestMain(m *testing.M) {
-	log.Printf("=== TestMain: START Server ===\n")
+	log.Println("=== TestMain: START Server ===")
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	if err := startServer(serverCtx); err != nil {
-		log.Fatal().Msgf("could not start server: %v", err)
+		log.Fatalf("could not start server: %v", err)
 	}
 	defer func() {
 		serverCancel()
-		log.Printf("=== TestMain: Server STOPED ===\n")
+		log.Println("=== TestMain: Server STOPED ===")
 	}()
 
 	time.Sleep(10 * time.Second)
@@ -48,7 +48,7 @@ func startServer(ctx context.Context) error {
 
 	go func() {
 		if err := app.RunContext(ctx, args); err != nil {
-			log.Fatal().Msgf("run server error: %v", err)
+			log.Fatalf("run server error: %v", err)
 		}
 	}()
 

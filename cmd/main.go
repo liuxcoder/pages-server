@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -36,10 +37,12 @@ var BlacklistedPaths = [][]byte{
 
 // Serve sets up and starts the web server.
 func Serve(ctx *cli.Context) error {
-	verbose := ctx.Bool("verbose")
-	if !verbose {
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	// Initalize the logger.
+	logLevel, err := zerolog.ParseLevel(ctx.String("log-level"))
+	if err != nil {
+		return err
 	}
+	log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Level(logLevel)
 
 	giteaRoot := strings.TrimSuffix(ctx.String("gitea-root"), "/")
 	giteaAPIToken := ctx.String("gitea-api-token")
@@ -101,7 +104,7 @@ func Serve(ctx *cli.Context) error {
 	log.Info().Msgf("Listening on https://%s", listeningAddress)
 	listener, err := net.Listen("tcp", listeningAddress)
 	if err != nil {
-		return fmt.Errorf("couldn't create listener: %s", err)
+		return fmt.Errorf("couldn't create listener: %v", err)
 	}
 
 	// TODO: make "key-database.pogreb" set via flag
@@ -134,7 +137,7 @@ func Serve(ctx *cli.Context) error {
 
 	if enableHTTPServer {
 		go func() {
-			log.Info().Timestamp().Msg("Start listening on :80")
+			log.Info().Msg("Start HTTP server listening on :80")
 			err := httpServer.ListenAndServe("[::]:80")
 			if err != nil {
 				log.Panic().Err(err).Msg("Couldn't start HTTP fastServer")
@@ -143,7 +146,7 @@ func Serve(ctx *cli.Context) error {
 	}
 
 	// Start the web fastServer
-	log.Info().Timestamp().Msgf("Start listening on %s", listener.Addr())
+	log.Info().Msgf("Start listening on %s", listener.Addr())
 	err = fastServer.Serve(listener)
 	if err != nil {
 		log.Panic().Err(err).Msg("Couldn't start fastServer")

@@ -2,11 +2,11 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/rs/zerolog/log"
-
 	"github.com/valyala/fasthttp"
 
 	"codeberg.org/codeberg/pages/server/cache"
@@ -16,7 +16,7 @@ import (
 type fasthttpLogger struct{}
 
 func (fasthttpLogger) Printf(format string, args ...interface{}) {
-	log.Printf("[FASTHTTP] "+format, args...)
+	log.Printf("FastHTTP: %s", fmt.Sprintf(format, args...))
 }
 
 func SetupServer(handler fasthttp.RequestHandler) *fasthttp.Server {

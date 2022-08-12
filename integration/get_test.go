@@ -7,16 +7,16 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"testing"
 
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetRedirect(t *testing.T) {
-	log.Printf("=== TestGetRedirect ===\n")
+	log.Println("=== TestGetRedirect ===")
 	// test custom domain redirect
 	resp, err := getTestHTTPSClient().Get("https://calciumdibromid.localhost.mock.directory:4430")
 	assert.NoError(t, err)
@@ -28,7 +28,7 @@ func TestGetRedirect(t *testing.T) {
 }
 
 func TestGetContent(t *testing.T) {
-	log.Printf("=== TestGetContent ===\n")
+	log.Println("=== TestGetContent ===")
 	// test get image
 	resp, err := getTestHTTPSClient().Get("https://magiclike.localhost.mock.directory:4430/images/827679288a.jpg")
 	assert.NoError(t, err)
@@ -64,7 +64,7 @@ func TestGetContent(t *testing.T) {
 }
 
 func TestCustomDomain(t *testing.T) {
-	log.Printf("=== TestCustomDomain ===\n")
+	log.Println("=== TestCustomDomain ===")
 	resp, err := getTestHTTPSClient().Get("https://mock-pages.codeberg-test.org:4430/README.md")
 	assert.NoError(t, err)
 	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
@@ -76,7 +76,7 @@ func TestCustomDomain(t *testing.T) {
 }
 
 func TestGetNotFound(t *testing.T) {
-	log.Printf("=== TestGetNotFound ===\n")
+	log.Println("=== TestGetNotFound ===")
 	// test custom not found pages
 	resp, err := getTestHTTPSClient().Get("https://crystal.localhost.mock.directory:4430/pages-404-demo/blah")
 	assert.NoError(t, err)

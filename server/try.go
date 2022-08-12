@@ -41,6 +41,7 @@ func tryUpstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client,
 	targetOptions.TargetRepo = targetRepo
 	targetOptions.TargetBranch = targetBranch
 	targetOptions.TargetPath = targetPath
+	targetOptions.Host = string(trimmedHost)
 
 	// Try to request the file from the Gitea API
 	if !targetOptions.Upstream(ctx, giteaClient, branchTimestampCache, fileResponseCache) {

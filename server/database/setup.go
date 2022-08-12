@@ -72,7 +72,7 @@ func (p aDB) sync() {
 	for {
 		err := p.intern.Sync()
 		if err != nil {
-			log.Err(err).Msg("Syncing cert database failed")
+			log.Error().Err(err).Msg("Syncing cert database failed")
 		}
 		select {
 		case <-p.ctx.Done():
