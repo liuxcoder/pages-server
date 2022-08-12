@@ -26,7 +26,8 @@ pipeline:
     when:
       event: [ "pull_request", "push" ]
 
-  build-docker:
+  docker-dryrun:
+    group: compliant
     image: plugins/kaniko
     settings:
       dockerfile: Dockerfile
@@ -47,14 +48,14 @@ pipeline:
       event: [ "tag" ]
 
   test:
-    image: a6543/golang_just
     group: test
+    image: a6543/golang_just
     commands:
       - just test
 
   integration-tests:
-    image: a6543/golang_just
     group: test
+    image: a6543/golang_just
     commands:
       - just integration
     environment:
@@ -76,5 +77,33 @@ pipeline:
       - DRONE_REPO_NAME=${CI_REPO_NAME}
       - DRONE_BUILD_EVENT=${CI_BUILD_EVENT}
       - DRONE_COMMIT_REF=${CI_COMMIT_REF}
+    when:
+      event: [ "tag" ]
+
+  docker-next:
+    image: plugins/kaniko
+    settings:
+      registry: codeberg.org
+      dockerfile: Dockerfile
+      repo: Codeberg/pages-server
+      tags: next
+      username:
+        from_secret: bot_user
+      password:
+        from_secret: bot_token
+    when:
+      event: [ "push" ]
+
+  docker-tag:
+    image: plugins/kaniko
+    settings:
+      registry: codeberg.org
+      dockerfile: Dockerfile
+      repo: Codeberg/pages-server
+      tag: [ latest, "${CI_COMMIT_TAG}" ]
+      username:
+        from_secret: bot_user
+      password:
+        from_secret: bot_token
     when:
       event: [ "tag" ]
