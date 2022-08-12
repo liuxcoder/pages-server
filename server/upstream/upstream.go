@@ -83,7 +83,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	if cachedValue, ok := fileResponseCache.Get(uri + "?timestamp=" + o.timestamp()); ok && !cachedValue.(gitea.FileResponse).IsEmpty() {
 		cachedResponse = cachedValue.(gitea.FileResponse)
 	} else {
-		res, err = giteaClient.ServeRawContent(uri)
+		res, err = giteaClient.ServeRawContent(o.generateUriClientArgs())
 	}
 	log.Debug().Msg("Aquisting")
 

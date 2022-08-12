@@ -67,6 +67,10 @@ func (o *Options) generateUri() string {
 	return path.Join(o.TargetOwner, o.TargetRepo, "raw", o.TargetBranch, o.TargetPath)
 }
 
+func (o *Options) generateUriClientArgs() (targetOwner, targetRepo, ref, resource string) {
+	return o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath
+}
+
 func (o *Options) timestamp() string {
 	return strconv.FormatInt(o.BranchTimestamp.Unix(), 10)
 }

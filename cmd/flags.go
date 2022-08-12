@@ -63,6 +63,19 @@ var ServeFlags = []cli.Flag{
 		// TODO: desc
 		EnvVars: []string{"ENABLE_HTTP_SERVER"},
 	},
+	// Server Options
+	&cli.BoolFlag{
+		Name:    "enable-lfs-support",
+		Usage:   "enable lfs support, require gitea v1.17.0 as backend",
+		EnvVars: []string{"ENABLE_LFS_SUPPORT"},
+		Value:   true,
+	},
+	&cli.BoolFlag{
+		Name:    "enable-symlink-support",
+		Usage:   "follow symlinks if enabled, require gitea v1.18.0 as backend",
+		EnvVars: []string{"ENABLE_SYMLINK_SUPPORT"},
+		Value:   true,
+	},
 	&cli.StringFlag{
 		Name:    "log-level",
 		Value:   "warn",

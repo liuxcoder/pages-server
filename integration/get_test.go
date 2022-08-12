@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/cookiejar"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -88,6 +89,34 @@ func TestGetNotFound(t *testing.T) {
 	assert.EqualValues(t, 37, getSize(resp.Body))
 }
 
+func TestFollowSymlink(t *testing.T) {
+	log.Printf("=== TestFollowSymlink ===\n")
+
+	resp, err := getTestHTTPSClient().Get("https://6543.localhost.mock.directory:4430/tests_for_pages-server/@main/link")
+	assert.NoError(t, err)
+	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, "application/octet-stream", resp.Header.Get("Content-Type"))
+	assert.EqualValues(t, "4", resp.Header.Get("Content-Length"))
+	body := getBytes(resp.Body)
+	assert.EqualValues(t, 4, len(body))
+	assert.EqualValues(t, "abc\n", string(body))
+}
+
+func TestLFSSupport(t *testing.T) {
+	log.Printf("=== TestLFSSupport ===\n")
+
+	resp, err := getTestHTTPSClient().Get("https://6543.localhost.mock.directory:4430/tests_for_pages-server/@main/lfs.txt")
+	assert.NoError(t, err)
+	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
+		t.FailNow()
+	}
+	body := strings.TrimSpace(string(getBytes(resp.Body)))
+	assert.EqualValues(t, 12, len(body))
+	assert.EqualValues(t, "actual value", body)
+}
+
 func getTestHTTPSClient() *http.Client {
 	cookieJar, _ := cookiejar.New(nil)
 	return &http.Client{
@@ -99,6 +128,12 @@ func getTestHTTPSClient() *http.Client {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
+}
+
+func getBytes(stream io.Reader) []byte {
+	buf := new(bytes.Buffer)
+	_, _ = buf.ReadFrom(stream)
+	return buf.Bytes()
 }
 
 func getSize(stream io.Reader) int {

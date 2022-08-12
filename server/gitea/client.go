@@ -7,11 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 )
 
-const giteaAPIRepos = "/api/v1/repos/"
+const (
+	giteaAPIRepos         = "/api/v1/repos/"
+	giteaObjectTypeHeader = "X-Gitea-Object-Type"
+)
 
 var ErrorNotFound = errors.New("not found")
 
@@ -21,13 +25,9 @@ type Client struct {
 	fastClient     *fasthttp.Client
 	infoTimeout    time.Duration
 	contentTimeout time.Duration
-}
 
-type FileResponse struct {
-	Exists   bool
-	ETag     []byte
-	MimeType string
-	Body     []byte
+	followSymlinks bool
+	supportLFS     bool
 }
 
 // TODO: once golang v1.19 is min requirement, we can switch to 'JoinPath()' of 'net/url' package
@@ -44,9 +44,7 @@ func joinURL(baseURL string, paths ...string) string {
 	return baseURL + "/" + strings.Join(p, "/")
 }
 
-func (f FileResponse) IsEmpty() bool { return len(f.Body) != 0 }
-
-func NewClient(giteaRoot, giteaAPIToken string) (*Client, error) {
+func NewClient(giteaRoot, giteaAPIToken string, followSymlinks, supportLFS bool) (*Client, error) {
 	rootURL, err := url.Parse(giteaRoot)
 	giteaRoot = strings.Trim(rootURL.String(), "/")
 
@@ -56,29 +54,28 @@ func NewClient(giteaRoot, giteaAPIToken string) (*Client, error) {
 		infoTimeout:    5 * time.Second,
 		contentTimeout: 10 * time.Second,
 		fastClient:     getFastHTTPClient(),
+
+		followSymlinks: followSymlinks,
+		supportLFS:     supportLFS,
 	}, err
 }
 
 func (client *Client) GiteaRawContent(targetOwner, targetRepo, ref, resource string) ([]byte, error) {
-	url := joinURL(client.giteaRoot, giteaAPIRepos, targetOwner, targetRepo, "raw", resource+"?ref="+url.QueryEscape(ref))
-	res, err := client.do(client.contentTimeout, url)
+	resp, err := client.ServeRawContent(targetOwner, targetRepo, ref, resource)
 	if err != nil {
 		return nil, err
 	}
-
-	switch res.StatusCode() {
-	case fasthttp.StatusOK:
-		return res.Body(), nil
-	case fasthttp.StatusNotFound:
-		return nil, ErrorNotFound
-	default:
-		return nil, fmt.Errorf("unexpected status code '%d'", res.StatusCode())
-	}
+	return resp.Body(), nil
 }
 
-func (client *Client) ServeRawContent(uri string) (*fasthttp.Response, error) {
-	url := joinURL(client.giteaRoot, giteaAPIRepos, uri)
-	res, err := client.do(client.contentTimeout, url)
+func (client *Client) ServeRawContent(targetOwner, targetRepo, ref, resource string) (*fasthttp.Response, error) {
+	var apiURL string
+	if client.supportLFS {
+		apiURL = joinURL(client.giteaRoot, giteaAPIRepos, targetOwner, targetRepo, "media", resource+"?ref="+url.QueryEscape(ref))
+	} else {
+		apiURL = joinURL(client.giteaRoot, giteaAPIRepos, targetOwner, targetRepo, "raw", resource+"?ref="+url.QueryEscape(ref))
+	}
+	resp, err := client.do(client.contentTimeout, apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -87,13 +84,24 @@ func (client *Client) ServeRawContent(uri string) (*fasthttp.Response, error) {
 		return nil, err
 	}
 
-	switch res.StatusCode() {
+	switch resp.StatusCode() {
 	case fasthttp.StatusOK:
-		return res, nil
+		objType := string(resp.Header.Peek(giteaObjectTypeHeader))
+		log.Trace().Msgf("server raw content object: %s", objType)
+		if client.followSymlinks && objType == "symlink" {
+			// TODO: limit to 1000 chars if we switched to std
+			linkDest := strings.TrimSpace(string(resp.Body()))
+			log.Debug().Msgf("follow symlink from '%s' to '%s'", resource, linkDest)
+			return client.ServeRawContent(targetOwner, targetRepo, ref, linkDest)
+		}
+
+		return resp, nil
+
 	case fasthttp.StatusNotFound:
 		return nil, ErrorNotFound
+
 	default:
-		return nil, fmt.Errorf("unexpected status code '%d'", res.StatusCode())
+		return nil, fmt.Errorf("unexpected status code '%d'", resp.StatusCode())
 	}
 }
 

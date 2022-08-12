@@ -85,7 +85,7 @@ func Serve(ctx *cli.Context) error {
 	// TODO: make this an MRU cache with a size limit
 	fileResponseCache := cache.NewKeyValueCache()
 
-	giteaClient, err := gitea.NewClient(giteaRoot, giteaAPIToken)
+	giteaClient, err := gitea.NewClient(giteaRoot, giteaAPIToken, ctx.Bool("enable-symlink-support"), ctx.Bool("enable-lfs-support"))
 	if err != nil {
 		return fmt.Errorf("could not create new gitea client: %v", err)
 	}
