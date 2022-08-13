@@ -25,7 +25,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 	dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache cache.SetGetKey,
 ) func(ctx *fasthttp.RequestCtx) {
 	return func(ctx *fasthttp.RequestCtx) {
-		log := log.With().Str("Handler", string(ctx.Request.Header.RequestURI())).Logger()
+		log := log.With().Strs("Handler", []string{string(ctx.Request.Host()), string(ctx.Request.Header.RequestURI())}).Logger()
 
 		ctx.Response.Header.Set("Server", "CodebergPages/"+version.Version)
 
