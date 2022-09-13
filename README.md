@@ -70,7 +70,7 @@ and especially have a look at [this section of the haproxy.cfg](https://codeberg
 - `ENABLE_HTTP_SERVER` (default: false): Set this to true to enable the HTTP-01 challenge and redirect all other HTTP requests to HTTPS. Currently only works with port 80.
 - `DNS_PROVIDER` (default: use self-signed certificate): Code of the ACME DNS provider for the main domain wildcard.  
   See https://go-acme.github.io/lego/dns/ for available values & additional environment variables.
-- `DEBUG` (default: false): Set this to true to enable debug logging.
+- `LOG_LEVEL` (default: warn): Set this to specify the level of logging.
 
 
 ## Contributing to the development
