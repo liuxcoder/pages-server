@@ -85,7 +85,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 		// also disallow search indexing and add a Link header to the canonical URL.
 		tryBranch := func(log zerolog.Logger, repo, branch string, path []string, canonicalLink string) bool {
 			if repo == "" {
-				log.Debug().Msg("tryBranch: repo is empty")
+				log.Warn().Msg("tryBranch: repo is empty")
 				return false
 			}
 
@@ -96,7 +96,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 			// Check if the branch exists, otherwise treat it as a file path
 			branchTimestampResult := upstream.GetBranchTimestamp(giteaClient, targetOwner, repo, branch, branchTimestampCache)
 			if branchTimestampResult == nil {
-				log.Debug().Msg("tryBranch: branch doesn't exist")
+				log.Warn().Msg("tryBranch: branch doesn't exist")
 				return false
 			}
 
