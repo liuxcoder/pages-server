@@ -296,7 +296,7 @@ func Handler(mainDomainSuffix, rawDomain []byte,
 					return
 				}
 
-				log.Info().Msg("tryBranch, now trying upstream 7 %s")
+				log.Info().Msg("tryBranch, now trying upstream 7")
 				tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost,
 					targetOptions, targetOwner, targetRepo, targetBranch, targetPath,
 					canonicalDomainCache, branchTimestampCache, fileResponseCache)
