@@ -17,7 +17,7 @@ pipeline:
 
   build:
     group: compliant
-    image: a6543/golang_just
+    image: codeberg.org/6543/docker-images/golang_just
     commands:
       - go version
       - just build
@@ -37,7 +37,7 @@ pipeline:
 
   build-tag:
     group: compliant
-    image: a6543/golang_just
+    image: codeberg.org/6543/docker-images/golang_just
     commands:
       - go version
       - just build-tag ${CI_COMMIT_TAG##v}
@@ -46,13 +46,13 @@ pipeline:
 
   test:
     group: test
-    image: a6543/golang_just
+    image: codeberg.org/6543/docker-images/golang_just
     commands:
       - just test
 
   integration-tests:
     group: test
-    image: a6543/golang_just
+    image: codeberg.org/6543/docker-images/golang_just
     commands:
       - just integration
     environment:
