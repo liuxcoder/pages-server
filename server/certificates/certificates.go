@@ -414,7 +414,7 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 
 	acmeClient, err = lego.NewClient(acmeConfig)
 	if err != nil {
-		log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
+		log.Fatal().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
 	} else {
 		err = acmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
 		if err != nil {
