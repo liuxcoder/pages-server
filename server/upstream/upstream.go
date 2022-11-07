@@ -85,6 +85,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 	} else {
 		res, err = giteaClient.ServeRawContent(o.generateUriClientArgs())
 	}
+
 	log.Debug().Msg("Aquisting")
 
 	// Handle errors
@@ -158,6 +159,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 		ctx.Redirect(o.redirectIfExists, fasthttp.StatusTemporaryRedirect)
 		return true
 	}
+
 	log.Debug().Msg("Handling error")
 
 	// Set the MIME type
@@ -200,6 +202,7 @@ func (o *Options) Upstream(ctx *fasthttp.RequestCtx, giteaClient *gitea.Client, 
 		html.ReturnErrorPage(ctx, fasthttp.StatusInternalServerError)
 		return true
 	}
+
 	log.Debug().Msg("Sending response")
 
 	if res != nil && res.Header.ContentLength() <= fileCacheSizeLimit && ctx.Err() == nil {
