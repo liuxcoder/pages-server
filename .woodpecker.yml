@@ -94,6 +94,7 @@ pipeline:
         from_secret: bot_token
     when:
       event: [ "push" ]
+      branch: ${CI_REPO_DEFAULT_BRANCH}
 
   docker-tag:
     image: plugins/kaniko
