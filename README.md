@@ -8,7 +8,6 @@ It is suitable to be deployed by other Gitea instances, too, to offer static pag
 **End user documentation** can mainly be found at the [Wiki](https://codeberg.org/Codeberg/pages-server/wiki/Overview)
 and the [Codeberg Documentation](https://docs.codeberg.org/codeberg-pages/).
 
-
 ## Quickstart
 
 This is the new Codeberg Pages server, a solution for serving static pages from Gitea repositories.
@@ -20,16 +19,15 @@ first line will be the canonical domain/URL; all other occurrences will be redir
 2) add a CNAME entry to your domain, pointing to `[[{branch}.]{repo}.]{owner}.codeberg.page` (repo defaults to
 "pages", "branch" defaults to the default branch if "repo" is "pages", or to "pages" if "repo" is something else.
 If the branch name contains slash characters, you need to replace "/" in the branch name to "~"):
-	`www.example.org. IN CNAME main.pages.example.codeberg.page.`
+  `www.example.org. IN CNAME main.pages.example.codeberg.page.`
 
 3) if a CNAME is set for "www.example.org", you can redirect there from the naked domain by adding an ALIAS record
 for "example.org" (if your provider allows ALIAS or similar records, otherwise use A/AAAA), together with a TXT
 record that points to your repo (just like the CNAME record):
-	`example.org IN ALIAS codeberg.page.`
-	`example.org IN TXT main.pages.example.codeberg.page.`
+  `example.org IN ALIAS codeberg.page.`
+  `example.org IN TXT main.pages.example.codeberg.page.`
 
 Certificates are generated, updated and cleaned up automatically via Let's Encrypt through a TLS challenge.
-
 
 ## Deployment
 

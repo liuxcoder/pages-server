@@ -1,0 +1,9 @@
+{
+  "Exclude": [
+    ".git",
+    "go.mod", "go.sum",
+    "vendor",
+    "LICENSE",
+    "_test.go"
+  ]
+}

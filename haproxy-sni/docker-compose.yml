@@ -19,4 +19,4 @@ services:
     volumes:
     - ./pages-www:/srv:ro
     - ./pages.Caddyfile:/etc/caddy/Caddyfile:ro
-    
+
