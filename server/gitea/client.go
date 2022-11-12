@@ -45,6 +45,8 @@ type Client struct {
 	sdkClient     *gitea.Client
 	responseCache cache.SetGetKey
 
+	giteaRoot string
+
 	followSymlinks bool
 	supportLFS     bool
 
@@ -79,12 +81,18 @@ func NewClient(giteaRoot, giteaAPIToken string, respCache cache.SetGetKey, follo
 		sdkClient:     sdk,
 		responseCache: respCache,
 
+		giteaRoot: giteaRoot,
+
 		followSymlinks: followSymlinks,
 		supportLFS:     supportLFS,
 
 		forbiddenMimeTypes: forbiddenMimeTypes,
 		defaultMimeType:    defaultMimeType,
 	}, err
+}
+
+func (client *Client) ContentWebLink(targetOwner, targetRepo, branch, resource string) string {
+	return path.Join(client.giteaRoot, targetOwner, targetRepo, "src/branch", branch, resource)
 }
 
 func (client *Client) GiteaRawContent(targetOwner, targetRepo, ref, resource string) ([]byte, error) {

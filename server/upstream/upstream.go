@@ -34,10 +34,10 @@ var upstreamNotFoundPages = []string{
 
 // Options provides various options for the upstream request.
 type Options struct {
-	TargetOwner,
-	TargetRepo,
-	TargetBranch,
-	TargetPath,
+	TargetOwner  string
+	TargetRepo   string
+	TargetBranch string
+	TargetPath   string
 
 	// Used for debugging purposes.
 	Host string
@@ -62,16 +62,22 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 
 	// Check if the branch exists and when it was modified
 	if o.BranchTimestamp.IsZero() {
-		branch := GetBranchTimestamp(giteaClient, o.TargetOwner, o.TargetRepo, o.TargetBranch)
-
-		if branch == nil || branch.Branch == "" {
+		branchExist, err := o.GetBranchTimestamp(giteaClient)
+		// handle 404
+		if err != nil && errors.Is(err, gitea.ErrorNotFound) || !branchExist {
 			html.ReturnErrorPage(ctx,
-				fmt.Sprintf("could not get timestamp of branch %q", o.TargetBranch),
+				fmt.Sprintf("branch %q for '%s/%s' not found", o.TargetBranch, o.TargetOwner, o.TargetRepo),
+				http.StatusNotFound)
+			return true
+		}
+
+		// handle unexpected errors
+		if err != nil {
+			html.ReturnErrorPage(ctx,
+				fmt.Sprintf("could not get timestamp of branch %q: %v", o.TargetBranch, err),
 				http.StatusFailedDependency)
 			return true
 		}
-		o.TargetBranch = branch.Branch
-		o.BranchTimestamp = branch.Timestamp
 	}
 
 	// Check if the browser has a cached version
@@ -172,21 +178,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 	}
 
 	// Set ETag & MIME
-	if eTag := header.Get(gitea.ETagHeader); eTag != "" {
-		ctx.RespWriter.Header().Set(gitea.ETagHeader, eTag)
-	}
-	if cacheIndicator := header.Get(gitea.PagesCacheIndicatorHeader); cacheIndicator != "" {
-		ctx.RespWriter.Header().Set(gitea.PagesCacheIndicatorHeader, cacheIndicator)
-	}
-	if length := header.Get(gitea.ContentLengthHeader); length != "" {
-		ctx.RespWriter.Header().Set(gitea.ContentLengthHeader, length)
-	}
-	if mime := header.Get(gitea.ContentTypeHeader); mime == "" || o.ServeRaw {
-		ctx.RespWriter.Header().Set(gitea.ContentTypeHeader, rawMime)
-	} else {
-		ctx.RespWriter.Header().Set(gitea.ContentTypeHeader, mime)
-	}
-	ctx.RespWriter.Header().Set(headerLastModified, o.BranchTimestamp.In(time.UTC).Format(time.RFC1123))
+	o.setHeader(ctx, header)
 
 	log.Debug().Msg("Prepare response")
 

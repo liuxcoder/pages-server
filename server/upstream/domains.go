@@ -16,12 +16,12 @@ var canonicalDomainCacheTimeout = 15 * time.Minute
 const canonicalDomainConfig = ".domains"
 
 // CheckCanonicalDomain returns the canonical domain specified in the repo (using the `.domains` file).
-func CheckCanonicalDomain(giteaClient *gitea.Client, targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix string, canonicalDomainCache cache.SetGetKey) (string, bool) {
+func (o *Options) CheckCanonicalDomain(giteaClient *gitea.Client, actualDomain, mainDomainSuffix string, canonicalDomainCache cache.SetGetKey) (string, bool) {
 	var (
 		domains []string
 		valid   bool
 	)
-	if cachedValue, ok := canonicalDomainCache.Get(targetOwner + "/" + targetRepo + "/" + targetBranch); ok {
+	if cachedValue, ok := canonicalDomainCache.Get(o.TargetOwner + "/" + o.TargetRepo + "/" + o.TargetBranch); ok {
 		domains = cachedValue.([]string)
 		for _, domain := range domains {
 			if domain == actualDomain {
@@ -30,7 +30,7 @@ func CheckCanonicalDomain(giteaClient *gitea.Client, targetOwner, targetRepo, ta
 			}
 		}
 	} else {
-		body, err := giteaClient.GiteaRawContent(targetOwner, targetRepo, targetBranch, canonicalDomainConfig)
+		body, err := giteaClient.GiteaRawContent(o.TargetOwner, o.TargetRepo, o.TargetBranch, canonicalDomainConfig)
 		if err == nil {
 			for _, domain := range strings.Split(string(body), "\n") {
 				domain = strings.ToLower(domain)
@@ -45,16 +45,16 @@ func CheckCanonicalDomain(giteaClient *gitea.Client, targetOwner, targetRepo, ta
 				}
 			}
 		} else {
-			log.Info().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, targetOwner, targetRepo)
+			log.Info().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, o.TargetOwner, o.TargetRepo)
 		}
-		domains = append(domains, targetOwner+mainDomainSuffix)
+		domains = append(domains, o.TargetOwner+mainDomainSuffix)
 		if domains[len(domains)-1] == actualDomain {
 			valid = true
 		}
-		if targetRepo != "" && targetRepo != "pages" {
-			domains[len(domains)-1] += "/" + targetRepo
+		if o.TargetRepo != "" && o.TargetRepo != "pages" {
+			domains[len(domains)-1] += "/" + o.TargetRepo
 		}
-		_ = canonicalDomainCache.Set(targetOwner+"/"+targetRepo+"/"+targetBranch, domains, canonicalDomainCacheTimeout)
+		_ = canonicalDomainCache.Set(o.TargetOwner+"/"+o.TargetRepo+"/"+o.TargetBranch, domains, canonicalDomainCacheTimeout)
 	}
 	return domains[0], valid
 }

@@ -78,8 +78,12 @@ func TLSConfig(mainDomainSuffix string,
 					// DNS not set up, return main certificate to redirect to the docs
 					sni = mainDomainSuffix
 				} else {
-					_, _ = targetRepo, targetBranch
-					_, valid := upstream.CheckCanonicalDomain(giteaClient, targetOwner, targetRepo, targetBranch, sni, mainDomainSuffix, canonicalDomainCache)
+					targetOpt := &upstream.Options{
+						TargetOwner:  targetOwner,
+						TargetRepo:   targetRepo,
+						TargetBranch: targetBranch,
+					}
+					_, valid := targetOpt.CheckCanonicalDomain(giteaClient, sni, mainDomainSuffix, canonicalDomainCache)
 					if !valid {
 						sni = mainDomainSuffix
 					}

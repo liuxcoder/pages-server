@@ -20,6 +20,7 @@ import (
 	"codeberg.org/codeberg/pages/server/certificates"
 	"codeberg.org/codeberg/pages/server/database"
 	"codeberg.org/codeberg/pages/server/gitea"
+	"codeberg.org/codeberg/pages/server/handler"
 )
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
@@ -88,9 +89,9 @@ func Serve(ctx *cli.Context) error {
 	}
 
 	// Create handler based on settings
-	httpsHandler := server.Handler(mainDomainSuffix, rawDomain,
+	httpsHandler := handler.Handler(mainDomainSuffix, rawDomain,
 		giteaClient,
-		giteaRoot, rawInfoPage,
+		rawInfoPage,
 		BlacklistedPaths, allowedCorsDomains,
 		dnsLookupCache, canonicalDomainCache)
 

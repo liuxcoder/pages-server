@@ -1,4 +1,4 @@
-package server
+package handler
 
 import (
 	"net/http/httptest"
@@ -11,12 +11,11 @@ import (
 )
 
 func TestHandlerPerformance(t *testing.T) {
-	giteaRoot := "https://codeberg.org"
-	giteaClient, _ := gitea.NewClient(giteaRoot, "", cache.NewKeyValueCache(), false, false)
+	giteaClient, _ := gitea.NewClient("https://codeberg.org", "", cache.NewKeyValueCache(), false, false)
 	testHandler := Handler(
 		"codeberg.page", "raw.codeberg.org",
 		giteaClient,
-		giteaRoot, "https://docs.codeberg.org/pages/raw-content/",
+		"https://docs.codeberg.org/pages/raw-content/",
 		[]string{"/.well-known/acme-challenge/"},
 		[]string{"raw.codeberg.org", "fonts.codeberg.org", "design.codeberg.org"},
 		cache.NewKeyValueCache(),

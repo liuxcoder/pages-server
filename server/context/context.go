@@ -3,6 +3,8 @@ package context
 import (
 	stdContext "context"
 	"net/http"
+
+	"codeberg.org/codeberg/pages/server/utils"
 )
 
 type Context struct {
@@ -42,10 +44,6 @@ func (c *Context) String(raw string, status ...int) {
 	_, _ = c.RespWriter.Write([]byte(raw))
 }
 
-func (c *Context) IsMethod(m string) bool {
-	return c.Req.Method == m
-}
-
 func (c *Context) Redirect(uri string, statusCode int) {
 	http.Redirect(c.RespWriter, c.Req, uri, statusCode)
 }
@@ -59,4 +57,8 @@ func (c *Context) Path() string {
 
 func (c *Context) Host() string {
 	return c.Req.URL.Host
+}
+
+func (c *Context) TrimHostPort() string {
+	return utils.TrimHostPort(c.Req.Host)
 }
