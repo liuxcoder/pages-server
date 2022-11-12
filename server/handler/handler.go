@@ -16,6 +16,8 @@ import (
 const (
 	headerAccessControlAllowOrigin  = "Access-Control-Allow-Origin"
 	headerAccessControlAllowMethods = "Access-Control-Allow-Methods"
+	defaultPagesRepo                = "pages"
+	defaultPagesBranch              = "pages"
 )
 
 // Handler handles a single HTTP request to the web server.

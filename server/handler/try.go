@@ -24,7 +24,7 @@ func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 		canonicalDomain, _ := options.CheckCanonicalDomain(giteaClient, "", string(mainDomainSuffix), canonicalDomainCache)
 		if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], string(mainDomainSuffix)) {
 			canonicalPath := ctx.Req.RequestURI
-			if options.TargetRepo != "pages" {
+			if options.TargetRepo != defaultPagesRepo {
 				path := strings.SplitN(canonicalPath, "/", 3)
 				if len(path) >= 3 {
 					canonicalPath = "/" + path[2]

@@ -15,9 +15,6 @@ import (
 	"codeberg.org/codeberg/pages/server/upstream"
 )
 
-const defaultPagesRepo = "pages"
-const defaultPagesBranch = "pages"
-
 func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Client,
 	mainDomainSuffix string,
 	trimmedHost string,
