@@ -15,6 +15,8 @@ import (
 	"codeberg.org/codeberg/pages/server/upstream"
 )
 
+const defaultPagesRepo = "pages"
+
 func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Client,
 	mainDomainSuffix string,
 	trimmedHost string,
@@ -36,7 +38,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 	// Check if the first directory is a repo with the second directory as a branch
 	// example.codeberg.page/myrepo/@main/index.html
 	if len(pathElements) > 1 && strings.HasPrefix(pathElements[1], "@") {
-		if targetRepo == "pages" {
+		if targetRepo == defaultPagesRepo {
 			// example.codeberg.org/pages/@... redirects to example.codeberg.org/@...
 			ctx.Redirect("/"+strings.Join(pathElements[1:], "/"), http.StatusTemporaryRedirect)
 			return
@@ -60,14 +62,14 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 		return
 	}
 
-	// Check if the first directory is a branch for the "pages" repo
+	// Check if the first directory is a branch for the defaultPagesRepo
 	// example.codeberg.page/@main/index.html
 	if strings.HasPrefix(pathElements[0], "@") {
 		log.Debug().Msg("main domain preparations, now trying with specified branch")
 		if targetOpt, works := tryBranch(log, ctx, giteaClient, &upstream.Options{
 			TryIndexPages: true,
 			TargetOwner:   targetOwner,
-			TargetRepo:    "pages",
+			TargetRepo:    defaultPagesRepo,
 			TargetBranch:  pathElements[0][1:],
 			TargetPath:    path.Join(pathElements[1:]...),
 		}, true); works {
@@ -81,16 +83,16 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 		return
 	}
 
-	// Check if the first directory is a repo with a "pages" branch
+	// Check if the first directory is a repo with a defaultPagesRepo branch
 	// example.codeberg.page/myrepo/index.html
 	// example.codeberg.page/pages/... is not allowed here.
 	log.Debug().Msg("main domain preparations, now trying with specified repo")
-	if pathElements[0] != "pages" {
+	if pathElements[0] != defaultPagesRepo {
 		if targetOpt, works := tryBranch(log, ctx, giteaClient, &upstream.Options{
 			TryIndexPages: true,
 			TargetOwner:   targetOwner,
 			TargetRepo:    pathElements[0],
-			TargetBranch:  "pages",
+			TargetBranch:  defaultPagesRepo,
 			TargetPath:    path.Join(pathElements[1:]...),
 		}, false); works {
 			log.Debug().Msg("tryBranch, now trying upstream 5")
@@ -99,13 +101,13 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 		}
 	}
 
-	// Try to use the "pages" repo on its default branch
+	// Try to use the defaultPagesRepo on its default branch
 	// example.codeberg.page/index.html
 	log.Debug().Msg("main domain preparations, now trying with default repo/branch")
 	if targetOpt, works := tryBranch(log, ctx, giteaClient, &upstream.Options{
 		TryIndexPages: true,
 		TargetOwner:   targetOwner,
-		TargetRepo:    "pages",
+		TargetRepo:    defaultPagesRepo,
 		TargetPath:    path.Join(pathElements...),
 	}, false); works {
 		log.Debug().Msg("tryBranch, now trying upstream 6")
