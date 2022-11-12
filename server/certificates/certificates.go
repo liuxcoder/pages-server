@@ -117,6 +117,7 @@ func TLSConfig(mainDomainSuffix string,
 		},
 		PreferServerCipherSuites: true,
 		NextProtos: []string{
+			"h2",
 			"http/1.1",
 			tlsalpn01.ACMETLS1Protocol,
 		},
