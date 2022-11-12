@@ -16,6 +16,7 @@ import (
 )
 
 const defaultPagesRepo = "pages"
+const defaultPagesBranch = "pages"
 
 func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Client,
 	mainDomainSuffix string,
@@ -92,7 +93,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 			TryIndexPages: true,
 			TargetOwner:   targetOwner,
 			TargetRepo:    pathElements[0],
-			TargetBranch:  defaultPagesRepo,
+			TargetBranch:  defaultPagesBranch,
 			TargetPath:    path.Join(pathElements[1:]...),
 		}, false); works {
 			log.Debug().Msg("tryBranch, now trying upstream 5")
