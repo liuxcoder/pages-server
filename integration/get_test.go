@@ -25,7 +25,7 @@ func TestGetRedirect(t *testing.T) {
 		t.FailNow()
 	}
 	assert.EqualValues(t, "https://www.cabr2.de/", resp.Header.Get("Location"))
-	assert.EqualValues(t, 0, getSize(resp.Body))
+	assert.EqualValues(t, `<a href="https://www.cabr2.de/">Temporary Redirect</a>.`, strings.TrimSpace(string(getBytes(resp.Body))))
 }
 
 func TestGetContent(t *testing.T) {
@@ -44,12 +44,13 @@ func TestGetContent(t *testing.T) {
 	// specify branch
 	resp, err = getTestHTTPSClient().Get("https://momar.localhost.mock.directory:4430/pag/@master/")
 	assert.NoError(t, err)
-	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
+	if !assert.NotNil(t, resp) {
 		t.FailNow()
 	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
 	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
 	assert.True(t, getSize(resp.Body) > 1000)
-	assert.Len(t, resp.Header.Get("ETag"), 42)
+	assert.Len(t, resp.Header.Get("ETag"), 44)
 
 	// access branch name contains '/'
 	resp, err = getTestHTTPSClient().Get("https://blumia.localhost.mock.directory:4430/pages-server-integration-tests/@docs~main/")
@@ -59,7 +60,7 @@ func TestGetContent(t *testing.T) {
 	}
 	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
 	assert.True(t, getSize(resp.Body) > 100)
-	assert.Len(t, resp.Header.Get("ETag"), 42)
+	assert.Len(t, resp.Header.Get("ETag"), 44)
 
 	// TODO: test get of non cachable content (content size > fileCacheSizeLimit)
 }
@@ -68,9 +69,10 @@ func TestCustomDomain(t *testing.T) {
 	log.Println("=== TestCustomDomain ===")
 	resp, err := getTestHTTPSClient().Get("https://mock-pages.codeberg-test.org:4430/README.md")
 	assert.NoError(t, err)
-	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
+	if !assert.NotNil(t, resp) {
 		t.FailNow()
 	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
 	assert.EqualValues(t, "text/markdown; charset=utf-8", resp.Header.Get("Content-Type"))
 	assert.EqualValues(t, "106", resp.Header.Get("Content-Length"))
 	assert.EqualValues(t, 106, getSize(resp.Body))
@@ -81,9 +83,10 @@ func TestGetNotFound(t *testing.T) {
 	// test custom not found pages
 	resp, err := getTestHTTPSClient().Get("https://crystal.localhost.mock.directory:4430/pages-404-demo/blah")
 	assert.NoError(t, err)
-	if !assert.EqualValues(t, http.StatusNotFound, resp.StatusCode) {
+	if !assert.NotNil(t, resp) {
 		t.FailNow()
 	}
+	assert.EqualValues(t, http.StatusNotFound, resp.StatusCode)
 	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
 	assert.EqualValues(t, "37", resp.Header.Get("Content-Length"))
 	assert.EqualValues(t, 37, getSize(resp.Body))
@@ -94,9 +97,10 @@ func TestFollowSymlink(t *testing.T) {
 
 	resp, err := getTestHTTPSClient().Get("https://6543.localhost.mock.directory:4430/tests_for_pages-server/@main/link")
 	assert.NoError(t, err)
-	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
+	if !assert.NotNil(t, resp) {
 		t.FailNow()
 	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
 	assert.EqualValues(t, "application/octet-stream", resp.Header.Get("Content-Type"))
 	assert.EqualValues(t, "4", resp.Header.Get("Content-Length"))
 	body := getBytes(resp.Body)
@@ -109,12 +113,25 @@ func TestLFSSupport(t *testing.T) {
 
 	resp, err := getTestHTTPSClient().Get("https://6543.localhost.mock.directory:4430/tests_for_pages-server/@main/lfs.txt")
 	assert.NoError(t, err)
-	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
+	if !assert.NotNil(t, resp) {
 		t.FailNow()
 	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
 	body := strings.TrimSpace(string(getBytes(resp.Body)))
 	assert.EqualValues(t, 12, len(body))
 	assert.EqualValues(t, "actual value", body)
+}
+
+func TestGetOptions(t *testing.T) {
+	log.Println("=== TestGetOptions ===")
+	req, _ := http.NewRequest(http.MethodOptions, "https://mock-pages.codeberg-test.org:4430/README.md", nil)
+	resp, err := getTestHTTPSClient().Do(req)
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusNoContent, resp.StatusCode)
+	assert.EqualValues(t, "GET, HEAD, OPTIONS", resp.Header.Get("Allow"))
 }
 
 func getTestHTTPSClient() *http.Client {

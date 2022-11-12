@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -24,15 +24,15 @@ import (
 
 // AllowedCorsDomains lists the domains for which Cross-Origin Resource Sharing is allowed.
 // TODO: make it a flag
-var AllowedCorsDomains = [][]byte{
-	[]byte("fonts.codeberg.org"),
-	[]byte("design.codeberg.org"),
+var AllowedCorsDomains = []string{
+	"fonts.codeberg.org",
+	"design.codeberg.org",
 }
 
 // BlacklistedPaths specifies forbidden path prefixes for all Codeberg Pages.
 // TODO: Make it a flag too
-var BlacklistedPaths = [][]byte{
-	[]byte("/.well-known/acme-challenge/"),
+var BlacklistedPaths = []string{
+	"/.well-known/acme-challenge/",
 }
 
 // Serve sets up and starts the web server.
@@ -47,7 +47,7 @@ func Serve(ctx *cli.Context) error {
 	giteaRoot := strings.TrimSuffix(ctx.String("gitea-root"), "/")
 	giteaAPIToken := ctx.String("gitea-api-token")
 	rawDomain := ctx.String("raw-domain")
-	mainDomainSuffix := []byte(ctx.String("pages-domain"))
+	mainDomainSuffix := ctx.String("pages-domain")
 	rawInfoPage := ctx.String("raw-info-page")
 	listeningAddress := fmt.Sprintf("%s:%s", ctx.String("host"), ctx.String("port"))
 	enableHTTPServer := ctx.Bool("enable-http-server")
@@ -65,12 +65,12 @@ func Serve(ctx *cli.Context) error {
 
 	allowedCorsDomains := AllowedCorsDomains
 	if len(rawDomain) != 0 {
-		allowedCorsDomains = append(allowedCorsDomains, []byte(rawDomain))
+		allowedCorsDomains = append(allowedCorsDomains, rawDomain)
 	}
 
 	// Make sure MainDomain has a trailing dot, and GiteaRoot has no trailing slash
-	if !bytes.HasPrefix(mainDomainSuffix, []byte{'.'}) {
-		mainDomainSuffix = append([]byte{'.'}, mainDomainSuffix...)
+	if !strings.HasPrefix(mainDomainSuffix, ".") {
+		mainDomainSuffix = "." + mainDomainSuffix
 	}
 
 	keyCache := cache.NewKeyValueCache()
@@ -79,26 +79,22 @@ func Serve(ctx *cli.Context) error {
 	canonicalDomainCache := cache.NewKeyValueCache()
 	// dnsLookupCache stores DNS lookups for custom domains
 	dnsLookupCache := cache.NewKeyValueCache()
-	// branchTimestampCache stores branch timestamps for faster cache checking
-	branchTimestampCache := cache.NewKeyValueCache()
-	// fileResponseCache stores responses from the Gitea server
-	// TODO: make this an MRU cache with a size limit
-	fileResponseCache := cache.NewKeyValueCache()
+	// clientResponseCache stores responses from the Gitea server
+	clientResponseCache := cache.NewKeyValueCache()
 
-	giteaClient, err := gitea.NewClient(giteaRoot, giteaAPIToken, ctx.Bool("enable-symlink-support"), ctx.Bool("enable-lfs-support"))
+	giteaClient, err := gitea.NewClient(giteaRoot, giteaAPIToken, clientResponseCache, ctx.Bool("enable-symlink-support"), ctx.Bool("enable-lfs-support"))
 	if err != nil {
 		return fmt.Errorf("could not create new gitea client: %v", err)
 	}
 
 	// Create handler based on settings
-	handler := server.Handler(mainDomainSuffix, []byte(rawDomain),
+	httpsHandler := server.Handler(mainDomainSuffix, rawDomain,
 		giteaClient,
 		giteaRoot, rawInfoPage,
 		BlacklistedPaths, allowedCorsDomains,
-		dnsLookupCache, canonicalDomainCache, branchTimestampCache, fileResponseCache)
+		dnsLookupCache, canonicalDomainCache)
 
-	fastServer := server.SetupServer(handler)
-	httpServer := server.SetupHTTPACMEChallengeServer(challengeCache)
+	httpHandler := server.SetupHTTPACMEChallengeServer(challengeCache)
 
 	// Setup listener and TLS
 	log.Info().Msgf("Listening on https://%s", listeningAddress)
@@ -138,7 +134,7 @@ func Serve(ctx *cli.Context) error {
 	if enableHTTPServer {
 		go func() {
 			log.Info().Msg("Start HTTP server listening on :80")
-			err := httpServer.ListenAndServe("[::]:80")
+			err := http.ListenAndServe("[::]:80", httpHandler)
 			if err != nil {
 				log.Panic().Err(err).Msg("Couldn't start HTTP fastServer")
 			}
@@ -147,8 +143,7 @@ func Serve(ctx *cli.Context) error {
 
 	// Start the web fastServer
 	log.Info().Msgf("Start listening on %s", listener.Addr())
-	err = fastServer.Serve(listener)
-	if err != nil {
+	if err := http.Serve(listener, httpsHandler); err != nil {
 		log.Panic().Err(err).Msg("Couldn't start fastServer")
 	}
 

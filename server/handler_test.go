@@ -1,44 +1,42 @@
 package server
 
 import (
-	"fmt"
+	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/valyala/fasthttp"
-
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/gitea"
+	"github.com/rs/zerolog/log"
 )
 
 func TestHandlerPerformance(t *testing.T) {
 	giteaRoot := "https://codeberg.org"
-	giteaClient, _ := gitea.NewClient(giteaRoot, "", false, false)
+	giteaClient, _ := gitea.NewClient(giteaRoot, "", cache.NewKeyValueCache(), false, false)
 	testHandler := Handler(
-		[]byte("codeberg.page"), []byte("raw.codeberg.org"),
+		"codeberg.page", "raw.codeberg.org",
 		giteaClient,
 		giteaRoot, "https://docs.codeberg.org/pages/raw-content/",
-		[][]byte{[]byte("/.well-known/acme-challenge/")},
-		[][]byte{[]byte("raw.codeberg.org"), []byte("fonts.codeberg.org"), []byte("design.codeberg.org")},
-		cache.NewKeyValueCache(),
-		cache.NewKeyValueCache(),
+		[]string{"/.well-known/acme-challenge/"},
+		[]string{"raw.codeberg.org", "fonts.codeberg.org", "design.codeberg.org"},
 		cache.NewKeyValueCache(),
 		cache.NewKeyValueCache(),
 	)
 
 	testCase := func(uri string, status int) {
-		ctx := &fasthttp.RequestCtx{
-			Request:  *fasthttp.AcquireRequest(),
-			Response: *fasthttp.AcquireResponse(),
-		}
-		ctx.Request.SetRequestURI(uri)
-		fmt.Printf("Start: %v\n", time.Now())
+		req := httptest.NewRequest("GET", uri, nil)
+		w := httptest.NewRecorder()
+
+		log.Printf("Start: %v\n", time.Now())
 		start := time.Now()
-		testHandler(ctx)
+		testHandler(w, req)
 		end := time.Now()
-		fmt.Printf("Done: %v\n", time.Now())
-		if ctx.Response.StatusCode() != status {
-			t.Errorf("request failed with status code %d", ctx.Response.StatusCode())
+		log.Printf("Done: %v\n", time.Now())
+
+		resp := w.Result()
+
+		if resp.StatusCode != status {
+			t.Errorf("request failed with status code %d", resp.StatusCode)
 		} else {
 			t.Logf("request took %d milliseconds", end.Sub(start).Milliseconds())
 		}

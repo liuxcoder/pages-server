@@ -1,9 +1,11 @@
 package utils
 
-import "bytes"
+import (
+	"strings"
+)
 
-func TrimHostPort(host []byte) []byte {
-	i := bytes.IndexByte(host, ':')
+func TrimHostPort(host string) string {
+	i := strings.IndexByte(host, ':')
 	if i >= 0 {
 		return host[:i]
 	}

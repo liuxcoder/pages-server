@@ -7,7 +7,7 @@ import (
 )
 
 func TestTrimHostPort(t *testing.T) {
-	assert.EqualValues(t, "aa", TrimHostPort([]byte("aa")))
-	assert.EqualValues(t, "", TrimHostPort([]byte(":")))
-	assert.EqualValues(t, "example.com", TrimHostPort([]byte("example.com:80")))
+	assert.EqualValues(t, "aa", TrimHostPort("aa"))
+	assert.EqualValues(t, "", TrimHostPort(":"))
+	assert.EqualValues(t, "example.com", TrimHostPort("example.com:80"))
 }

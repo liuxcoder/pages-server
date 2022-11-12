@@ -36,7 +36,7 @@ import (
 )
 
 // TLSConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
-func TLSConfig(mainDomainSuffix []byte,
+func TLSConfig(mainDomainSuffix string,
 	giteaClient *gitea.Client,
 	dnsProvider string,
 	acmeUseRateLimits bool,
@@ -47,7 +47,6 @@ func TLSConfig(mainDomainSuffix []byte,
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			sni := strings.ToLower(strings.TrimSpace(info.ServerName))
-			sniBytes := []byte(sni)
 			if len(sni) < 1 {
 				return nil, errors.New("missing sni")
 			}
@@ -69,23 +68,20 @@ func TLSConfig(mainDomainSuffix []byte,
 			}
 
 			targetOwner := ""
-			if bytes.HasSuffix(sniBytes, mainDomainSuffix) || bytes.Equal(sniBytes, mainDomainSuffix[1:]) {
+			if strings.HasSuffix(sni, mainDomainSuffix) || strings.EqualFold(sni, mainDomainSuffix[1:]) {
 				// deliver default certificate for the main domain (*.codeberg.page)
-				sniBytes = mainDomainSuffix
-				sni = string(sniBytes)
+				sni = mainDomainSuffix
 			} else {
 				var targetRepo, targetBranch string
-				targetOwner, targetRepo, targetBranch = dnsutils.GetTargetFromDNS(sni, string(mainDomainSuffix), dnsLookupCache)
+				targetOwner, targetRepo, targetBranch = dnsutils.GetTargetFromDNS(sni, mainDomainSuffix, dnsLookupCache)
 				if targetOwner == "" {
 					// DNS not set up, return main certificate to redirect to the docs
-					sniBytes = mainDomainSuffix
-					sni = string(sniBytes)
+					sni = mainDomainSuffix
 				} else {
 					_, _ = targetRepo, targetBranch
-					_, valid := upstream.CheckCanonicalDomain(giteaClient, targetOwner, targetRepo, targetBranch, sni, string(mainDomainSuffix), canonicalDomainCache)
+					_, valid := upstream.CheckCanonicalDomain(giteaClient, targetOwner, targetRepo, targetBranch, sni, mainDomainSuffix, canonicalDomainCache)
 					if !valid {
-						sniBytes = mainDomainSuffix
-						sni = string(sniBytes)
+						sni = mainDomainSuffix
 					}
 				}
 			}
@@ -98,9 +94,9 @@ func TLSConfig(mainDomainSuffix []byte,
 			var tlsCertificate tls.Certificate
 			var err error
 			var ok bool
-			if tlsCertificate, ok = retrieveCertFromDB(sniBytes, mainDomainSuffix, dnsProvider, acmeUseRateLimits, certDB); !ok {
+			if tlsCertificate, ok = retrieveCertFromDB(sni, mainDomainSuffix, dnsProvider, acmeUseRateLimits, certDB); !ok {
 				// request a new certificate
-				if bytes.Equal(sniBytes, mainDomainSuffix) {
+				if strings.EqualFold(sni, mainDomainSuffix) {
 					return nil, errors.New("won't request certificate for main domain, something really bad has happened")
 				}
 
@@ -192,7 +188,7 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	return nil
 }
 
-func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) (tls.Certificate, bool) {
+func retrieveCertFromDB(sni, mainDomainSuffix, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) (tls.Certificate, bool) {
 	// parse certificate from database
 	res, err := certDB.Get(string(sni))
 	if err != nil {
@@ -208,7 +204,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUs
 	}
 
 	// TODO: document & put into own function
-	if !bytes.Equal(sni, mainDomainSuffix) {
+	if !strings.EqualFold(sni, mainDomainSuffix) {
 		tlsCertificate.Leaf, err = x509.ParseCertificate(tlsCertificate.Certificate[0])
 		if err != nil {
 			panic(err)
@@ -239,7 +235,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix []byte, dnsProvider string, acmeUs
 
 var obtainLocks = sync.Map{}
 
-func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user, dnsProvider string, mainDomainSuffix []byte, acmeUseRateLimits bool, keyDatabase database.CertDB) (tls.Certificate, error) {
+func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user, dnsProvider, mainDomainSuffix string, acmeUseRateLimits bool, keyDatabase database.CertDB) (tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
 	if dnsProvider == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
 		domains = domains[1:]
@@ -252,7 +248,7 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			time.Sleep(100 * time.Millisecond)
 			_, working = obtainLocks.Load(name)
 		}
-		cert, ok := retrieveCertFromDB([]byte(name), mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase)
+		cert, ok := retrieveCertFromDB(name, mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase)
 		if !ok {
 			return tls.Certificate{}, errors.New("certificate failed in synchronous request")
 		}
@@ -405,7 +401,7 @@ func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcce
 	return myAcmeConfig, nil
 }
 
-func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, certDB database.CertDB) error {
+func SetupCertificates(mainDomainSuffix, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, certDB database.CertDB) error {
 	// getting main cert before ACME account so that we can fail here without hitting rate limits
 	mainCertBytes, err := certDB.Get(string(mainDomainSuffix))
 	if err != nil {
@@ -460,7 +456,7 @@ func SetupCertificates(mainDomainSuffix []byte, dnsProvider string, acmeConfig *
 	return nil
 }
 
-func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffix []byte, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) {
+func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffix, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) {
 	for {
 		// clean up expired certs
 		now := time.Now()
@@ -468,7 +464,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 		keyDatabaseIterator := certDB.Items()
 		key, resBytes, err := keyDatabaseIterator.Next()
 		for err == nil {
-			if !bytes.Equal(key, mainDomainSuffix) {
+			if !strings.EqualFold(string(key), mainDomainSuffix) {
 				resGob := bytes.NewBuffer(resBytes)
 				resDec := gob.NewDecoder(resGob)
 				res := &certificate.Resource{}

@@ -3,9 +3,13 @@ package dns
 import (
 	"net"
 	"strings"
+	"time"
 
 	"codeberg.org/codeberg/pages/server/cache"
 )
+
+// lookupCacheTimeout specifies the timeout for the DNS lookup cache.
+var lookupCacheTimeout = 15 * time.Minute
 
 // GetTargetFromDNS searches for CNAME or TXT entries on the request domain ending with MainDomainSuffix.
 // If everything is fine, it returns the target data.

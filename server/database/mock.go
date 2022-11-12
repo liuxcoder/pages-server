@@ -28,7 +28,7 @@ func (p tmpDB) Put(name string, cert *certificate.Resource) error {
 func (p tmpDB) Get(name string) (*certificate.Resource, error) {
 	cert, has := p.intern.Get(name)
 	if !has {
-		return nil, fmt.Errorf("cert for '%s' not found", name)
+		return nil, fmt.Errorf("cert for %q not found", name)
 	}
 	return cert.(*certificate.Resource), nil
 }

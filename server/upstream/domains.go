@@ -2,10 +2,18 @@ package upstream
 
 import (
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/gitea"
 )
+
+// canonicalDomainCacheTimeout specifies the timeout for the canonical domain cache.
+var canonicalDomainCacheTimeout = 15 * time.Minute
+
+const canonicalDomainConfig = ".domains"
 
 // CheckCanonicalDomain returns the canonical domain specified in the repo (using the `.domains` file).
 func CheckCanonicalDomain(giteaClient *gitea.Client, targetOwner, targetRepo, targetBranch, actualDomain, mainDomainSuffix string, canonicalDomainCache cache.SetGetKey) (string, bool) {
@@ -36,6 +44,8 @@ func CheckCanonicalDomain(giteaClient *gitea.Client, targetOwner, targetRepo, ta
 					valid = true
 				}
 			}
+		} else {
+			log.Info().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, targetOwner, targetRepo)
 		}
 		domains = append(domains, targetOwner+mainDomainSuffix)
 		if domains[len(domains)-1] == actualDomain {
