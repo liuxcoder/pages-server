@@ -42,9 +42,8 @@ func (f FileResponse) IsEmpty() bool {
 	return len(f.Body) != 0
 }
 
-func (f FileResponse) createHttpResponse(cacheKey string) (http.Header, int) {
-	header := make(http.Header)
-	var statusCode int
+func (f FileResponse) createHttpResponse(cacheKey string) (header http.Header, statusCode int) {
+	header = make(http.Header)
 
 	if f.Exists {
 		statusCode = http.StatusOK

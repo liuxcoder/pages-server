@@ -21,8 +21,8 @@ func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 ) {
 	// check if a canonical domain exists on a request on MainDomain
 	if strings.HasSuffix(trimmedHost, mainDomainSuffix) {
-		canonicalDomain, _ := options.CheckCanonicalDomain(giteaClient, "", string(mainDomainSuffix), canonicalDomainCache)
-		if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], string(mainDomainSuffix)) {
+		canonicalDomain, _ := options.CheckCanonicalDomain(giteaClient, "", mainDomainSuffix, canonicalDomainCache)
+		if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], mainDomainSuffix) {
 			canonicalPath := ctx.Req.RequestURI
 			if options.TargetRepo != defaultPagesRepo {
 				path := strings.SplitN(canonicalPath, "/", 3)
@@ -35,8 +35,8 @@ func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 		}
 	}
 
-	// add host for debugging
-	options.Host = string(trimmedHost)
+	// Add host for debugging.
+	options.Host = trimmedHost
 
 	// Try to request the file from the Gitea API
 	if !options.Upstream(ctx, giteaClient) {

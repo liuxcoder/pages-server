@@ -65,7 +65,7 @@ func Serve(ctx *cli.Context) error {
 	}
 
 	allowedCorsDomains := AllowedCorsDomains
-	if len(rawDomain) != 0 {
+	if rawDomain != "" {
 		allowedCorsDomains = append(allowedCorsDomains, rawDomain)
 	}
 

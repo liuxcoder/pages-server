@@ -13,7 +13,7 @@ import (
 func (o *Options) GetBranchTimestamp(giteaClient *gitea.Client) (bool, error) {
 	log := log.With().Strs("BranchInfo", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch}).Logger()
 
-	if len(o.TargetBranch) == 0 {
+	if o.TargetBranch == "" {
 		// Get default branch
 		defaultBranch, err := giteaClient.GiteaGetRepoDefaultBranch(o.TargetOwner, o.TargetRepo)
 		if err != nil {

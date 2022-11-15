@@ -15,13 +15,13 @@ func SetupHTTPACMEChallengeServer(challengeCache cache.SetGetKey) http.HandlerFu
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := context.New(w, req)
 		if strings.HasPrefix(ctx.Path(), challengePath) {
-			challenge, ok := challengeCache.Get(utils.TrimHostPort(ctx.Host()) + "/" + string(strings.TrimPrefix(ctx.Path(), challengePath)))
+			challenge, ok := challengeCache.Get(utils.TrimHostPort(ctx.Host()) + "/" + strings.TrimPrefix(ctx.Path(), challengePath))
 			if !ok || challenge == nil {
 				ctx.String("no challenge for this token", http.StatusNotFound)
 			}
 			ctx.String(challenge.(string))
 		} else {
-			ctx.Redirect("https://"+string(ctx.Host())+string(ctx.Path()), http.StatusMovedPermanently)
+			ctx.Redirect("https://"+ctx.Host()+ctx.Path(), http.StatusMovedPermanently)
 		}
 	}
 }

@@ -82,8 +82,8 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 
 	// Check if the browser has a cached version
 	if ctx.Response() != nil {
-		if ifModifiedSince, err := time.Parse(time.RFC1123, string(ctx.Response().Header.Get(headerIfModifiedSince))); err == nil {
-			if !ifModifiedSince.Before(o.BranchTimestamp) {
+		if ifModifiedSince, err := time.Parse(time.RFC1123, ctx.Response().Header.Get(headerIfModifiedSince)); err == nil {
+			if ifModifiedSince.After(o.BranchTimestamp) {
 				ctx.RespWriter.WriteHeader(http.StatusNotModified)
 				log.Trace().Msg("check response against last modified: valid")
 				return true

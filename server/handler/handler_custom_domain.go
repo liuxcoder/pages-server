@@ -54,7 +54,7 @@ func handleCustomDomain(log zerolog.Logger, ctx *context.Context, giteaClient *g
 			// only redirect if the target is also a codeberg page!
 			targetOwner, _, _ = dns.GetTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0], mainDomainSuffix, dnsLookupCache)
 			if targetOwner != "" {
-				ctx.Redirect("https://"+canonicalDomain+string(targetOpt.TargetPath), http.StatusTemporaryRedirect)
+				ctx.Redirect("https://"+canonicalDomain+targetOpt.TargetPath, http.StatusTemporaryRedirect)
 				return
 			}
 

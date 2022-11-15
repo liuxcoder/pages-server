@@ -29,7 +29,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 
 	if targetOwner == "www" {
 		// www.codeberg.page redirects to codeberg.page // TODO: rm hardcoded - use cname?
-		ctx.Redirect("https://"+string(mainDomainSuffix[1:])+string(ctx.Path()), http.StatusPermanentRedirect)
+		ctx.Redirect("https://"+mainDomainSuffix[1:]+ctx.Path(), http.StatusPermanentRedirect)
 		return
 	}
 

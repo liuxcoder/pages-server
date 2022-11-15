@@ -44,7 +44,7 @@ func (p aDB) Get(name string) (*certificate.Resource, error) {
 	if resBytes == nil {
 		return nil, nil
 	}
-	if err = gob.NewDecoder(bytes.NewBuffer(resBytes)).Decode(cert); err != nil {
+	if err := gob.NewDecoder(bytes.NewBuffer(resBytes)).Decode(cert); err != nil {
 		return nil, err
 	}
 	return cert, nil

@@ -28,7 +28,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 	dnsLookupCache, canonicalDomainCache cache.SetGetKey,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		log := log.With().Strs("Handler", []string{string(req.Host), req.RequestURI}).Logger()
+		log := log.With().Strs("Handler", []string{req.Host, req.RequestURI}).Logger()
 		ctx := context.New(w, req)
 
 		ctx.RespWriter.Header().Set("Server", "CodebergPages/"+version.Version)

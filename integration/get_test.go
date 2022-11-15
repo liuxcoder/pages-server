@@ -124,7 +124,7 @@ func TestLFSSupport(t *testing.T) {
 
 func TestGetOptions(t *testing.T) {
 	log.Println("=== TestGetOptions ===")
-	req, _ := http.NewRequest(http.MethodOptions, "https://mock-pages.codeberg-test.org:4430/README.md", nil)
+	req, _ := http.NewRequest(http.MethodOptions, "https://mock-pages.codeberg-test.org:4430/README.md", http.NoBody)
 	resp, err := getTestHTTPSClient().Do(req)
 	assert.NoError(t, err)
 	if !assert.NotNil(t, resp) {

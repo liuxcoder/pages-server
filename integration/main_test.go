@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 
 	time.Sleep(10 * time.Second)
 
-	os.Exit(m.Run())
+	m.Run()
 }
 
 func startServer(ctx context.Context) error {
