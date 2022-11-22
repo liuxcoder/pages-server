@@ -23,26 +23,27 @@ func TestHandlerPerformance(t *testing.T) {
 	)
 
 	testCase := func(uri string, status int) {
-		req := httptest.NewRequest("GET", uri, nil)
-		w := httptest.NewRecorder()
+		t.Run(uri, func(t *testing.T) {
+			req := httptest.NewRequest("GET", uri, nil)
+			w := httptest.NewRecorder()
 
-		log.Printf("Start: %v\n", time.Now())
-		start := time.Now()
-		testHandler(w, req)
-		end := time.Now()
-		log.Printf("Done: %v\n", time.Now())
+			log.Printf("Start: %v\n", time.Now())
+			start := time.Now()
+			testHandler(w, req)
+			end := time.Now()
+			log.Printf("Done: %v\n", time.Now())
 
-		resp := w.Result()
+			resp := w.Result()
 
-		if resp.StatusCode != status {
-			t.Errorf("request failed with status code %d", resp.StatusCode)
-		} else {
-			t.Logf("request took %d milliseconds", end.Sub(start).Milliseconds())
-		}
+			if resp.StatusCode != status {
+				t.Errorf("request failed with status code %d", resp.StatusCode)
+			} else {
+				t.Logf("request took %d milliseconds", end.Sub(start).Milliseconds())
+			}
+		})
 	}
 
-	testCase("https://mondstern.codeberg.page/", 424) // TODO: expect 200
-	testCase("https://mondstern.codeberg.page/", 424) // TODO: expect 200
-	testCase("https://example.momar.xyz/", 424)       // TODO: expect 200
-	testCase("https://codeberg.page/", 424)           // TODO: expect 200
+	testCase("https://mondstern.codeberg.page/", 404) // TODO: expect 200
+	testCase("https://codeberg.page/", 404)           // TODO: expect 200
+	testCase("https://example.momar.xyz/", 424)
 }

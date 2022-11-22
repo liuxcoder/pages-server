@@ -115,6 +115,6 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 
 	// Couldn't find a valid repo/branch
 	html.ReturnErrorPage(ctx,
-		fmt.Sprintf("couldn't find a valid repo[%s]", targetRepo),
-		http.StatusFailedDependency)
+		fmt.Sprintf("could not find a valid repository[%s]", targetRepo),
+		http.StatusNotFound)
 }
