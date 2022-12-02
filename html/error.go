@@ -1,6 +1,7 @@
 package html
 
 import (
+	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -39,7 +40,8 @@ func errorMessage(statusCode int) string {
 
 // TODO: use template engine
 func errorBody(statusCode int) string {
-	return strings.ReplaceAll(NotFoundPage,
-		"%status%",
-		strconv.Itoa(statusCode)+" "+errorMessage(statusCode))
+	return template.HTMLEscapeString(
+		strings.ReplaceAll(NotFoundPage,
+			"%status%",
+			strconv.Itoa(statusCode)+" "+errorMessage(statusCode)))
 }
