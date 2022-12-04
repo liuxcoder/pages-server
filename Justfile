@@ -38,10 +38,10 @@ tool-gofumpt:
     fi
 
 test:
-    go test -race codeberg.org/codeberg/pages/server/...
+    go test -race codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
 
 test-run TEST:
-    go test -race -run "^{{TEST}}$" codeberg.org/codeberg/pages/server/...
+    go test -race -run "^{{TEST}}$" codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
 
 integration:
     go test -race -tags integration codeberg.org/codeberg/pages/integration/...
