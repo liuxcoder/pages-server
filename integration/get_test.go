@@ -31,7 +31,7 @@ func TestGetRedirect(t *testing.T) {
 func TestGetContent(t *testing.T) {
 	log.Println("=== TestGetContent ===")
 	// test get image
-	resp, err := getTestHTTPSClient().Get("https://magiclike.localhost.mock.directory:4430/images/827679288a.jpg")
+	resp, err := getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/images/827679288a.jpg")
 	assert.NoError(t, err)
 	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
 		t.FailNow()
@@ -42,7 +42,7 @@ func TestGetContent(t *testing.T) {
 	assert.Len(t, resp.Header.Get("ETag"), 42)
 
 	// specify branch
-	resp, err = getTestHTTPSClient().Get("https://momar.localhost.mock.directory:4430/pag/@master/")
+	resp, err = getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/pag/@master/")
 	assert.NoError(t, err)
 	if !assert.NotNil(t, resp) {
 		t.FailNow()
@@ -53,7 +53,7 @@ func TestGetContent(t *testing.T) {
 	assert.Len(t, resp.Header.Get("ETag"), 44)
 
 	// access branch name contains '/'
-	resp, err = getTestHTTPSClient().Get("https://blumia.localhost.mock.directory:4430/pages-server-integration-tests/@docs~main/")
+	resp, err = getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/blumia/@docs~main/")
 	assert.NoError(t, err)
 	if !assert.EqualValues(t, http.StatusOK, resp.StatusCode) {
 		t.FailNow()
@@ -81,7 +81,7 @@ func TestCustomDomain(t *testing.T) {
 func TestGetNotFound(t *testing.T) {
 	log.Println("=== TestGetNotFound ===")
 	// test custom not found pages
-	resp, err := getTestHTTPSClient().Get("https://crystal.localhost.mock.directory:4430/pages-404-demo/blah")
+	resp, err := getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/pages-404-demo/blah")
 	assert.NoError(t, err)
 	if !assert.NotNil(t, resp) {
 		t.FailNow()
@@ -95,7 +95,7 @@ func TestGetNotFound(t *testing.T) {
 func TestFollowSymlink(t *testing.T) {
 	log.Printf("=== TestFollowSymlink ===\n")
 
-	resp, err := getTestHTTPSClient().Get("https://6543.localhost.mock.directory:4430/tests_for_pages-server/@main/link")
+	resp, err := getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/tests_for_pages-server/@main/link")
 	assert.NoError(t, err)
 	if !assert.NotNil(t, resp) {
 		t.FailNow()
@@ -111,7 +111,7 @@ func TestFollowSymlink(t *testing.T) {
 func TestLFSSupport(t *testing.T) {
 	log.Printf("=== TestLFSSupport ===\n")
 
-	resp, err := getTestHTTPSClient().Get("https://6543.localhost.mock.directory:4430/tests_for_pages-server/@main/lfs.txt")
+	resp, err := getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/tests_for_pages-server/@main/lfs.txt")
 	assert.NoError(t, err)
 	if !assert.NotNil(t, resp) {
 		t.FailNow()
