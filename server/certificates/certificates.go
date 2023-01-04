@@ -303,7 +303,11 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 		log.Error().Err(err).Msgf("Couldn't obtain again a certificate or %v", domains)
 		if renew != nil && renew.CertURL != "" {
 			tlsCertificate, err := tls.X509KeyPair(renew.Certificate, renew.PrivateKey)
-			if err == nil && tlsCertificate.Leaf.NotAfter.After(time.Now()) {
+			if err != nil {
+				return mockCert(domains[0], err.Error(), mainDomainSuffix, keyDatabase), err
+			}
+			leaf, err := leaf(&tlsCertificate)
+			if err == nil && leaf.NotAfter.After(time.Now()) {
 				// avoid sending a mock cert instead of a still valid cert, instead abuse CSR field to store time to try again at
 				renew.CSR = []byte(strconv.FormatInt(time.Now().Add(6*time.Hour).Unix(), 10))
 				if err := keyDatabase.Put(name, renew); err != nil {
@@ -528,4 +532,13 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 		case <-time.After(interval):
 		}
 	}
+}
+
+// leaf returns the parsed leaf certificate, either from c.leaf or by parsing
+// the corresponding c.Certificate[0].
+func leaf(c *tls.Certificate) (*x509.Certificate, error) {
+	if c.Leaf != nil {
+		return c.Leaf, nil
+	}
+	return x509.ParseCertificate(c.Certificate[0])
 }
