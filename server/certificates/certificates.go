@@ -163,6 +163,9 @@ var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15*time.Minute)
 // rate limit is 20 / second, we want 5 / second (especially as one cert takes at least two requests)
 var acmeClientRequestLimit = equalizer.NewTokenBucket(5, 1*time.Second)
 
+// rate limit is 5 / hour https://letsencrypt.org/docs/failed-validation-limit/
+var acmeClientFailLimit = equalizer.NewTokenBucket(5, 1*time.Hour)
+
 type AcmeTLSChallengeProvider struct {
 	challengeCache cache.SetGetKey
 }
@@ -278,6 +281,9 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 		res, err = acmeClient.Certificate.Renew(*renew, true, false, "")
 		if err != nil {
 			log.Error().Err(err).Msgf("Couldn't renew certificate for %v, trying to request a new one", domains)
+			if acmeUseRateLimits {
+				acmeClientFailLimit.Take()
+			}
 			res = nil
 		}
 	}
@@ -298,6 +304,9 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			Bundle:     true,
 			MustStaple: false,
 		})
+		if acmeUseRateLimits && err != nil {
+			acmeClientFailLimit.Take()
+		}
 	}
 	if err != nil {
 		log.Error().Err(err).Msgf("Couldn't obtain again a certificate or %v", domains)
