@@ -78,6 +78,24 @@ func TestCustomDomain(t *testing.T) {
 	assert.EqualValues(t, 106, getSize(resp.Body))
 }
 
+func TestCustomDomainRedirects(t *testing.T) {
+	log.Println("=== TestCustomDomainRedirects ===")
+	// test redirect from default pages domain to custom domain
+	resp, err := getTestHTTPSClient().Get("https://6543.localhost.mock.directory:4430/test_pages-server_custom-mock-domain/@main/README.md")
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusTemporaryRedirect, resp.StatusCode)
+	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+	// TODO: custom port is not evaluated (witch does hurt tests & dev env only)
+	assert.EqualValues(t, "https://mock-pages.codeberg-test.org/@main/README.md", resp.Header.Get("Location"))
+	assert.EqualValues(t, `https:/codeberg.org/6543/test_pages-server_custom-mock-domain/src/branch/main/README.md; rel="canonical"; rel="canonical"`, resp.Header.Get("Link"))
+
+	// TODO: test redirect from an custom domain to the primary custom domain (www.example.com -> example.com)
+	//       (cover bug https://codeberg.org/Codeberg/pages-server/issues/153)
+}
+
 func TestGetNotFound(t *testing.T) {
 	log.Println("=== TestGetNotFound ===")
 	// test custom not found pages
