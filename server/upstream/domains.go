@@ -45,7 +45,11 @@ func (o *Options) CheckCanonicalDomain(giteaClient *gitea.Client, actualDomain, 
 				}
 			}
 		} else {
-			log.Info().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, o.TargetOwner, o.TargetRepo)
+			if err != gitea.ErrorNotFound {
+				log.Error().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, o.TargetOwner, o.TargetRepo)
+			} else {
+				log.Info().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, o.TargetOwner, o.TargetRepo)
+			}
 		}
 		domains = append(domains, o.TargetOwner+mainDomainSuffix)
 		if domains[len(domains)-1] == actualDomain {
