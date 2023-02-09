@@ -89,11 +89,22 @@ func TestCustomDomainRedirects(t *testing.T) {
 	assert.EqualValues(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
 	// TODO: custom port is not evaluated (witch does hurt tests & dev env only)
+	// assert.EqualValues(t, "https://mock-pages.codeberg-test.org:4430/@main/README.md", resp.Header.Get("Location"))
 	assert.EqualValues(t, "https://mock-pages.codeberg-test.org/@main/README.md", resp.Header.Get("Location"))
 	assert.EqualValues(t, `https:/codeberg.org/6543/test_pages-server_custom-mock-domain/src/branch/main/README.md; rel="canonical"; rel="canonical"`, resp.Header.Get("Link"))
 
-	// TODO: test redirect from an custom domain to the primary custom domain (www.example.com -> example.com)
-	//       (cover bug https://codeberg.org/Codeberg/pages-server/issues/153)
+	// test redirect from an custom domain to the primary custom domain (www.example.com -> example.com)
+	// regression test to https://codeberg.org/Codeberg/pages-server/issues/153
+	resp, err = getTestHTTPSClient().Get("https://mock-pages-redirect.codeberg-test.org:4430/README.md")
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusTemporaryRedirect, resp.StatusCode)
+	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+	// TODO: custom port is not evaluated (witch does hurt tests & dev env only)
+	// assert.EqualValues(t, "https://mock-pages.codeberg-test.org:4430/README.md", resp.Header.Get("Location"))
+	assert.EqualValues(t, "https://mock-pages.codeberg-test.org/README.md", resp.Header.Get("Location"))
 }
 
 func TestGetNotFound(t *testing.T) {
