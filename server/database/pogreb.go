@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"time"
 
@@ -62,8 +63,32 @@ func (p aDB) Compact() (string, error) {
 	return fmt.Sprintf("%+v", result), nil
 }
 
-func (p aDB) Items() *pogreb.ItemIterator {
-	return p.intern.Items()
+func (p aDB) Items(_, _ int) ([]*Cert, error) {
+	items := make([]*Cert, 0, p.intern.Count())
+	iterator := p.intern.Items()
+	for {
+		key, resBytes, err := iterator.Next()
+		if err != nil {
+			if errors.Is(err, pogreb.ErrIterationDone) {
+				break
+			}
+			return nil, err
+		}
+
+		res := &certificate.Resource{}
+		if err := gob.NewDecoder(bytes.NewBuffer(resBytes)).Decode(res); err != nil {
+			return nil, err
+		}
+
+		cert, err := toCert(string(key), res)
+		if err != nil {
+			return nil, err
+		}
+
+		items = append(items, cert)
+	}
+
+	return items, nil
 }
 
 var _ CertDB = &aDB{}
@@ -82,7 +107,7 @@ func (p aDB) sync() {
 	}
 }
 
-func New(path string) (CertDB, error) {
+func NewPogreb(path string) (CertDB, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path not set")
 	}

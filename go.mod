@@ -1,17 +1,21 @@
 module codeberg.org/codeberg/pages
 
-go 1.19
+go 1.20
 
 require (
 	code.gitea.io/sdk/gitea v0.15.1-0.20220729105105-cc14c63cccfa
 	github.com/OrlovEvgeny/go-mcache v0.0.0-20200121124330-1a8195b34f3a
 	github.com/akrylysov/pogreb v0.10.1
 	github.com/go-acme/lego/v4 v4.5.3
+	github.com/go-sql-driver/mysql v1.6.0
 	github.com/joho/godotenv v1.4.0
+	github.com/lib/pq v1.10.7
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/reugn/equalizer v0.0.0-20210216135016-a959c509d7ad
 	github.com/rs/zerolog v1.27.0
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
+	xorm.io/xorm v1.3.2
 )
 
 require (
@@ -47,11 +51,13 @@ require (
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-resty/resty/v2 v2.1.1-0.20191201195748-d7b97669fe48 // indirect
-	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/goccy/go-json v0.8.1 // indirect
+	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/uuid v1.1.1 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/gophercloud/gophercloud v0.16.0 // indirect
 	github.com/gophercloud/utils v0.0.0-20210216074907-f6de111f2eae // indirect
@@ -62,7 +68,7 @@ require (
 	github.com/infobloxopen/infoblox-go-client v1.1.1 // indirect
 	github.com/jarcoal/httpmock v1.0.6 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/json-iterator/go v1.1.7 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/kolo/xmlrpc v0.0.0-20200310150728-e0350524596b // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
@@ -78,7 +84,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/namedotcom/go v0.0.0-20180403034216-08470befbe04 // indirect
 	github.com/nrdcg/auroradns v1.0.1 // indirect
 	github.com/nrdcg/desec v0.6.0 // indirect
@@ -103,6 +109,7 @@ require (
 	github.com/softlayer/xmlrpc v0.0.0-20200409220501-5f089df7cb7e // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
+	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/transip/gotransip/v6 v6.6.1 // indirect
 	github.com/vinyldns/go-vinyldns v0.0.0-20200917153823-148a5f6b8f14 // indirect
 	github.com/vultr/govultr/v2 v2.7.1 // indirect
@@ -124,4 +131,5 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	xorm.io/builder v0.3.12 // indirect
 )

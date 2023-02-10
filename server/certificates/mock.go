@@ -13,14 +13,15 @@ import (
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
+	"github.com/rs/zerolog/log"
 
 	"codeberg.org/codeberg/pages/server/database"
 )
 
-func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.CertDB) tls.Certificate {
+func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.CertDB) (*tls.Certificate, error) {
 	key, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	template := x509.Certificate{
@@ -52,7 +53,7 @@ func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.CertDB)
 		key,
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	out := &bytes.Buffer{}
@@ -61,7 +62,7 @@ func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.CertDB)
 		Type:  "CERTIFICATE",
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	outBytes := out.Bytes()
 	res := &certificate.Resource{
@@ -75,12 +76,12 @@ func mockCert(domain, msg, mainDomainSuffix string, keyDatabase database.CertDB)
 		databaseName = mainDomainSuffix
 	}
 	if err := keyDatabase.Put(databaseName, res); err != nil {
-		panic(err)
+		log.Error().Err(err)
 	}
 
 	tlsCertificate, err := tls.X509KeyPair(res.Certificate, res.PrivateKey)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return tlsCertificate
+	return &tlsCertificate, nil
 }

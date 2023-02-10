@@ -102,6 +102,7 @@ Thank you very much.
 
 run `just dev`
 now this pages should work:
- - https://magiclike.localhost.mock.directory:4430/
+ - https://cb_pages_tests.localhost.mock.directory:4430/images/827679288a.jpg
  - https://momar.localhost.mock.directory:4430/ci-testing/
  - https://momar.localhost.mock.directory:4430/pag/@master/
+ - https://mock-pages.codeberg-test.org:4430/README.md

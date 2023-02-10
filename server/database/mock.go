@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/OrlovEvgeny/go-mcache"
-	"github.com/akrylysov/pogreb"
 	"github.com/go-acme/lego/v4/certificate"
 )
 
@@ -43,8 +42,8 @@ func (p tmpDB) Compact() (string, error) {
 	return "Truncate done", nil
 }
 
-func (p tmpDB) Items() *pogreb.ItemIterator {
-	panic("ItemIterator not implemented for tmpDB")
+func (p tmpDB) Items(page, pageSize int) ([]*Cert, error) {
+	return nil, fmt.Errorf("items not implemented for tmpDB")
 }
 
 func NewTmpDB() (CertDB, error) {

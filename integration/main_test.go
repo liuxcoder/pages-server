@@ -40,11 +40,12 @@ func startServer(ctx context.Context) error {
 	setEnvIfNotSet("PAGES_DOMAIN", "localhost.mock.directory")
 	setEnvIfNotSet("RAW_DOMAIN", "raw.localhost.mock.directory")
 	setEnvIfNotSet("PORT", "4430")
+	setEnvIfNotSet("DB_TYPE", "sqlite3")
 
 	app := cli.NewApp()
 	app.Name = "pages-server"
 	app.Action = cmd.Serve
-	app.Flags = cmd.ServeFlags
+	app.Flags = cmd.ServerFlags
 
 	go func() {
 		if err := app.RunContext(ctx, args); err != nil {

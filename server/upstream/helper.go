@@ -17,17 +17,17 @@ func (o *Options) GetBranchTimestamp(giteaClient *gitea.Client) (bool, error) {
 		// Get default branch
 		defaultBranch, err := giteaClient.GiteaGetRepoDefaultBranch(o.TargetOwner, o.TargetRepo)
 		if err != nil {
-			log.Err(err).Msg("Could't fetch default branch from repository")
+			log.Err(err).Msg("Couldn't fetch default branch from repository")
 			return false, err
 		}
-		log.Debug().Msgf("Succesfully fetched default branch %q from Gitea", defaultBranch)
+		log.Debug().Msgf("Successfully fetched default branch %q from Gitea", defaultBranch)
 		o.TargetBranch = defaultBranch
 	}
 
 	timestamp, err := giteaClient.GiteaGetRepoBranchTimestamp(o.TargetOwner, o.TargetRepo, o.TargetBranch)
 	if err != nil {
 		if !errors.Is(err, gitea.ErrorNotFound) {
-			log.Error().Err(err).Msg("Could not get latest commit's timestamp from branch")
+			log.Error().Err(err).Msg("Could not get latest commit timestamp from branch")
 		}
 		return false, err
 	}
@@ -36,7 +36,7 @@ func (o *Options) GetBranchTimestamp(giteaClient *gitea.Client) (bool, error) {
 		return false, fmt.Errorf("empty response")
 	}
 
-	log.Debug().Msgf("Succesfully fetched latest commit's timestamp from branch: %#v", timestamp)
+	log.Debug().Msgf("Successfully fetched latest commit timestamp from branch: %#v", timestamp)
 	o.BranchTimestamp = timestamp.Timestamp
 	o.TargetBranch = timestamp.Branch
 	return true, nil

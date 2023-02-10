@@ -12,9 +12,23 @@ linters-settings:
       - hugeParam
 
 linters:
+  disable-all: true
   enable:
     - unconvert
     - gocritic
+    - gofumpt
+    - bidichk
+    - errcheck
+    - gofmt
+    - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - typecheck
+    - unused
+    - whitespace
 
 run:
   timeout: 5m

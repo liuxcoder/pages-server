@@ -19,7 +19,7 @@ func main() {
 	app.Version = version
 	app.Usage = "pages server"
 	app.Action = cmd.Serve
-	app.Flags = cmd.ServeFlags
+	app.Flags = cmd.ServerFlags
 	app.Commands = []*cli.Command{
 		cmd.Certs,
 	}

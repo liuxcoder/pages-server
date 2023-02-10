@@ -1,10 +1,9 @@
-FROM golang:alpine as build
+FROM techknowlogick/xgo as build
 
 WORKDIR /workspace
 
-RUN apk add ca-certificates
 COPY . .
-RUN CGO_ENABLED=0 go build .
+RUN CGO_ENABLED=1 go build -tags 'sqlite sqlite_unlock_notify netgo' -ldflags '-s -w -extldflags "-static" -linkmode external' .
 
 FROM scratch
 COPY --from=build /workspace/pages /pages

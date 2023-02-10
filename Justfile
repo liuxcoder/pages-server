@@ -1,3 +1,6 @@
+CGO_FLAGS := '-extldflags "-static" -linkmode external'
+TAGS      := 'sqlite sqlite_unlock_notify netgo'
+
 dev:
     #!/usr/bin/env bash
     set -euxo pipefail
@@ -7,16 +10,15 @@ dev:
     export RAW_DOMAIN=raw.localhost.mock.directory
     export PORT=4430
     export LOG_LEVEL=trace
-    go run .
+    go run -tags '{{TAGS}}' .
 
 build:
-    CGO_ENABLED=0 go build -ldflags '-s -w' -v -o build/codeberg-pages-server ./
+    CGO_ENABLED=1 go build -tags '{{TAGS}}' -ldflags '-s -w {{CGO_FLAGS}}' -v -o build/codeberg-pages-server ./
 
 build-tag VERSION:
-    CGO_ENABLED=0 go build -ldflags '-s -w -X "codeberg.org/codeberg/pages/server/version.Version={{VERSION}}"' -v -o build/codeberg-pages-server ./
+    CGO_ENABLED=1 go build -tags '{{TAGS}}' -ldflags '-s -w -X "codeberg.org/codeberg/pages/server/version.Version={{VERSION}}" {{CGO_FLAGS}}' -v -o build/codeberg-pages-server ./
 
 lint: tool-golangci tool-gofumpt
-    [ $(gofumpt -extra -l . | wc -l) != 0 ] && { echo 'code not formated'; exit 1; }; \
     golangci-lint run --timeout 5m --build-tags integration
     # TODO: run editorconfig-checker
 
@@ -25,7 +27,7 @@ fmt: tool-gofumpt
 
 clean:
     go clean ./...
-    rm -rf build/
+    rm -rf build/ integration/certs.sqlite integration/key-database.pogreb/ integration/acme-account.json
 
 tool-golangci:
     @hash golangci-lint> /dev/null 2>&1; if [ $? -ne 0 ]; then \
@@ -38,13 +40,13 @@ tool-gofumpt:
     fi
 
 test:
-    go test -race codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
+    go test -race -cover -tags '{{TAGS}}' codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
 
 test-run TEST:
-    go test -race -run "^{{TEST}}$" codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
+    go test -race -tags '{{TAGS}}' -run "^{{TEST}}$" codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
 
 integration:
-    go test -race -tags integration codeberg.org/codeberg/pages/integration/...
+    go test -race -tags 'integration {{TAGS}}' codeberg.org/codeberg/pages/integration/...
 
 integration-run TEST:
-    go test -race -tags integration -run "^{{TEST}}$" codeberg.org/codeberg/pages/integration/...
+    go test -race -tags 'integration {{TAGS}}' -run "^{{TEST}}$" codeberg.org/codeberg/pages/integration/...

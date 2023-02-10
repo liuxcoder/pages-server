@@ -18,7 +18,6 @@ import (
 	"codeberg.org/codeberg/pages/server"
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/certificates"
-	"codeberg.org/codeberg/pages/server/database"
 	"codeberg.org/codeberg/pages/server/gitea"
 	"codeberg.org/codeberg/pages/server/handler"
 )
@@ -38,7 +37,7 @@ var BlacklistedPaths = []string{
 
 // Serve sets up and starts the web server.
 func Serve(ctx *cli.Context) error {
-	// Initalize the logger.
+	// Initialize the logger.
 	logLevel, err := zerolog.ParseLevel(ctx.String("log-level"))
 	if err != nil {
 		return err
@@ -74,6 +73,13 @@ func Serve(ctx *cli.Context) error {
 		mainDomainSuffix = "." + mainDomainSuffix
 	}
 
+	// Init ssl cert database
+	certDB, closeFn, err := openCertDB(ctx)
+	if err != nil {
+		return err
+	}
+	defer closeFn()
+
 	keyCache := cache.NewKeyValueCache()
 	challengeCache := cache.NewKeyValueCache()
 	// canonicalDomainCache stores canonical domains
@@ -103,13 +109,6 @@ func Serve(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("couldn't create listener: %v", err)
 	}
-
-	// TODO: make "key-database.pogreb" set via flag
-	certDB, err := database.New("key-database.pogreb")
-	if err != nil {
-		return fmt.Errorf("could not create database: %v", err)
-	}
-	defer certDB.Close() //nolint:errcheck    // database has no close ... sync behave like it
 
 	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
 		giteaClient,
