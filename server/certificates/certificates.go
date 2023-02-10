@@ -70,6 +70,7 @@ func TLSConfig(mainDomainSuffix string,
 			}
 
 			targetOwner := ""
+			mayObtainCert := true
 			if strings.HasSuffix(sni, mainDomainSuffix) || strings.EqualFold(sni, mainDomainSuffix[1:]) {
 				// deliver default certificate for the main domain (*.codeberg.page)
 				sni = mainDomainSuffix
@@ -87,7 +88,9 @@ func TLSConfig(mainDomainSuffix string,
 					}
 					_, valid := targetOpt.CheckCanonicalDomain(giteaClient, sni, mainDomainSuffix, canonicalDomainCache)
 					if !valid {
-						sni = mainDomainSuffix
+						// We shouldn't obtain a certificate when we cannot check if the
+						// repository has specified this domain in the `.domains` file.
+						mayObtainCert = false
 					}
 				}
 			}
@@ -104,6 +107,10 @@ func TLSConfig(mainDomainSuffix string,
 				// request a new certificate
 				if strings.EqualFold(sni, mainDomainSuffix) {
 					return nil, errors.New("won't request certificate for main domain, something really bad has happened")
+				}
+
+				if !mayObtainCert {
+					return nil, fmt.Errorf("won't request certificate for %q", sni)
 				}
 
 				tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner, dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
