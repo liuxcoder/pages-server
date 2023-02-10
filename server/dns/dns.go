@@ -28,7 +28,7 @@ func GetTargetFromDNS(domain, mainDomainSuffix string, dnsLookupCache cache.SetG
 			names, err := net.LookupTXT(domain)
 			if err == nil {
 				for _, name := range names {
-					name = strings.TrimSuffix(name, ".")
+					name = strings.TrimSuffix(strings.TrimSpace(name), ".")
 					if strings.HasSuffix(name, mainDomainSuffix) {
 						cname = name
 						break
