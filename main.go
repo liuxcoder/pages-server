@@ -8,15 +8,13 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"codeberg.org/codeberg/pages/cmd"
+	"codeberg.org/codeberg/pages/server/version"
 )
-
-// can be changed with -X on compile
-var version = "dev"
 
 func main() {
 	app := cli.NewApp()
 	app.Name = "pages-server"
-	app.Version = version
+	app.Version = version.Version
 	app.Usage = "pages server"
 	app.Action = cmd.Serve
 	app.Flags = cmd.ServerFlags
