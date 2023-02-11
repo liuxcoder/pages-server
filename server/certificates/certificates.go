@@ -2,27 +2,18 @@ package certificates
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
-	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
 	"github.com/go-acme/lego/v4/lego"
-	"github.com/go-acme/lego/v4/providers/dns"
-	"github.com/go-acme/lego/v4/registration"
 	"github.com/reugn/equalizer"
 	"github.com/rs/zerolog/log"
 
@@ -33,11 +24,12 @@ import (
 	"codeberg.org/codeberg/pages/server/upstream"
 )
 
+var ErrUserRateLimitExceeded = errors.New("rate limit exceeded: 10 certificates per user per 24 hours")
+
 // TLSConfig returns the configuration for generating, serving and cleaning up Let's Encrypt certificates.
 func TLSConfig(mainDomainSuffix string,
 	giteaClient *gitea.Client,
-	dnsProvider string,
-	acmeUseRateLimits bool,
+	acmeClient *AcmeClient,
 	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
 	certDB database.CertDB,
 ) *tls.Config {
@@ -100,7 +92,7 @@ func TLSConfig(mainDomainSuffix string,
 
 			var tlsCertificate *tls.Certificate
 			var err error
-			if tlsCertificate, err = retrieveCertFromDB(sni, mainDomainSuffix, dnsProvider, acmeUseRateLimits, certDB); err != nil {
+			if tlsCertificate, err = acmeClient.retrieveCertFromDB(sni, mainDomainSuffix, false, certDB); err != nil {
 				// request a new certificate
 				if strings.EqualFold(sni, mainDomainSuffix) {
 					return nil, errors.New("won't request certificate for main domain, something really bad has happened")
@@ -110,7 +102,7 @@ func TLSConfig(mainDomainSuffix string,
 					return nil, fmt.Errorf("won't request certificate for %q", sni)
 				}
 
-				tlsCertificate, err = obtainCert(acmeClient, []string{sni}, nil, targetOwner, dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
+				tlsCertificate, err = acmeClient.obtainCert(acmeClient.legoClient, []string{sni}, nil, targetOwner, false, mainDomainSuffix, certDB)
 				if err != nil {
 					return nil, err
 				}
@@ -141,67 +133,20 @@ func TLSConfig(mainDomainSuffix string,
 	}
 }
 
-func checkUserLimit(user string) error {
-	userLimit, ok := acmeClientCertificateLimitPerUser[user]
+func (c *AcmeClient) checkUserLimit(user string) error {
+	userLimit, ok := c.acmeClientCertificateLimitPerUser[user]
 	if !ok {
-		// Each Codeberg user can only add 10 new domains per day.
+		// Each user can only add 10 new domains per day.
 		userLimit = equalizer.NewTokenBucket(10, time.Hour*24)
-		acmeClientCertificateLimitPerUser[user] = userLimit
+		c.acmeClientCertificateLimitPerUser[user] = userLimit
 	}
 	if !userLimit.Ask() {
-		return errors.New("rate limit exceeded: 10 certificates per user per 24 hours")
+		return fmt.Errorf("user '%s' error: %w", user, ErrUserRateLimitExceeded)
 	}
 	return nil
 }
 
-var (
-	acmeClient, mainDomainAcmeClient  *lego.Client
-	acmeClientCertificateLimitPerUser = map[string]*equalizer.TokenBucket{}
-)
-
-// rate limit is 300 / 3 hours, we want 200 / 2 hours but to refill more often, so that's 25 new domains every 15 minutes
-// TODO: when this is used a lot, we probably have to think of a somewhat better solution?
-var acmeClientOrderLimit = equalizer.NewTokenBucket(25, 15*time.Minute)
-
-// rate limit is 20 / second, we want 5 / second (especially as one cert takes at least two requests)
-var acmeClientRequestLimit = equalizer.NewTokenBucket(5, 1*time.Second)
-
-// rate limit is 5 / hour https://letsencrypt.org/docs/failed-validation-limit/
-var acmeClientFailLimit = equalizer.NewTokenBucket(5, 1*time.Hour)
-
-type AcmeTLSChallengeProvider struct {
-	challengeCache cache.SetGetKey
-}
-
-// make sure AcmeTLSChallengeProvider match Provider interface
-var _ challenge.Provider = AcmeTLSChallengeProvider{}
-
-func (a AcmeTLSChallengeProvider) Present(domain, _, keyAuth string) error {
-	return a.challengeCache.Set(domain, keyAuth, 1*time.Hour)
-}
-
-func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
-	a.challengeCache.Remove(domain)
-	return nil
-}
-
-type AcmeHTTPChallengeProvider struct {
-	challengeCache cache.SetGetKey
-}
-
-// make sure AcmeHTTPChallengeProvider match Provider interface
-var _ challenge.Provider = AcmeHTTPChallengeProvider{}
-
-func (a AcmeHTTPChallengeProvider) Present(domain, token, keyAuth string) error {
-	return a.challengeCache.Set(domain+"/"+token, keyAuth, 1*time.Hour)
-}
-
-func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
-	a.challengeCache.Remove(domain + "/" + token)
-	return nil
-}
-
-func retrieveCertFromDB(sni, mainDomainSuffix, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) (*tls.Certificate, error) {
+func (c *AcmeClient) retrieveCertFromDB(sni, mainDomainSuffix string, useDnsProvider bool, certDB database.CertDB) (*tls.Certificate, error) {
 	// parse certificate from database
 	res, err := certDB.Get(sni)
 	if err != nil {
@@ -235,7 +180,7 @@ func retrieveCertFromDB(sni, mainDomainSuffix, dnsProvider string, acmeUseRateLi
 			// TODO: make a queue ?
 			go (func() {
 				res.CSR = nil // acme client doesn't like CSR to be set
-				if _, err := obtainCert(acmeClient, []string{sni}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB); err != nil {
+				if _, err := c.obtainCert(c.legoClient, []string{sni}, res, "", useDnsProvider, mainDomainSuffix, certDB); err != nil {
 					log.Error().Msgf("Couldn't renew certificate for %s: %v", sni, err)
 				}
 			})()
@@ -245,28 +190,26 @@ func retrieveCertFromDB(sni, mainDomainSuffix, dnsProvider string, acmeUseRateLi
 	return &tlsCertificate, nil
 }
 
-var obtainLocks = sync.Map{}
-
-func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user, dnsProvider, mainDomainSuffix string, acmeUseRateLimits bool, keyDatabase database.CertDB) (*tls.Certificate, error) {
+func (c *AcmeClient) obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user string, useDnsProvider bool, mainDomainSuffix string, keyDatabase database.CertDB) (*tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
-	if dnsProvider == "" && len(domains[0]) > 0 && domains[0][0] == '*' {
+	if useDnsProvider && len(domains[0]) > 0 && domains[0][0] == '*' {
 		domains = domains[1:]
 	}
 
 	// lock to avoid simultaneous requests
-	_, working := obtainLocks.LoadOrStore(name, struct{}{})
+	_, working := c.obtainLocks.LoadOrStore(name, struct{}{})
 	if working {
 		for working {
 			time.Sleep(100 * time.Millisecond)
-			_, working = obtainLocks.Load(name)
+			_, working = c.obtainLocks.Load(name)
 		}
-		cert, err := retrieveCertFromDB(name, mainDomainSuffix, dnsProvider, acmeUseRateLimits, keyDatabase)
+		cert, err := c.retrieveCertFromDB(name, mainDomainSuffix, useDnsProvider, keyDatabase)
 		if err != nil {
 			return nil, fmt.Errorf("certificate failed in synchronous request: %w", err)
 		}
 		return cert, nil
 	}
-	defer obtainLocks.Delete(name)
+	defer c.obtainLocks.Delete(name)
 
 	if acmeClient == nil {
 		return mockCert(domains[0], "ACME client uninitialized. This is a server error, please report!", mainDomainSuffix, keyDatabase)
@@ -276,29 +219,29 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	var res *certificate.Resource
 	var err error
 	if renew != nil && renew.CertURL != "" {
-		if acmeUseRateLimits {
-			acmeClientRequestLimit.Take()
+		if c.acmeUseRateLimits {
+			c.acmeClientRequestLimit.Take()
 		}
 		log.Debug().Msgf("Renewing certificate for: %v", domains)
 		res, err = acmeClient.Certificate.Renew(*renew, true, false, "")
 		if err != nil {
 			log.Error().Err(err).Msgf("Couldn't renew certificate for %v, trying to request a new one", domains)
-			if acmeUseRateLimits {
-				acmeClientFailLimit.Take()
+			if c.acmeUseRateLimits {
+				c.acmeClientFailLimit.Take()
 			}
 			res = nil
 		}
 	}
 	if res == nil {
 		if user != "" {
-			if err := checkUserLimit(user); err != nil {
+			if err := c.checkUserLimit(user); err != nil {
 				return nil, err
 			}
 		}
 
-		if acmeUseRateLimits {
-			acmeClientOrderLimit.Take()
-			acmeClientRequestLimit.Take()
+		if c.acmeUseRateLimits {
+			c.acmeClientOrderLimit.Take()
+			c.acmeClientRequestLimit.Take()
 		}
 		log.Debug().Msgf("Re-requesting new certificate for %v", domains)
 		res, err = acmeClient.Certificate.Obtain(certificate.ObtainRequest{
@@ -306,8 +249,8 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 			Bundle:     true,
 			MustStaple: false,
 		})
-		if acmeUseRateLimits && err != nil {
-			acmeClientFailLimit.Take()
+		if c.acmeUseRateLimits && err != nil {
+			c.acmeClientFailLimit.Take()
 		}
 	}
 	if err != nil {
@@ -349,136 +292,15 @@ func obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Re
 	return &tlsCertificate, nil
 }
 
-func SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcceptTerms bool) (*lego.Config, error) {
-	// TODO: make it a config flag
-	const configFile = "acme-account.json"
-	var myAcmeAccount AcmeAccount
-	var myAcmeConfig *lego.Config
-
-	if account, err := os.ReadFile(configFile); err == nil {
-		if err := json.Unmarshal(account, &myAcmeAccount); err != nil {
-			return nil, err
-		}
-		myAcmeAccount.Key, err = certcrypto.ParsePEMPrivateKey([]byte(myAcmeAccount.KeyPEM))
-		if err != nil {
-			return nil, err
-		}
-		myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-		myAcmeConfig.CADirURL = acmeAPI
-		myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
-
-		// Validate Config
-		_, err := lego.NewClient(myAcmeConfig)
-		if err != nil {
-			// TODO: should we fail hard instead?
-			log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
-		}
-		return myAcmeConfig, nil
-	} else if !os.IsNotExist(err) {
-		return nil, err
-	}
-
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	myAcmeAccount = AcmeAccount{
-		Email:  acmeMail,
-		Key:    privateKey,
-		KeyPEM: string(certcrypto.PEMEncode(privateKey)),
-	}
-	myAcmeConfig = lego.NewConfig(&myAcmeAccount)
-	myAcmeConfig.CADirURL = acmeAPI
-	myAcmeConfig.Certificate.KeyType = certcrypto.RSA2048
-	tempClient, err := lego.NewClient(myAcmeConfig)
-	if err != nil {
-		log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
-	} else {
-		// accept terms & log in to EAB
-		if acmeEabKID == "" || acmeEabHmac == "" {
-			reg, err := tempClient.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: acmeAcceptTerms})
-			if err != nil {
-				log.Error().Err(err).Msg("Can't register ACME account, continuing with mock certs only")
-			} else {
-				myAcmeAccount.Registration = reg
-			}
-		} else {
-			reg, err := tempClient.Registration.RegisterWithExternalAccountBinding(registration.RegisterEABOptions{
-				TermsOfServiceAgreed: acmeAcceptTerms,
-				Kid:                  acmeEabKID,
-				HmacEncoded:          acmeEabHmac,
-			})
-			if err != nil {
-				log.Error().Err(err).Msg("Can't register ACME account, continuing with mock certs only")
-			} else {
-				myAcmeAccount.Registration = reg
-			}
-		}
-
-		if myAcmeAccount.Registration != nil {
-			acmeAccountJSON, err := json.Marshal(myAcmeAccount)
-			if err != nil {
-				log.Error().Err(err).Msg("json.Marshalfailed, waiting for manual restart to avoid rate limits")
-				select {}
-			}
-			err = os.WriteFile(configFile, acmeAccountJSON, 0o600)
-			if err != nil {
-				log.Error().Err(err).Msg("os.WriteFile failed, waiting for manual restart to avoid rate limits")
-				select {}
-			}
-		}
-	}
-
-	return myAcmeConfig, nil
-}
-
-func SetupCertificates(mainDomainSuffix, dnsProvider string, acmeConfig *lego.Config, acmeUseRateLimits, enableHTTPServer bool, challengeCache cache.SetGetKey, certDB database.CertDB) error {
+func SetupMainDomainCertificates(mainDomainSuffix string, acmeClient *AcmeClient, certDB database.CertDB) error {
 	// getting main cert before ACME account so that we can fail here without hitting rate limits
 	mainCertBytes, err := certDB.Get(mainDomainSuffix)
 	if err != nil && !errors.Is(err, database.ErrNotFound) {
 		return fmt.Errorf("cert database is not working: %w", err)
 	}
 
-	acmeClient, err = lego.NewClient(acmeConfig)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
-	} else {
-		err = acmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
-		if err != nil {
-			log.Error().Err(err).Msg("Can't create TLS-ALPN-01 provider")
-		}
-		if enableHTTPServer {
-			err = acmeClient.Challenge.SetHTTP01Provider(AcmeHTTPChallengeProvider{challengeCache})
-			if err != nil {
-				log.Error().Err(err).Msg("Can't create HTTP-01 provider")
-			}
-		}
-	}
-
-	mainDomainAcmeClient, err = lego.NewClient(acmeConfig)
-	if err != nil {
-		log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
-	} else {
-		if dnsProvider == "" {
-			// using mock server, don't use wildcard certs
-			err := mainDomainAcmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
-			if err != nil {
-				log.Error().Err(err).Msg("Can't create TLS-ALPN-01 provider")
-			}
-		} else {
-			provider, err := dns.NewDNSChallengeProviderByName(dnsProvider)
-			if err != nil {
-				log.Error().Err(err).Msg("Can't create DNS Challenge provider")
-			}
-			err = mainDomainAcmeClient.Challenge.SetDNS01Provider(provider)
-			if err != nil {
-				log.Error().Err(err).Msg("Can't create DNS-01 provider")
-			}
-		}
-	}
-
 	if mainCertBytes == nil {
-		_, err = obtainCert(mainDomainAcmeClient, []string{"*" + mainDomainSuffix, mainDomainSuffix[1:]}, nil, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
+		_, err = acmeClient.obtainCert(acmeClient.dnsChallengerLegoClient, []string{"*" + mainDomainSuffix, mainDomainSuffix[1:]}, nil, "", true, mainDomainSuffix, certDB)
 		if err != nil {
 			log.Error().Err(err).Msg("Couldn't renew main domain certificate, continuing with mock certs only")
 		}
@@ -487,7 +309,7 @@ func SetupCertificates(mainDomainSuffix, dnsProvider string, acmeConfig *lego.Co
 	return nil
 }
 
-func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffix, dnsProvider string, acmeUseRateLimits bool, certDB database.CertDB) {
+func MaintainCertDB(ctx context.Context, interval time.Duration, acmeClient *AcmeClient, mainDomainSuffix string, certDB database.CertDB) {
 	for {
 		// delete expired certs that will be invalid until next clean up
 		threshold := time.Now().Add(interval)
@@ -525,7 +347,7 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 			} else if tlsCertificates[0].NotAfter.Before(time.Now().Add(30 * 24 * time.Hour)) {
 				// renew main certificate 30 days before it expires
 				go (func() {
-					_, err = obtainCert(mainDomainAcmeClient, []string{"*" + mainDomainSuffix, mainDomainSuffix[1:]}, res, "", dnsProvider, mainDomainSuffix, acmeUseRateLimits, certDB)
+					_, err = acmeClient.obtainCert(acmeClient.dnsChallengerLegoClient, []string{"*" + mainDomainSuffix, mainDomainSuffix[1:]}, res, "", true, mainDomainSuffix, certDB)
 					if err != nil {
 						log.Error().Err(err).Msg("Couldn't renew certificate for main domain")
 					}

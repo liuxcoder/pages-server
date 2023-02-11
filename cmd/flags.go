@@ -140,9 +140,15 @@ var (
 			EnvVars: []string{"ACME_EAB_HMAC"},
 		},
 		&cli.StringFlag{
-			Name: "dns-provider",
-			// TODO: Usage
+			Name:    "dns-provider",
+			Usage:   "Use DNS-Challenge for main domain\n\nRead more at: https://go-acme.github.io/lego/dns/",
 			EnvVars: []string{"DNS_PROVIDER"},
+		},
+		&cli.StringFlag{
+			Name:    "acme-account-config",
+			Usage:   "json file of acme account",
+			Value:   "acme-account.json",
+			EnvVars: []string{"ACME_ACCOUNT_CONFIG"},
 		},
 	}...)
 )

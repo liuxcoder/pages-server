@@ -3,8 +3,9 @@ package certificates
 import (
 	"testing"
 
-	"codeberg.org/codeberg/pages/server/database"
 	"github.com/stretchr/testify/assert"
+
+	"codeberg.org/codeberg/pages/server/database"
 )
 
 func TestMockCert(t *testing.T) {

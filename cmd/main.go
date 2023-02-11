@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -52,17 +51,6 @@ func Serve(ctx *cli.Context) error {
 	listeningAddress := fmt.Sprintf("%s:%s", ctx.String("host"), ctx.String("port"))
 	enableHTTPServer := ctx.Bool("enable-http-server")
 
-	acmeAPI := ctx.String("acme-api-endpoint")
-	acmeMail := ctx.String("acme-email")
-	acmeUseRateLimits := ctx.Bool("acme-use-rate-limits")
-	acmeAcceptTerms := ctx.Bool("acme-accept-terms")
-	acmeEabKID := ctx.String("acme-eab-kid")
-	acmeEabHmac := ctx.String("acme-eab-hmac")
-	dnsProvider := ctx.String("dns-provider")
-	if (!acmeAcceptTerms || dnsProvider == "") && acmeAPI != "https://acme.mock.directory" {
-		return errors.New("you must set $ACME_ACCEPT_TERMS and $DNS_PROVIDER, unless $ACME_API is set to https://acme.mock.directory")
-	}
-
 	allowedCorsDomains := AllowedCorsDomains
 	if rawDomain != "" {
 		allowedCorsDomains = append(allowedCorsDomains, rawDomain)
@@ -94,6 +82,15 @@ func Serve(ctx *cli.Context) error {
 		return fmt.Errorf("could not create new gitea client: %v", err)
 	}
 
+	acmeClient, err := createAcmeClient(ctx, enableHTTPServer, challengeCache)
+	if err != nil {
+		return err
+	}
+
+	if err := certificates.SetupMainDomainCertificates(mainDomainSuffix, acmeClient, certDB); err != nil {
+		return err
+	}
+
 	// Create handler based on settings
 	httpsHandler := handler.Handler(mainDomainSuffix, rawDomain,
 		giteaClient,
@@ -112,24 +109,14 @@ func Serve(ctx *cli.Context) error {
 
 	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
 		giteaClient,
-		dnsProvider,
-		acmeUseRateLimits,
+		acmeClient,
 		keyCache, challengeCache, dnsLookupCache, canonicalDomainCache,
 		certDB))
-
-	acmeConfig, err := certificates.SetupAcmeConfig(acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, acmeAcceptTerms)
-	if err != nil {
-		return err
-	}
-
-	if err := certificates.SetupCertificates(mainDomainSuffix, dnsProvider, acmeConfig, acmeUseRateLimits, enableHTTPServer, challengeCache, certDB); err != nil {
-		return err
-	}
 
 	interval := 12 * time.Hour
 	certMaintainCtx, cancelCertMaintain := context.WithCancel(context.Background())
 	defer cancelCertMaintain()
-	go certificates.MaintainCertDB(certMaintainCtx, interval, mainDomainSuffix, dnsProvider, acmeUseRateLimits, certDB)
+	go certificates.MaintainCertDB(certMaintainCtx, interval, acmeClient, mainDomainSuffix, certDB)
 
 	if enableHTTPServer {
 		go func() {
