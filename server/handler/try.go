@@ -20,7 +20,7 @@ func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 	canonicalDomainCache cache.SetGetKey,
 ) {
 	// check if a canonical domain exists on a request on MainDomain
-	if strings.HasSuffix(trimmedHost, mainDomainSuffix) {
+	if strings.HasSuffix(trimmedHost, mainDomainSuffix) && !options.ServeRaw {
 		canonicalDomain, _ := options.CheckCanonicalDomain(giteaClient, "", mainDomainSuffix, canonicalDomainCache)
 		if !strings.HasSuffix(strings.SplitN(canonicalDomain, "/", 2)[0], mainDomainSuffix) {
 			canonicalPath := ctx.Req.RequestURI

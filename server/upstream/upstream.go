@@ -168,7 +168,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 		ctx.Redirect(ctx.Path()+"/", http.StatusTemporaryRedirect)
 		return true
 	}
-	if strings.HasSuffix(ctx.Path(), "/index.html") {
+	if strings.HasSuffix(ctx.Path(), "/index.html") && !o.ServeRaw {
 		ctx.Redirect(strings.TrimSuffix(ctx.Path(), "index.html"), http.StatusTemporaryRedirect)
 		return true
 	}

@@ -109,6 +109,34 @@ func TestCustomDomainRedirects(t *testing.T) {
 	assert.EqualValues(t, "https://mock-pages.codeberg-test.org/README.md", resp.Header.Get("Location"))
 }
 
+func TestRawCustomDomain(t *testing.T) {
+	log.Println("=== TestRawCustomDomain ===")
+	// test raw domain response for custom domain branch
+	resp, err := getTestHTTPSClient().Get("https://raw.localhost.mock.directory:4430/cb_pages_tests/raw-test/example") // need cb_pages_tests fork
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
+	assert.EqualValues(t, "text/plain; charset=utf-8", resp.Header.Get("Content-Type"))
+	assert.EqualValues(t, "76", resp.Header.Get("Content-Length"))
+	assert.EqualValues(t, 76, getSize(resp.Body))
+}
+
+func TestRawIndex(t *testing.T) {
+	log.Println("=== TestRawCustomDomain ===")
+	// test raw domain response for index.html
+	resp, err := getTestHTTPSClient().Get("https://raw.localhost.mock.directory:4430/cb_pages_tests/raw-test/@branch-test/index.html") // need cb_pages_tests fork
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
+	assert.EqualValues(t, "text/plain; charset=utf-8", resp.Header.Get("Content-Type"))
+	assert.EqualValues(t, "597", resp.Header.Get("Content-Length"))
+	assert.EqualValues(t, 597, getSize(resp.Body))
+}
+
 func TestGetNotFound(t *testing.T) {
 	log.Println("=== TestGetNotFound ===")
 	// test custom not found pages
