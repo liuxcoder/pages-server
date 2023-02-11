@@ -49,7 +49,7 @@ func (o *Options) CheckCanonicalDomain(giteaClient *gitea.Client, actualDomain, 
 		}
 	}
 
-	// Add [owner].[pages-domain] as valid domnain.
+	// Add [owner].[pages-domain] as valid domain.
 	domains = append(domains, o.TargetOwner+mainDomainSuffix)
 	if domains[len(domains)-1] == actualDomain {
 		valid = true

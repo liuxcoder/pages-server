@@ -54,10 +54,14 @@ func toCert(name string, c *certificate.Resource) (*Cert, error) {
 	}
 	validTill := tlsCertificates[0].NotAfter.Unix()
 
-	// TODO: do we need this or can we just go with domain name for wildcard cert
-	// default *.mock cert is prefixed with '.'
-	if name != c.Domain && name[1:] != c.Domain && name[0] != '.' {
-		return nil, fmt.Errorf("domain key and cert domain not equal")
+	// handle wildcard certs
+	if name[:1] == "." {
+		name = "*" + name
+	}
+	if name != c.Domain {
+		err := fmt.Errorf("domain key '%s' and cert domain '%s' not equal", name, c.Domain)
+		log.Error().Err(err).Msg("toCert conversion did discover mismatch")
+		// TODO: fail hard: return nil, err
 	}
 
 	return &Cert{

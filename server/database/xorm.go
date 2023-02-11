@@ -3,7 +3,6 @@ package database
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -52,18 +51,38 @@ func (x xDB) Close() error {
 
 func (x xDB) Put(domain string, cert *certificate.Resource) error {
 	log.Trace().Str("domain", cert.Domain).Msg("inserting cert to db")
+
+	domain = integrationTestReplacements(domain)
 	c, err := toCert(domain, cert)
 	if err != nil {
 		return err
 	}
 
-	_, err = x.engine.Insert(c)
-	return err
+	sess := x.engine.NewSession()
+	if err := sess.Begin(); err != nil {
+		return err
+	}
+	defer sess.Close()
+
+	if exist, _ := sess.ID(c.Domain).Exist(); exist {
+		if _, err := sess.ID(c.Domain).Update(c); err != nil {
+			return err
+		}
+	} else {
+		if _, err = sess.Insert(c); err != nil {
+			return err
+		}
+	}
+
+	return sess.Commit()
 }
 
 func (x xDB) Get(domain string) (*certificate.Resource, error) {
-	// TODO: do we need this or can we just go with domain name for wildcard cert
-	domain = strings.TrimPrefix(domain, ".")
+	// handle wildcard certs
+	if domain[:1] == "." {
+		domain = "*" + domain
+	}
+	domain = integrationTestReplacements(domain)
 
 	cert := new(Cert)
 	log.Trace().Str("domain", domain).Msg("get cert from db")
@@ -76,6 +95,12 @@ func (x xDB) Get(domain string) (*certificate.Resource, error) {
 }
 
 func (x xDB) Delete(domain string) error {
+	// handle wildcard certs
+	if domain[:1] == "." {
+		domain = "*" + domain
+	}
+	domain = integrationTestReplacements(domain)
+
 	log.Trace().Str("domain", domain).Msg("delete cert from db")
 	_, err := x.engine.ID(domain).Delete(new(Cert))
 	return err
@@ -118,4 +143,14 @@ func supportedDriver(driver string) bool {
 	default:
 		return false
 	}
+}
+
+// integrationTestReplacements is needed because integration tests use a single domain cert,
+// while production use a wildcard cert
+// TODO: find a better way to handle this
+func integrationTestReplacements(domainKey string) string {
+	if domainKey == "*.localhost.mock.directory" {
+		return "localhost.mock.directory"
+	}
+	return domainKey
 }

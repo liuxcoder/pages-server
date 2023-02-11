@@ -20,7 +20,9 @@ func TestGetRedirect(t *testing.T) {
 	log.Println("=== TestGetRedirect ===")
 	// test custom domain redirect
 	resp, err := getTestHTTPSClient().Get("https://calciumdibromid.localhost.mock.directory:4430")
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
 	if !assert.EqualValues(t, http.StatusTemporaryRedirect, resp.StatusCode) {
 		t.FailNow()
 	}

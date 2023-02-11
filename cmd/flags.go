@@ -43,6 +43,18 @@ var (
 			EnvVars: []string{"GITEA_API_TOKEN"},
 			Value:   "",
 		},
+		&cli.BoolFlag{
+			Name:    "enable-lfs-support",
+			Usage:   "enable lfs support, require gitea >= v1.17.0 as backend",
+			EnvVars: []string{"ENABLE_LFS_SUPPORT"},
+			Value:   true,
+		},
+		&cli.BoolFlag{
+			Name:    "enable-symlink-support",
+			Usage:   "follow symlinks if enabled, require gitea >= v1.18.0 as backend",
+			EnvVars: []string{"ENABLE_SYMLINK_SUPPORT"},
+			Value:   true,
+		},
 
 		// ###########################
 		// ### Page Server Domains ###
@@ -73,7 +85,9 @@ var (
 			Value:   "https://docs.codeberg.org/codeberg-pages/raw-content/",
 		},
 
-		// Server
+		// #########################
+		// ### Page Server Setup ###
+		// #########################
 		&cli.StringFlag{
 			Name:    "host",
 			Usage:   "specifies host of listening address",
@@ -91,19 +105,6 @@ var (
 			// TODO: desc
 			EnvVars: []string{"ENABLE_HTTP_SERVER"},
 		},
-		// Server Options
-		&cli.BoolFlag{
-			Name:    "enable-lfs-support",
-			Usage:   "enable lfs support, require gitea v1.17.0 as backend",
-			EnvVars: []string{"ENABLE_LFS_SUPPORT"},
-			Value:   true,
-		},
-		&cli.BoolFlag{
-			Name:    "enable-symlink-support",
-			Usage:   "follow symlinks if enabled, require gitea v1.18.0 as backend",
-			EnvVars: []string{"ENABLE_SYMLINK_SUPPORT"},
-			Value:   true,
-		},
 		&cli.StringFlag{
 			Name:    "log-level",
 			Value:   "warn",
@@ -111,7 +112,9 @@ var (
 			EnvVars: []string{"LOG_LEVEL"},
 		},
 
-		// ACME
+		// ############################
+		// ### ACME Client Settings ###
+		// ############################
 		&cli.StringFlag{
 			Name:    "acme-api-endpoint",
 			EnvVars: []string{"ACME_API"},

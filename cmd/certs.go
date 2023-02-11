@@ -98,9 +98,6 @@ func listCerts(ctx *cli.Context) error {
 
 	fmt.Printf("Domain\tValidTill\n\n")
 	for _, cert := range items {
-		if cert.Domain[0] == '.' {
-			cert.Domain = "*" + cert.Domain
-		}
 		fmt.Printf("%s\t%s\n",
 			cert.Domain,
 			time.Unix(cert.ValidTill, 0).Format(time.RFC3339))
