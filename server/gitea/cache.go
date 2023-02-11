@@ -80,7 +80,7 @@ type writeCacheReader struct {
 
 func (t *writeCacheReader) Read(p []byte) (n int, err error) {
 	n, err = t.originalReader.Read(p)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.Trace().Err(err).Msgf("[cache] original reader for %q has returned an error", t.cacheKey)
 		t.hasError = true
 	} else if n > 0 {

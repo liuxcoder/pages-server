@@ -44,7 +44,7 @@ func Serve(ctx *cli.Context) error {
 	}
 	log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Level(logLevel)
 
-	giteaRoot := strings.TrimSuffix(ctx.String("gitea-root"), "/")
+	giteaRoot := ctx.String("gitea-root")
 	giteaAPIToken := ctx.String("gitea-api-token")
 	rawDomain := ctx.String("raw-domain")
 	mainDomainSuffix := ctx.String("pages-domain")
@@ -68,7 +68,7 @@ func Serve(ctx *cli.Context) error {
 		allowedCorsDomains = append(allowedCorsDomains, rawDomain)
 	}
 
-	// Make sure MainDomain has a trailing dot, and GiteaRoot has no trailing slash
+	// Make sure MainDomain has a trailing dot
 	if !strings.HasPrefix(mainDomainSuffix, ".") {
 		mainDomainSuffix = "." + mainDomainSuffix
 	}

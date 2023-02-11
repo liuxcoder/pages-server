@@ -1,6 +1,7 @@
 package upstream
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -30,8 +31,8 @@ func (o *Options) CheckCanonicalDomain(giteaClient *gitea.Client, actualDomain, 
 	}
 
 	body, err := giteaClient.GiteaRawContent(o.TargetOwner, o.TargetRepo, o.TargetBranch, canonicalDomainConfig)
-	if err == nil || err == gitea.ErrorNotFound {
-		log.Info().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, o.TargetOwner, o.TargetRepo)
+	if err != nil && !errors.Is(err, gitea.ErrorNotFound) {
+		log.Error().Err(err).Msgf("could not read %s of %s/%s", canonicalDomainConfig, o.TargetOwner, o.TargetRepo)
 	}
 
 	var domains []string
