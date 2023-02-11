@@ -37,11 +37,6 @@ func (p tmpDB) Delete(key string) error {
 	return nil
 }
 
-func (p tmpDB) Compact() (string, error) {
-	p.intern.Truncate()
-	return "Truncate done", nil
-}
-
 func (p tmpDB) Items(page, pageSize int) ([]*Cert, error) {
 	return nil, fmt.Errorf("items not implemented for tmpDB")
 }

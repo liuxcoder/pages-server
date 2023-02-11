@@ -510,14 +510,6 @@ func MaintainCertDB(ctx context.Context, interval time.Duration, mainDomainSuffi
 				}
 			}
 			log.Debug().Msgf("Removed %d expired certificates from the database", expiredCertCount)
-
-			// compact the database
-			msg, err := certDB.Compact()
-			if err != nil {
-				log.Error().Err(err).Msg("Compacting key database failed")
-			} else {
-				log.Debug().Msgf("Compacted key database: %s", msg)
-			}
 		}
 
 		// update main cert

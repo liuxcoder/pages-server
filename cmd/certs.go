@@ -4,11 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-
-	"codeberg.org/codeberg/pages/server/database"
 )
 
 var Certs = &cli.Command{
@@ -25,63 +21,8 @@ var Certs = &cli.Command{
 			Usage:  "remove a certificate from the database",
 			Action: removeCert,
 		},
-		{
-			Name:   "migrate",
-			Usage:  "migrate from \"pogreb\" driver to dbms driver",
-			Action: migrateCerts,
-		},
 	},
-	Flags: append(CertStorageFlags, []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "verbose",
-			Usage:   "print trace info",
-			EnvVars: []string{"VERBOSE"},
-			Value:   false,
-		},
-	}...),
-}
-
-func migrateCerts(ctx *cli.Context) error {
-	dbType := ctx.String("db-type")
-	if dbType == "" {
-		dbType = "sqlite3"
-	}
-	dbConn := ctx.String("db-conn")
-	dbPogrebConn := ctx.String("db-pogreb")
-	verbose := ctx.Bool("verbose")
-
-	log.Level(zerolog.InfoLevel)
-	if verbose {
-		log.Level(zerolog.TraceLevel)
-	}
-
-	xormDB, err := database.NewXormDB(dbType, dbConn)
-	if err != nil {
-		return fmt.Errorf("could not connect to database: %w", err)
-	}
-	defer xormDB.Close()
-
-	pogrebDB, err := database.NewPogreb(dbPogrebConn)
-	if err != nil {
-		return fmt.Errorf("could not open database: %w", err)
-	}
-	defer pogrebDB.Close()
-
-	fmt.Printf("Start migration from \"%s\" to \"%s:%s\" ...\n", dbPogrebConn, dbType, dbConn)
-
-	certs, err := pogrebDB.Items(0, 0)
-	if err != nil {
-		return err
-	}
-
-	for _, cert := range certs {
-		if err := xormDB.Put(cert.Domain, cert.Raw()); err != nil {
-			return err
-		}
-	}
-
-	fmt.Println("... done")
-	return nil
+	Flags: CertStorageFlags,
 }
 
 func listCerts(ctx *cli.Context) error {

@@ -14,8 +14,6 @@ type CertDB interface {
 	Get(name string) (*certificate.Resource, error)
 	Delete(key string) error
 	Items(page, pageSize int) ([]*Cert, error)
-	// Compact deprecated // TODO: remove in next version
-	Compact() (string, error)
 }
 
 type Cert struct {

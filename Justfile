@@ -27,7 +27,7 @@ fmt: tool-gofumpt
 
 clean:
     go clean ./...
-    rm -rf build/ integration/certs.sqlite integration/key-database.pogreb/ integration/acme-account.json
+    rm -rf build/ integration/certs.sqlite integration/acme-account.json
 
 tool-golangci:
     @hash golangci-lint> /dev/null 2>&1; if [ $? -ne 0 ]; then \

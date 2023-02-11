@@ -106,11 +106,6 @@ func (x xDB) Delete(domain string) error {
 	return err
 }
 
-func (x xDB) Compact() (string, error) {
-	// not needed
-	return "", nil
-}
-
 // Items return al certs from db, if pageSize is 0 it does not use limit
 func (x xDB) Items(page, pageSize int) ([]*Cert, error) {
 	// paginated return

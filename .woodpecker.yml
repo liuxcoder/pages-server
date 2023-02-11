@@ -65,19 +65,6 @@ pipeline:
       - RAW_DOMAIN=raw.localhost.mock.directory
       - PORT=4430
 
-  # TODO: remove in next version
-  integration-tests-legacy:
-    group: test
-    image: codeberg.org/6543/docker-images/golang_just
-    commands:
-      - just integration
-    environment:
-      - ACME_API=https://acme.mock.directory
-      - PAGES_DOMAIN=localhost.mock.directory
-      - RAW_DOMAIN=raw.localhost.mock.directory
-      - PORT=4430
-      - DB_TYPE=
-
   release:
     image: plugins/gitea-release
     settings:

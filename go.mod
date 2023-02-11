@@ -5,7 +5,6 @@ go 1.20
 require (
 	code.gitea.io/sdk/gitea v0.15.1-0.20220729105105-cc14c63cccfa
 	github.com/OrlovEvgeny/go-mcache v0.0.0-20200121124330-1a8195b34f3a
-	github.com/akrylysov/pogreb v0.10.1
 	github.com/go-acme/lego/v4 v4.5.3
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/joho/godotenv v1.4.0

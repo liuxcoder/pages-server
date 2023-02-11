@@ -7,15 +7,8 @@ import (
 var (
 	CertStorageFlags = []cli.Flag{
 		&cli.StringFlag{
-			// TODO: remove in next version
-			// DEPRICATED
-			Name:    "db-pogreb",
-			Value:   "key-database.pogreb",
-			EnvVars: []string{"DB_POGREB"},
-		},
-		&cli.StringFlag{
 			Name:    "db-type",
-			Value:   "", // TODO: "sqlite3" in next version
+			Value:   "sqlite3",
 			EnvVars: []string{"DB_TYPE"},
 		},
 		&cli.StringFlag{
