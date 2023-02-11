@@ -87,20 +87,20 @@ You can also contact the maintainers of this project:
 
 ### First steps
 
-The code of this repository is split in several modules.
-While heavy refactoring work is currently undergo, you can easily understand the basic structure:
+The code of this repository is split in several modules.  
+The [Architecture is explained](https://codeberg.org/Codeberg/pages-server/wiki/Architecture) in the wiki.
+
 The `cmd` folder holds the data necessary for interacting with the service via the cli.
-If you are considering to deploy the service yourself, make sure to check it out.
 The heart of the software lives in the `server` folder and is split in several modules.
-After scanning the code, you should quickly be able to understand their function and start hacking on them.
 
 Again: Feel free to get in touch with us for any questions that might arise.
 Thank you very much.
 
-
 ### Test Server
 
-run `just dev`
+Make sure you have [golang](https://go.dev) v1.20 or newer and [just](https://just.systems/man/en/) installed.
+
+run `just dev`  
 now this pages should work:
  - https://cb_pages_tests.localhost.mock.directory:4430/images/827679288a.jpg
  - https://momar.localhost.mock.directory:4430/ci-testing/
