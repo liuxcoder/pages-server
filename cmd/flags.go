@@ -8,11 +8,13 @@ var (
 	CertStorageFlags = []cli.Flag{
 		&cli.StringFlag{
 			Name:    "db-type",
+			Usage:   "Specify the database driver. Valid options are \"sqlite3\", \"mysql\" and \"postgres\". Read more at https://xorm.io",
 			Value:   "sqlite3",
 			EnvVars: []string{"DB_TYPE"},
 		},
 		&cli.StringFlag{
 			Name:    "db-conn",
+			Usage:   "Specify the database connection. For \"sqlite3\" it's the filepath. Read more at https://go.dev/doc/tutorial/database-access",
 			Value:   "certs.sqlite",
 			EnvVars: []string{"DB_CONN"},
 		},
@@ -87,15 +89,21 @@ var (
 			EnvVars: []string{"HOST"},
 			Value:   "[::]",
 		},
-		&cli.StringFlag{
+		&cli.UintFlag{
 			Name:    "port",
-			Usage:   "specifies port of listening address",
-			EnvVars: []string{"PORT"},
-			Value:   "443",
+			Usage:   "specifies the https port to listen to ssl requests",
+			EnvVars: []string{"PORT", "HTTPS_PORT"},
+			Value:   443,
+		},
+		&cli.UintFlag{
+			Name:    "http-port",
+			Usage:   "specifies the http port, you also have to enable http server via ENABLE_HTTP_SERVER=true",
+			EnvVars: []string{"HTTP_PORT"},
+			Value:   80,
 		},
 		&cli.BoolFlag{
-			Name: "enable-http-server",
-			// TODO: desc
+			Name:    "enable-http-server",
+			Usage:   "start a http server to redirect to https and respond to http acme challenges",
 			EnvVars: []string{"ENABLE_HTTP_SERVER"},
 		},
 		&cli.StringFlag{
@@ -125,23 +133,23 @@ var (
 			Value:   true,
 		},
 		&cli.BoolFlag{
-			Name: "acme-accept-terms",
-			// TODO: Usage
+			Name:    "acme-accept-terms",
+			Usage:   "To accept the ACME ToS",
 			EnvVars: []string{"ACME_ACCEPT_TERMS"},
 		},
 		&cli.StringFlag{
-			Name: "acme-eab-kid",
-			// TODO: Usage
+			Name:    "acme-eab-kid",
+			Usage:   "Register the current account to the ACME server with external binding.",
 			EnvVars: []string{"ACME_EAB_KID"},
 		},
 		&cli.StringFlag{
-			Name: "acme-eab-hmac",
-			// TODO: Usage
+			Name:    "acme-eab-hmac",
+			Usage:   "Register the current account to the ACME server with external binding.",
 			EnvVars: []string{"ACME_EAB_HMAC"},
 		},
 		&cli.StringFlag{
 			Name:    "dns-provider",
-			Usage:   "Use DNS-Challenge for main domain\n\nRead more at: https://go-acme.github.io/lego/dns/",
+			Usage:   "Use DNS-Challenge for main domain. Read more at: https://go-acme.github.io/lego/dns/",
 			EnvVars: []string{"DNS_PROVIDER"},
 		},
 		&cli.StringFlag{

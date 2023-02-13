@@ -50,3 +50,6 @@ integration:
 
 integration-run TEST:
     go test -race -tags 'integration {{TAGS}}' -run "^{{TEST}}$" codeberg.org/codeberg/pages/integration/...
+
+docker:
+    docker run --rm -it --user $(id -u) -v $(pwd):/work --workdir /work -e HOME=/work codeberg.org/6543/docker-images/golang_just

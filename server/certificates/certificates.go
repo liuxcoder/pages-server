@@ -36,22 +36,23 @@ func TLSConfig(mainDomainSuffix string,
 	return &tls.Config{
 		// check DNS name & get certificate from Let's Encrypt
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			sni := strings.ToLower(strings.TrimSpace(info.ServerName))
-			if len(sni) < 1 {
-				return nil, errors.New("missing sni")
+			domain := strings.ToLower(strings.TrimSpace(info.ServerName))
+			if len(domain) < 1 {
+				return nil, errors.New("missing domain info via SNI (RFC 4366, Section 3.1)")
 			}
 
+			// https request init is actually a acme challenge
 			if info.SupportedProtos != nil {
 				for _, proto := range info.SupportedProtos {
 					if proto != tlsalpn01.ACMETLS1Protocol {
 						continue
 					}
 
-					challenge, ok := challengeCache.Get(sni)
+					challenge, ok := challengeCache.Get(domain)
 					if !ok {
 						return nil, errors.New("no challenge for this domain")
 					}
-					cert, err := tlsalpn01.ChallengeCert(sni, challenge.(string))
+					cert, err := tlsalpn01.ChallengeCert(domain, challenge.(string))
 					if err != nil {
 						return nil, err
 					}
@@ -61,22 +62,22 @@ func TLSConfig(mainDomainSuffix string,
 
 			targetOwner := ""
 			mayObtainCert := true
-			if strings.HasSuffix(sni, mainDomainSuffix) || strings.EqualFold(sni, mainDomainSuffix[1:]) {
+			if strings.HasSuffix(domain, mainDomainSuffix) || strings.EqualFold(domain, mainDomainSuffix[1:]) {
 				// deliver default certificate for the main domain (*.codeberg.page)
-				sni = mainDomainSuffix
+				domain = mainDomainSuffix
 			} else {
 				var targetRepo, targetBranch string
-				targetOwner, targetRepo, targetBranch = dnsutils.GetTargetFromDNS(sni, mainDomainSuffix, dnsLookupCache)
+				targetOwner, targetRepo, targetBranch = dnsutils.GetTargetFromDNS(domain, mainDomainSuffix, dnsLookupCache)
 				if targetOwner == "" {
 					// DNS not set up, return main certificate to redirect to the docs
-					sni = mainDomainSuffix
+					domain = mainDomainSuffix
 				} else {
 					targetOpt := &upstream.Options{
 						TargetOwner:  targetOwner,
 						TargetRepo:   targetRepo,
 						TargetBranch: targetBranch,
 					}
-					_, valid := targetOpt.CheckCanonicalDomain(giteaClient, sni, mainDomainSuffix, canonicalDomainCache)
+					_, valid := targetOpt.CheckCanonicalDomain(giteaClient, domain, mainDomainSuffix, canonicalDomainCache)
 					if !valid {
 						// We shouldn't obtain a certificate when we cannot check if the
 						// repository has specified this domain in the `.domains` file.
@@ -85,30 +86,34 @@ func TLSConfig(mainDomainSuffix string,
 				}
 			}
 
-			if tlsCertificate, ok := keyCache.Get(sni); ok {
+			if tlsCertificate, ok := keyCache.Get(domain); ok {
 				// we can use an existing certificate object
 				return tlsCertificate.(*tls.Certificate), nil
 			}
 
 			var tlsCertificate *tls.Certificate
 			var err error
-			if tlsCertificate, err = acmeClient.retrieveCertFromDB(sni, mainDomainSuffix, false, certDB); err != nil {
-				// request a new certificate
-				if strings.EqualFold(sni, mainDomainSuffix) {
+			if tlsCertificate, err = acmeClient.retrieveCertFromDB(domain, mainDomainSuffix, false, certDB); err != nil {
+				if !errors.Is(err, database.ErrNotFound) {
+					return nil, err
+				}
+				// we could not find a cert in db, request a new certificate
+
+				// first check if we are allowed to obtain a cert for this domain
+				if strings.EqualFold(domain, mainDomainSuffix) {
 					return nil, errors.New("won't request certificate for main domain, something really bad has happened")
 				}
-
 				if !mayObtainCert {
-					return nil, fmt.Errorf("won't request certificate for %q", sni)
+					return nil, fmt.Errorf("won't request certificate for %q", domain)
 				}
 
-				tlsCertificate, err = acmeClient.obtainCert(acmeClient.legoClient, []string{sni}, nil, targetOwner, false, mainDomainSuffix, certDB)
+				tlsCertificate, err = acmeClient.obtainCert(acmeClient.legoClient, []string{domain}, nil, targetOwner, false, mainDomainSuffix, certDB)
 				if err != nil {
 					return nil, err
 				}
 			}
 
-			if err := keyCache.Set(sni, tlsCertificate, 15*time.Minute); err != nil {
+			if err := keyCache.Set(domain, tlsCertificate, 15*time.Minute); err != nil {
 				return nil, err
 			}
 			return tlsCertificate, nil
@@ -164,7 +169,7 @@ func (c *AcmeClient) retrieveCertFromDB(sni, mainDomainSuffix string, useDnsProv
 	if !strings.EqualFold(sni, mainDomainSuffix) {
 		tlsCertificate.Leaf, err = x509.ParseCertificate(tlsCertificate.Certificate[0])
 		if err != nil {
-			return nil, fmt.Errorf("error parsin leaf tlsCert: %w", err)
+			return nil, fmt.Errorf("error parsing leaf tlsCert: %w", err)
 		}
 
 		// renew certificates 7 days before they expire

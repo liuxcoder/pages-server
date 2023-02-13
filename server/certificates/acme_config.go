@@ -14,6 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const challengePath = "/.well-known/acme-challenge/"
+
 func setupAcmeConfig(configFile, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID string, acmeAcceptTerms bool) (*lego.Config, error) {
 	var myAcmeAccount AcmeAccount
 	var myAcmeConfig *lego.Config

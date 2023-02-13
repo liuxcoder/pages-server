@@ -43,6 +43,11 @@ func createAcmeClient(ctx *cli.Context, enableHTTPServer bool, challengeCache ca
 	if (!acmeAcceptTerms || dnsProvider == "") && acmeAPI != "https://acme.mock.directory" {
 		return nil, fmt.Errorf("%w: you must set $ACME_ACCEPT_TERMS and $DNS_PROVIDER, unless $ACME_API is set to https://acme.mock.directory", ErrAcmeMissConfig)
 	}
+	if acmeEabHmac != "" && acmeEabKID == "" {
+		return nil, fmt.Errorf("%w: ACME_EAB_HMAC also needs ACME_EAB_KID to be set", ErrAcmeMissConfig)
+	} else if acmeEabHmac == "" && acmeEabKID != "" {
+		return nil, fmt.Errorf("%w: ACME_EAB_KID also needs ACME_EAB_HMAC to be set", ErrAcmeMissConfig)
+	}
 
 	return certificates.NewAcmeClient(
 		acmeAccountConf,

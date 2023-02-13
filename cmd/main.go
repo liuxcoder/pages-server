@@ -14,7 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
-	"codeberg.org/codeberg/pages/server"
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/certificates"
 	"codeberg.org/codeberg/pages/server/gitea"
@@ -48,7 +47,9 @@ func Serve(ctx *cli.Context) error {
 	rawDomain := ctx.String("raw-domain")
 	mainDomainSuffix := ctx.String("pages-domain")
 	rawInfoPage := ctx.String("raw-info-page")
-	listeningAddress := fmt.Sprintf("%s:%s", ctx.String("host"), ctx.String("port"))
+	listeningHost := ctx.String("host")
+	listeningSSLAddress := fmt.Sprintf("%s:%d", listeningHost, ctx.Uint("port"))
+	listeningHTTPAddress := fmt.Sprintf("%s:%d", listeningHost, ctx.Uint("http-port"))
 	enableHTTPServer := ctx.Bool("enable-http-server")
 
 	allowedCorsDomains := AllowedCorsDomains
@@ -91,22 +92,14 @@ func Serve(ctx *cli.Context) error {
 		return err
 	}
 
-	// Create handler based on settings
-	httpsHandler := handler.Handler(mainDomainSuffix, rawDomain,
-		giteaClient,
-		rawInfoPage,
-		BlacklistedPaths, allowedCorsDomains,
-		dnsLookupCache, canonicalDomainCache)
-
-	httpHandler := server.SetupHTTPACMEChallengeServer(challengeCache)
-
-	// Setup listener and TLS
-	log.Info().Msgf("Listening on https://%s", listeningAddress)
-	listener, err := net.Listen("tcp", listeningAddress)
+	// Create listener for SSL connections
+	log.Info().Msgf("Listening on https://%s", listeningSSLAddress)
+	listener, err := net.Listen("tcp", listeningSSLAddress)
 	if err != nil {
 		return fmt.Errorf("couldn't create listener: %v", err)
 	}
 
+	// Setup listener for SSL connections
 	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
 		giteaClient,
 		acmeClient,
@@ -119,18 +112,29 @@ func Serve(ctx *cli.Context) error {
 	go certificates.MaintainCertDB(certMaintainCtx, interval, acmeClient, mainDomainSuffix, certDB)
 
 	if enableHTTPServer {
+		// Create handler for http->https redirect and http acme challenges
+		httpHandler := certificates.SetupHTTPACMEChallengeServer(challengeCache)
+
+		// Create listener for http and start listening
 		go func() {
-			log.Info().Msg("Start HTTP server listening on :80")
-			err := http.ListenAndServe("[::]:80", httpHandler)
+			log.Info().Msgf("Start HTTP server listening on %s", listeningHTTPAddress)
+			err := http.ListenAndServe(listeningHTTPAddress, httpHandler)
 			if err != nil {
 				log.Panic().Err(err).Msg("Couldn't start HTTP fastServer")
 			}
 		}()
 	}
 
-	// Start the web fastServer
+	// Create ssl handler based on settings
+	sslHandler := handler.Handler(mainDomainSuffix, rawDomain,
+		giteaClient,
+		rawInfoPage,
+		BlacklistedPaths, allowedCorsDomains,
+		dnsLookupCache, canonicalDomainCache)
+
+	// Start the ssl listener
 	log.Info().Msgf("Start listening on %s", listener.Addr())
-	if err := http.Serve(listener, httpsHandler); err != nil {
+	if err := http.Serve(listener, sslHandler); err != nil {
 		log.Panic().Err(err).Msg("Couldn't start fastServer")
 	}
 
