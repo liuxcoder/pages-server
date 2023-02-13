@@ -8,6 +8,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+//go:generate go install github.com/vektra/mockery/v2@latest
+//go:generate mockery --name CertDB --output . --filename mock.go --inpackage --case underscore
+
 type CertDB interface {
 	Close() error
 	Put(name string, cert *certificate.Resource) error
