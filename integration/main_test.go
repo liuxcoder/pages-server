@@ -39,6 +39,7 @@ func startServer(ctx context.Context) error {
 	setEnvIfNotSet("ACME_API", "https://acme.mock.directory")
 	setEnvIfNotSet("PAGES_DOMAIN", "localhost.mock.directory")
 	setEnvIfNotSet("RAW_DOMAIN", "raw.localhost.mock.directory")
+	setEnvIfNotSet("PAGES_BRANCHES", "pages,main,master")
 	setEnvIfNotSet("PORT", "4430")
 	setEnvIfNotSet("HTTP_PORT", "8880")
 	setEnvIfNotSet("ENABLE_HTTP_SERVER", "true")

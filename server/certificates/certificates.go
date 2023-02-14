@@ -30,6 +30,7 @@ var ErrUserRateLimitExceeded = errors.New("rate limit exceeded: 10 certificates 
 func TLSConfig(mainDomainSuffix string,
 	giteaClient *gitea.Client,
 	acmeClient *AcmeClient,
+	firstDefaultBranch string,
 	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
 	certDB database.CertDB,
 ) *tls.Config {
@@ -68,7 +69,7 @@ func TLSConfig(mainDomainSuffix string,
 				domain = mainDomainSuffix
 			} else {
 				var targetRepo, targetBranch string
-				targetOwner, targetRepo, targetBranch = dnsutils.GetTargetFromDNS(domain, mainDomainSuffix, dnsLookupCache)
+				targetOwner, targetRepo, targetBranch = dnsutils.GetTargetFromDNS(domain, mainDomainSuffix, firstDefaultBranch, dnsLookupCache)
 				if targetOwner == "" {
 					// DNS not set up, return main certificate to redirect to the docs
 					domain = mainDomainSuffix

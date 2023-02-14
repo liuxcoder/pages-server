@@ -18,6 +18,7 @@ func TestHandlerPerformance(t *testing.T) {
 		"https://docs.codeberg.org/pages/raw-content/",
 		[]string{"/.well-known/acme-challenge/"},
 		[]string{"raw.codeberg.org", "fonts.codeberg.org", "design.codeberg.org"},
+		[]string{"pages"},
 		cache.NewKeyValueCache(),
 		cache.NewKeyValueCache(),
 	)

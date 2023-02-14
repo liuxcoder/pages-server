@@ -11,9 +11,11 @@ import (
 // lookupCacheTimeout specifies the timeout for the DNS lookup cache.
 var lookupCacheTimeout = 15 * time.Minute
 
+var defaultPagesRepo = "pages"
+
 // GetTargetFromDNS searches for CNAME or TXT entries on the request domain ending with MainDomainSuffix.
 // If everything is fine, it returns the target data.
-func GetTargetFromDNS(domain, mainDomainSuffix string, dnsLookupCache cache.SetGetKey) (targetOwner, targetRepo, targetBranch string) {
+func GetTargetFromDNS(domain, mainDomainSuffix, firstDefaultBranch string, dnsLookupCache cache.SetGetKey) (targetOwner, targetRepo, targetBranch string) {
 	// Get CNAME or TXT
 	var cname string
 	var err error
@@ -50,10 +52,10 @@ func GetTargetFromDNS(domain, mainDomainSuffix string, dnsLookupCache cache.SetG
 		targetBranch = cnameParts[len(cnameParts)-3]
 	}
 	if targetRepo == "" {
-		targetRepo = "pages"
+		targetRepo = defaultPagesRepo
 	}
-	if targetBranch == "" && targetRepo != "pages" {
-		targetBranch = "pages"
+	if targetBranch == "" && targetRepo != defaultPagesRepo {
+		targetBranch = firstDefaultBranch
 	}
 	// if targetBranch is still empty, the caller must find the default branch
 	return

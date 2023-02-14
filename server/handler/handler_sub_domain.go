@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog"
+	"golang.org/x/exp/slices"
 
 	"codeberg.org/codeberg/pages/html"
 	"codeberg.org/codeberg/pages/server/cache"
@@ -17,6 +18,7 @@ import (
 
 func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Client,
 	mainDomainSuffix string,
+	defaultPagesBranches []string,
 	trimmedHost string,
 	pathElements []string,
 	canonicalDomainCache cache.SetGetKey,
@@ -63,12 +65,21 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 	// Check if the first directory is a branch for the defaultPagesRepo
 	// example.codeberg.page/@main/index.html
 	if strings.HasPrefix(pathElements[0], "@") {
+		targetBranch := pathElements[0][1:]
+
+		// if the default pages branch can be determined exactly, it does not need to be set
+		if len(defaultPagesBranches) == 1 && slices.Contains(defaultPagesBranches, targetBranch) {
+			// example.codeberg.org/@pages/... redirects to example.codeberg.org/...
+			ctx.Redirect("/"+strings.Join(pathElements[1:], "/"), http.StatusTemporaryRedirect)
+			return
+		}
+
 		log.Debug().Msg("main domain preparations, now trying with specified branch")
 		if targetOpt, works := tryBranch(log, ctx, giteaClient, &upstream.Options{
 			TryIndexPages: true,
 			TargetOwner:   targetOwner,
 			TargetRepo:    defaultPagesRepo,
-			TargetBranch:  pathElements[0][1:],
+			TargetBranch:  targetBranch,
 			TargetPath:    path.Join(pathElements[1:]...),
 		}, true); works {
 			log.Trace().Msg("tryUpstream: serve default pages repo with specified branch")
@@ -81,19 +92,36 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 		return
 	}
 
-	// Check if the first directory is a repo with a defaultPagesRepo branch
-	// example.codeberg.page/myrepo/index.html
-	// example.codeberg.page/pages/... is not allowed here.
-	log.Debug().Msg("main domain preparations, now trying with specified repo")
-	if pathElements[0] != defaultPagesRepo {
+	for _, defaultPagesBranch := range defaultPagesBranches {
+		// Check if the first directory is a repo with a default pages branch
+		// example.codeberg.page/myrepo/index.html
+		// example.codeberg.page/{PAGES_BRANCHE}/... is not allowed here.
+		log.Debug().Msg("main domain preparations, now trying with specified repo")
+		if pathElements[0] != defaultPagesBranch {
+			if targetOpt, works := tryBranch(log, ctx, giteaClient, &upstream.Options{
+				TryIndexPages: true,
+				TargetOwner:   targetOwner,
+				TargetRepo:    pathElements[0],
+				TargetBranch:  defaultPagesBranch,
+				TargetPath:    path.Join(pathElements[1:]...),
+			}, false); works {
+				log.Debug().Msg("tryBranch, now trying upstream 5")
+				tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+				return
+			}
+		}
+
+		// Try to use the defaultPagesRepo on an default pages branch
+		// example.codeberg.page/index.html
+		log.Debug().Msg("main domain preparations, now trying with default repo")
 		if targetOpt, works := tryBranch(log, ctx, giteaClient, &upstream.Options{
 			TryIndexPages: true,
 			TargetOwner:   targetOwner,
-			TargetRepo:    pathElements[0],
+			TargetRepo:    defaultPagesRepo,
 			TargetBranch:  defaultPagesBranch,
-			TargetPath:    path.Join(pathElements[1:]...),
+			TargetPath:    path.Join(pathElements...),
 		}, false); works {
-			log.Debug().Msg("tryBranch, now trying upstream 5")
+			log.Debug().Msg("tryBranch, now trying upstream 6")
 			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
 			return
 		}

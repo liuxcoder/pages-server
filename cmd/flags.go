@@ -112,6 +112,13 @@ var (
 			Usage:   "specify at which log level should be logged. Possible options: info, warn, error, fatal",
 			EnvVars: []string{"LOG_LEVEL"},
 		},
+		// Default branches to fetch assets from
+		&cli.StringSliceFlag{
+			Name:    "pages-branch",
+			Usage:   "define a branch to fetch assets from",
+			EnvVars: []string{"PAGES_BRANCHES"},
+			Value:   cli.NewStringSlice("pages"),
+		},
 
 		// ############################
 		// ### ACME Client Settings ###

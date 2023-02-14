@@ -17,7 +17,6 @@ const (
 	headerAccessControlAllowOrigin  = "Access-Control-Allow-Origin"
 	headerAccessControlAllowMethods = "Access-Control-Allow-Methods"
 	defaultPagesRepo                = "pages"
-	defaultPagesBranch              = "pages"
 )
 
 // Handler handles a single HTTP request to the web server.
@@ -25,6 +24,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 	giteaClient *gitea.Client,
 	rawInfoPage string,
 	blacklistedPaths, allowedCorsDomains []string,
+	defaultPagesBranches []string,
 	dnsLookupCache, canonicalDomainCache cache.SetGetKey,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
@@ -98,6 +98,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 			log.Debug().Msg("subdomain request detecded")
 			handleSubDomain(log, ctx, giteaClient,
 				mainDomainSuffix,
+				defaultPagesBranches,
 				trimmedHost,
 				pathElements,
 				canonicalDomainCache)
@@ -107,6 +108,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 				mainDomainSuffix,
 				trimmedHost,
 				pathElements,
+				defaultPagesBranches[0],
 				dnsLookupCache, canonicalDomainCache)
 		}
 	}

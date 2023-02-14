@@ -45,6 +45,7 @@ func Serve(ctx *cli.Context) error {
 	giteaRoot := ctx.String("gitea-root")
 	giteaAPIToken := ctx.String("gitea-api-token")
 	rawDomain := ctx.String("raw-domain")
+	defaultBranches := ctx.StringSlice("pages-branch")
 	mainDomainSuffix := ctx.String("pages-domain")
 	rawInfoPage := ctx.String("raw-info-page")
 	listeningHost := ctx.String("host")
@@ -61,6 +62,10 @@ func Serve(ctx *cli.Context) error {
 	// Make sure MainDomain has a trailing dot
 	if !strings.HasPrefix(mainDomainSuffix, ".") {
 		mainDomainSuffix = "." + mainDomainSuffix
+	}
+
+	if len(defaultBranches) == 0 {
+		return fmt.Errorf("no default branches set (PAGES_BRANCHES)")
 	}
 
 	// Init ssl cert database
@@ -104,6 +109,7 @@ func Serve(ctx *cli.Context) error {
 	listener = tls.NewListener(listener, certificates.TLSConfig(mainDomainSuffix,
 		giteaClient,
 		acmeClient,
+		defaultBranches[0],
 		keyCache, challengeCache, dnsLookupCache, canonicalDomainCache,
 		certDB))
 
@@ -131,6 +137,7 @@ func Serve(ctx *cli.Context) error {
 		giteaClient,
 		rawInfoPage,
 		BlacklistedPaths, allowedCorsDomains,
+		defaultBranches,
 		dnsLookupCache, canonicalDomainCache)
 
 	// Start the ssl listener

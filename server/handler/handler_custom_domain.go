@@ -18,10 +18,11 @@ func handleCustomDomain(log zerolog.Logger, ctx *context.Context, giteaClient *g
 	mainDomainSuffix string,
 	trimmedHost string,
 	pathElements []string,
+	firstDefaultBranch string,
 	dnsLookupCache, canonicalDomainCache cache.SetGetKey,
 ) {
 	// Serve pages from custom domains
-	targetOwner, targetRepo, targetBranch := dns.GetTargetFromDNS(trimmedHost, mainDomainSuffix, dnsLookupCache)
+	targetOwner, targetRepo, targetBranch := dns.GetTargetFromDNS(trimmedHost, mainDomainSuffix, firstDefaultBranch, dnsLookupCache)
 	if targetOwner == "" {
 		html.ReturnErrorPage(ctx,
 			"could not obtain repo owner from custom domain",
@@ -52,7 +53,7 @@ func handleCustomDomain(log zerolog.Logger, ctx *context.Context, giteaClient *g
 			return
 		} else if canonicalDomain != trimmedHost {
 			// only redirect if the target is also a codeberg page!
-			targetOwner, _, _ = dns.GetTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0], mainDomainSuffix, dnsLookupCache)
+			targetOwner, _, _ = dns.GetTargetFromDNS(strings.SplitN(canonicalDomain, "/", 2)[0], mainDomainSuffix, firstDefaultBranch, dnsLookupCache)
 			if targetOwner != "" {
 				ctx.Redirect("https://"+canonicalDomain+"/"+targetOpt.TargetPath, http.StatusTemporaryRedirect)
 				return
