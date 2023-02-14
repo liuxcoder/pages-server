@@ -1,15 +1,17 @@
 package certificates
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/go-acme/lego/v4/challenge"
+	"github.com/rs/zerolog/log"
 
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/context"
-	"codeberg.org/codeberg/pages/server/utils"
 )
 
 type AcmeTLSChallengeProvider struct {
@@ -44,17 +46,38 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	return nil
 }
 
-func SetupHTTPACMEChallengeServer(challengeCache cache.SetGetKey) http.HandlerFunc {
+func SetupHTTPACMEChallengeServer(challengeCache cache.SetGetKey, sslPort uint) http.HandlerFunc {
+	// handle custom-ssl-ports to be added on https redirects
+	portPart := ""
+	if sslPort != 443 {
+		portPart = fmt.Sprintf(":%d", sslPort)
+	}
+
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := context.New(w, req)
+		domain := ctx.TrimHostPort()
+
+		// it's an acme request
 		if strings.HasPrefix(ctx.Path(), challengePath) {
-			challenge, ok := challengeCache.Get(utils.TrimHostPort(ctx.Host()) + "/" + strings.TrimPrefix(ctx.Path(), challengePath))
+			challenge, ok := challengeCache.Get(domain + "/" + strings.TrimPrefix(ctx.Path(), challengePath))
 			if !ok || challenge == nil {
+				log.Info().Msgf("HTTP-ACME challenge for '%s' failed: token not found", domain)
 				ctx.String("no challenge for this token", http.StatusNotFound)
 			}
+			log.Info().Msgf("HTTP-ACME challenge for '%s' succeeded", domain)
 			ctx.String(challenge.(string))
-		} else {
-			ctx.Redirect("https://"+ctx.Host()+ctx.Path(), http.StatusMovedPermanently)
+			return
 		}
+
+		// it's a normal http request that needs to be redirected
+		u, err := url.Parse(fmt.Sprintf("https://%s%s%s", domain, portPart, ctx.Path()))
+		if err != nil {
+			log.Error().Err(err).Msg("could not craft http to https redirect")
+			ctx.String("", http.StatusInternalServerError)
+		}
+
+		newURL := u.String()
+		log.Debug().Msgf("redirect http to https: %s", newURL)
+		ctx.Redirect(newURL, http.StatusMovedPermanently)
 	}
 }

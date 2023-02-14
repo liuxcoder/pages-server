@@ -193,6 +193,18 @@ func TestGetOptions(t *testing.T) {
 	assert.EqualValues(t, "GET, HEAD, OPTIONS", resp.Header.Get("Allow"))
 }
 
+func TestHttpRedirect(t *testing.T) {
+	log.Println("=== TestHttpRedirect ===")
+	resp, err := getTestHTTPSClient().Get("http://mock-pages.codeberg-test.org:8880/README.md")
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusMovedPermanently, resp.StatusCode)
+	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+	assert.EqualValues(t, "https://mock-pages.codeberg-test.org:4430/README.md", resp.Header.Get("Location"))
+}
+
 func getTestHTTPSClient() *http.Client {
 	cookieJar, _ := cookiejar.New(nil)
 	return &http.Client{

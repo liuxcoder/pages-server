@@ -9,6 +9,8 @@ dev:
     export PAGES_DOMAIN=localhost.mock.directory
     export RAW_DOMAIN=raw.localhost.mock.directory
     export PORT=4430
+    export HTTP_PORT=8880
+    export ENABLE_HTTP_SERVER=true
     export LOG_LEVEL=trace
     go run -tags '{{TAGS}}' .
 

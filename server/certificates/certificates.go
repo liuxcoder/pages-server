@@ -47,6 +47,7 @@ func TLSConfig(mainDomainSuffix string,
 					if proto != tlsalpn01.ACMETLS1Protocol {
 						continue
 					}
+					log.Info().Msgf("Detect ACME-TLS1 challenge for '%s'", domain)
 
 					challenge, ok := challengeCache.Get(domain)
 					if !ok {

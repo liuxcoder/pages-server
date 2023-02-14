@@ -48,7 +48,8 @@ func Serve(ctx *cli.Context) error {
 	mainDomainSuffix := ctx.String("pages-domain")
 	rawInfoPage := ctx.String("raw-info-page")
 	listeningHost := ctx.String("host")
-	listeningSSLAddress := fmt.Sprintf("%s:%d", listeningHost, ctx.Uint("port"))
+	listeningSSLPort := ctx.Uint("port")
+	listeningSSLAddress := fmt.Sprintf("%s:%d", listeningHost, listeningSSLPort)
 	listeningHTTPAddress := fmt.Sprintf("%s:%d", listeningHost, ctx.Uint("http-port"))
 	enableHTTPServer := ctx.Bool("enable-http-server")
 
@@ -93,7 +94,7 @@ func Serve(ctx *cli.Context) error {
 	}
 
 	// Create listener for SSL connections
-	log.Info().Msgf("Listening on https://%s", listeningSSLAddress)
+	log.Info().Msgf("Create TCP listener for SSL on %s", listeningSSLAddress)
 	listener, err := net.Listen("tcp", listeningSSLAddress)
 	if err != nil {
 		return fmt.Errorf("couldn't create listener: %v", err)
@@ -113,7 +114,7 @@ func Serve(ctx *cli.Context) error {
 
 	if enableHTTPServer {
 		// Create handler for http->https redirect and http acme challenges
-		httpHandler := certificates.SetupHTTPACMEChallengeServer(challengeCache)
+		httpHandler := certificates.SetupHTTPACMEChallengeServer(challengeCache, listeningSSLPort)
 
 		// Create listener for http and start listening
 		go func() {
@@ -133,7 +134,7 @@ func Serve(ctx *cli.Context) error {
 		dnsLookupCache, canonicalDomainCache)
 
 	// Start the ssl listener
-	log.Info().Msgf("Start listening on %s", listener.Addr())
+	log.Info().Msgf("Start SSL server using TCP listener on %s", listener.Addr())
 	if err := http.Serve(listener, sslHandler); err != nil {
 		log.Panic().Err(err).Msg("Couldn't start fastServer")
 	}

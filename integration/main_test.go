@@ -40,6 +40,8 @@ func startServer(ctx context.Context) error {
 	setEnvIfNotSet("PAGES_DOMAIN", "localhost.mock.directory")
 	setEnvIfNotSet("RAW_DOMAIN", "raw.localhost.mock.directory")
 	setEnvIfNotSet("PORT", "4430")
+	setEnvIfNotSet("HTTP_PORT", "8880")
+	setEnvIfNotSet("ENABLE_HTTP_SERVER", "true")
 	setEnvIfNotSet("DB_TYPE", "sqlite3")
 
 	app := cli.NewApp()
