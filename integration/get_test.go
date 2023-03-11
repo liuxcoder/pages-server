@@ -64,7 +64,7 @@ func TestGetContent(t *testing.T) {
 	assert.True(t, getSize(resp.Body) > 100)
 	assert.Len(t, resp.Header.Get("ETag"), 44)
 
-	// TODO: test get of non cachable content (content size > fileCacheSizeLimit)
+	// TODO: test get of non cacheable content (content size > fileCacheSizeLimit)
 }
 
 func TestCustomDomain(t *testing.T) {
@@ -154,6 +154,7 @@ func TestGetNotFound(t *testing.T) {
 func TestFollowSymlink(t *testing.T) {
 	log.Printf("=== TestFollowSymlink ===\n")
 
+	// file symlink
 	resp, err := getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/tests_for_pages-server/@main/link")
 	assert.NoError(t, err)
 	if !assert.NotNil(t, resp) {
@@ -165,6 +166,16 @@ func TestFollowSymlink(t *testing.T) {
 	body := getBytes(resp.Body)
 	assert.EqualValues(t, 4, len(body))
 	assert.EqualValues(t, "abc\n", string(body))
+
+	// relative file links (../index.html file in this case)
+	resp, err = getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/tests_for_pages-server/@main/dir_aim/some/")
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
+	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+	assert.EqualValues(t, "an index\n", string(getBytes(resp.Body)))
 }
 
 func TestLFSSupport(t *testing.T) {

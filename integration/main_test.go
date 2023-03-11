@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 	}
 	defer func() {
 		serverCancel()
-		log.Println("=== TestMain: Server STOPED ===")
+		log.Println("=== TestMain: Server STOPPED ===")
 	}()
 
 	time.Sleep(10 * time.Second)

@@ -112,7 +112,7 @@ func (client *Client) ServeRawContent(targetOwner, targetRepo, ref, resource str
 	if cache, ok := client.responseCache.Get(cacheKey); ok {
 		cache := cache.(FileResponse)
 		cachedHeader, cachedStatusCode := cache.createHttpResponse(cacheKey)
-		// TODO: check against some timestamp missmatch?!?
+		// TODO: check against some timestamp mismatch?!?
 		if cache.Exists {
 			if cache.IsSymlink {
 				linkDest := string(cache.Body)
@@ -144,6 +144,10 @@ func (client *Client) ServeRawContent(targetOwner, targetRepo, ref, resource str
 						return nil, nil, http.StatusInternalServerError, err
 					}
 					linkDest := strings.TrimSpace(string(linkDestBytes))
+
+					// handle relative links
+					// we first remove the link from the path, and make a relative join (resolve parent paths like "/../" too)
+					linkDest = path.Join(path.Dir(resource), linkDest)
 
 					// we store symlink not content to reduce duplicates in cache
 					if err := client.responseCache.Set(cacheKey, FileResponse{

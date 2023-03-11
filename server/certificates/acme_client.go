@@ -89,7 +89,7 @@ func NewAcmeClient(acmeAccountConf, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, 
 		acmeClientRequestLimit: equalizer.NewTokenBucket(5, 1*time.Second),
 		// rate limit is 5 / hour https://letsencrypt.org/docs/failed-validation-limit/
 		acmeClientFailLimit: equalizer.NewTokenBucket(5, 1*time.Hour),
-		// checkUserLimit() use this to rate als per user
+		// checkUserLimit() use this to rate also per user
 		acmeClientCertificateLimitPerUser: map[string]*equalizer.TokenBucket{},
 	}, nil
 }

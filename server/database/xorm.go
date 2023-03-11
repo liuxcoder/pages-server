@@ -37,7 +37,7 @@ func NewXormDB(dbType, dbConn string) (CertDB, error) {
 	}
 
 	if err := e.Sync2(new(Cert)); err != nil {
-		return nil, fmt.Errorf("cound not sync db model :%w", err)
+		return nil, fmt.Errorf("could not sync db model :%w", err)
 	}
 
 	return &xDB{
