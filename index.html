@@ -155,16 +155,16 @@
               </p>
               <div class="codeberg-divider"><hr>or<hr></div>
               <p>
-                To use a custom domain, create a file <code class="code">.domains</code> in your repository with the domain name to use.
+                To use a custom domain, create a file <code class="code">.domains</code> in your repository with the domain name you wish to use.
                 <br><br>
-                Then, add a DNS record to that domains:<br>
-                <code class="code">CNAME [[<i>branch</i>.]<i>repo</i>.]<i>user</i>.codeberg.page</code>
+                Then, add a DNS record for that domain:<br>
+                <code class="code">CNAME [[<i>branch</i>.]<i>repo</i>.]<i>user</i>.codeberg.page.</code>
                 <br><br>
-                Or for zone roots where CNAME doesn't work:<br>
-                <code class="code">ALIAS codeberg.page</code><br>
+                Or for apex domains where CNAME doesn't work:<br>
+                <code class="code">ALIAS codeberg.page.</code><br>
                 <code class="code">TXT [[<i>branch</i>.]<i>repo</i>.]<i>user</i>.codeberg.page</code>
                 <br><br>
-                If ALIAS isn't supported, use A & AAAA instead:<br>
+                If ALIAS isn't supported, use A &amp; AAAA instead:<br>
                 <code class="code">A 217.197.91.145</code><br>
                 <code class="code">AAAA 2001:67c:1401:20f0::1</code><br>
                 + <code class="code">TXT</code> as above
