@@ -64,7 +64,7 @@ func (x xDB) Put(domain string, cert *certificate.Resource) error {
 	}
 	defer sess.Close()
 
-	if exist, _ := sess.ID(c.Domain).Exist(); exist {
+	if exist, _ := sess.ID(c.Domain).Exist(new(Cert)); exist {
 		if _, err := sess.ID(c.Domain).Update(c); err != nil {
 			return err
 		}

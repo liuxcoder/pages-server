@@ -37,7 +37,7 @@ func TestSanitizeWildcardCerts(t *testing.T) {
 	}))
 
 	// update existing cert
-	assert.Error(t, certDB.Put(".wildcard.de", &certificate.Resource{
+	assert.NoError(t, certDB.Put(".wildcard.de", &certificate.Resource{
 		Domain:      "*.wildcard.de",
 		Certificate: localhost_mock_directory_certificate,
 	}))
