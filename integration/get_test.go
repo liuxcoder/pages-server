@@ -124,7 +124,7 @@ func TestRawCustomDomain(t *testing.T) {
 }
 
 func TestRawIndex(t *testing.T) {
-	log.Println("=== TestRawCustomDomain ===")
+	log.Println("=== TestRawIndex ===")
 	// test raw domain response for index.html
 	resp, err := getTestHTTPSClient().Get("https://raw.localhost.mock.directory:4430/cb_pages_tests/raw-test/@branch-test/index.html") // need cb_pages_tests fork
 	assert.NoError(t, err)
