@@ -1,5 +1,11 @@
 # Codeberg Pages
 
+[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue)](https://opensource.org/license/eupl-1-2/)
+[![status-badge](https://ci.codeberg.org/api/badges/Codeberg/pages-server/status.svg)](https://ci.codeberg.org/Codeberg/pages-server)
+<a href="https://matrix.to/#/#gitea-pages-server:obermui.de" title="Join the Matrix room at https://matrix.to/#/#gitea-pages-server:obermui.de">
+  <img src="https://img.shields.io/matrix/gitea-pages-server:obermui.de?label=matrix">
+</a>
+
 Gitea lacks the ability to host static pages from Git.
 The Codeberg Pages Server addresses this lack by implementing a standalone service
 that connects to Gitea via API.
@@ -7,6 +13,9 @@ It is suitable to be deployed by other Gitea instances, too, to offer static pag
 
 **End user documentation** can mainly be found at the [Wiki](https://codeberg.org/Codeberg/pages-server/wiki/Overview)
 and the [Codeberg Documentation](https://docs.codeberg.org/codeberg-pages/).
+
+
+<a href="https://codeberg.org/Codeberg/pages-server"> <img src="https://codeberg.org/Codeberg/GetItOnCodeberg/raw/branch/main/get-it-on-blue-on-white.svg" alt="Get It On Codeberg" width="250"/> <a/>
 
 ## Quickstart
 
@@ -28,6 +37,10 @@ record that points to your repo (just like the CNAME record):
   `example.org IN TXT main.pages.example.codeberg.page.`
 
 Certificates are generated, updated and cleaned up automatically via Let's Encrypt through a TLS challenge.
+
+## Chat for admins & devs
+
+[matrix: #gitea-pages-server:obermui.de](https://matrix.to/#/#gitea-pages-server:obermui.de)
 
 ## Deployment
 
