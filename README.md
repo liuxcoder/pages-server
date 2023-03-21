@@ -2,8 +2,8 @@
 
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue)](https://opensource.org/license/eupl-1-2/)
 [![status-badge](https://ci.codeberg.org/api/badges/Codeberg/pages-server/status.svg)](https://ci.codeberg.org/Codeberg/pages-server)
-<a href="https://matrix.to/#/#gitea-pages-server:obermui.de" title="Join the Matrix room at https://matrix.to/#/#gitea-pages-server:obermui.de">
-  <img src="https://img.shields.io/matrix/gitea-pages-server:obermui.de?label=matrix">
+<a href="https://matrix.to/#/#gitea-pages-server:matrix.org" title="Join the Matrix room at https://matrix.to/#/#gitea-pages-server:matrix.org">
+  <img src="https://img.shields.io/matrix/gitea-pages-server:matrix.org?label=matrix">
 </a>
 
 Gitea lacks the ability to host static pages from Git.
@@ -40,7 +40,7 @@ Certificates are generated, updated and cleaned up automatically via Let's Encry
 
 ## Chat for admins & devs
 
-[matrix: #gitea-pages-server:obermui.de](https://matrix.to/#/#gitea-pages-server:obermui.de)
+[matrix: #gitea-pages-server:matrix.org](https://matrix.to/#/#gitea-pages-server:matrix.org)
 
 ## Deployment
 
