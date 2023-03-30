@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"codeberg.org/codeberg/pages/html"
+	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/context"
 	"codeberg.org/codeberg/pages/server/gitea"
 )
@@ -52,7 +53,7 @@ type Options struct {
 }
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (final bool) {
+func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redirectsCache cache.SetGetKey) (final bool) {
 	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath}).Logger()
 
 	if o.TargetOwner == "" || o.TargetRepo == "" {
@@ -103,6 +104,12 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 
 	// Handle not found error
 	if err != nil && errors.Is(err, gitea.ErrorNotFound) {
+		// Get and match redirects
+		redirects := o.getRedirects(giteaClient, redirectsCache)
+		if o.matchRedirects(ctx, giteaClient, redirects, redirectsCache) {
+			return true
+		}
+
 		if o.TryIndexPages {
 			// copy the o struct & try if an index page exists
 			optionsForIndexPages := *o
@@ -110,7 +117,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 			optionsForIndexPages.appendTrailingSlash = true
 			for _, indexPage := range upstreamIndexPages {
 				optionsForIndexPages.TargetPath = strings.TrimSuffix(o.TargetPath, "/") + "/" + indexPage
-				if optionsForIndexPages.Upstream(ctx, giteaClient) {
+				if optionsForIndexPages.Upstream(ctx, giteaClient, redirectsCache) {
 					return true
 				}
 			}
@@ -118,7 +125,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 			optionsForIndexPages.appendTrailingSlash = false
 			optionsForIndexPages.redirectIfExists = strings.TrimSuffix(ctx.Path(), "/") + ".html"
 			optionsForIndexPages.TargetPath = o.TargetPath + ".html"
-			if optionsForIndexPages.Upstream(ctx, giteaClient) {
+			if optionsForIndexPages.Upstream(ctx, giteaClient, redirectsCache) {
 				return true
 			}
 		}
@@ -131,11 +138,12 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client) (fin
 			optionsForNotFoundPages.appendTrailingSlash = false
 			for _, notFoundPage := range upstreamNotFoundPages {
 				optionsForNotFoundPages.TargetPath = "/" + notFoundPage
-				if optionsForNotFoundPages.Upstream(ctx, giteaClient) {
+				if optionsForNotFoundPages.Upstream(ctx, giteaClient, redirectsCache) {
 					return true
 				}
 			}
 		}
+
 		return false
 	}
 

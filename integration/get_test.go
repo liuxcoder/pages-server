@@ -151,6 +151,46 @@ func TestGetNotFound(t *testing.T) {
 	assert.EqualValues(t, 37, getSize(resp.Body))
 }
 
+func TestRedirect(t *testing.T) {
+	log.Println("=== TestRedirect ===")
+	// test redirects
+	resp, err := getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/some_redirects/redirect")
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusMovedPermanently, resp.StatusCode)
+	assert.EqualValues(t, "https://example.com/", resp.Header.Get("Location"))
+}
+
+func TestSPARedirect(t *testing.T) {
+	log.Println("=== TestSPARedirect ===")
+	// test SPA redirects
+	url := "https://cb_pages_tests.localhost.mock.directory:4430/some_redirects/app/aqdjw"
+	resp, err := getTestHTTPSClient().Get(url)
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusOK, resp.StatusCode)
+	assert.EqualValues(t, url, resp.Request.URL.String())
+	assert.EqualValues(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+	assert.EqualValues(t, "258", resp.Header.Get("Content-Length"))
+	assert.EqualValues(t, 258, getSize(resp.Body))
+}
+
+func TestSplatRedirect(t *testing.T) {
+	log.Println("=== TestSplatRedirect ===")
+	// test splat redirects
+	resp, err := getTestHTTPSClient().Get("https://cb_pages_tests.localhost.mock.directory:4430/some_redirects/articles/qfopefe")
+	assert.NoError(t, err)
+	if !assert.NotNil(t, resp) {
+		t.FailNow()
+	}
+	assert.EqualValues(t, http.StatusMovedPermanently, resp.StatusCode)
+	assert.EqualValues(t, "/posts/qfopefe", resp.Header.Get("Location"))
+}
+
 func TestFollowSymlink(t *testing.T) {
 	log.Printf("=== TestFollowSymlink ===\n")
 

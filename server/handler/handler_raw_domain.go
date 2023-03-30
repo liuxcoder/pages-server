@@ -19,7 +19,7 @@ func handleRaw(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Clie
 	mainDomainSuffix, rawInfoPage string,
 	trimmedHost string,
 	pathElements []string,
-	canonicalDomainCache cache.SetGetKey,
+	canonicalDomainCache, redirectsCache cache.SetGetKey,
 ) {
 	// Serve raw content from RawDomain
 	log.Debug().Msg("raw domain")
@@ -41,7 +41,7 @@ func handleRaw(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Clie
 			TargetPath:   path.Join(pathElements[3:]...),
 		}, true); works {
 			log.Trace().Msg("tryUpstream: serve raw domain with specified branch")
-			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 			return
 		}
 		log.Debug().Msg("missing branch info")
@@ -58,7 +58,7 @@ func handleRaw(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Clie
 		TargetPath:    path.Join(pathElements[2:]...),
 	}, true); works {
 		log.Trace().Msg("tryUpstream: serve raw domain with default branch")
-		tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+		tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 	} else {
 		html.ReturnErrorPage(ctx,
 			fmt.Sprintf("raw domain could not find repo '%s/%s' or repo is empty", targetOpt.TargetOwner, targetOpt.TargetRepo),

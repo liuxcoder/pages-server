@@ -21,6 +21,7 @@ func TestHandlerPerformance(t *testing.T) {
 		[]string{"pages"},
 		cache.NewKeyValueCache(),
 		cache.NewKeyValueCache(),
+		cache.NewKeyValueCache(),
 	)
 
 	testCase := func(uri string, status int) {

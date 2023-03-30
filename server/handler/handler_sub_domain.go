@@ -21,7 +21,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 	defaultPagesBranches []string,
 	trimmedHost string,
 	pathElements []string,
-	canonicalDomainCache cache.SetGetKey,
+	canonicalDomainCache, redirectsCache cache.SetGetKey,
 ) {
 	// Serve pages from subdomains of MainDomainSuffix
 	log.Debug().Msg("main domain suffix")
@@ -53,7 +53,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 			TargetPath:    path.Join(pathElements[2:]...),
 		}, true); works {
 			log.Trace().Msg("tryUpstream: serve with specified repo and branch")
-			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 		} else {
 			html.ReturnErrorPage(ctx,
 				fmt.Sprintf("explizite set branch %q do not exist at '%s/%s'", targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
@@ -83,7 +83,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 			TargetPath:    path.Join(pathElements[1:]...),
 		}, true); works {
 			log.Trace().Msg("tryUpstream: serve default pages repo with specified branch")
-			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 		} else {
 			html.ReturnErrorPage(ctx,
 				fmt.Sprintf("explizite set branch %q do not exist at '%s/%s'", targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
@@ -106,7 +106,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 				TargetPath:    path.Join(pathElements[1:]...),
 			}, false); works {
 				log.Debug().Msg("tryBranch, now trying upstream 5")
-				tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+				tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 				return
 			}
 		}
@@ -122,7 +122,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 			TargetPath:    path.Join(pathElements...),
 		}, false); works {
 			log.Debug().Msg("tryBranch, now trying upstream 6")
-			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 			return
 		}
 	}
@@ -137,7 +137,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 		TargetPath:    path.Join(pathElements...),
 	}, false); works {
 		log.Debug().Msg("tryBranch, now trying upstream 6")
-		tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+		tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 		return
 	}
 

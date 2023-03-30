@@ -19,7 +19,7 @@ func handleCustomDomain(log zerolog.Logger, ctx *context.Context, giteaClient *g
 	trimmedHost string,
 	pathElements []string,
 	firstDefaultBranch string,
-	dnsLookupCache, canonicalDomainCache cache.SetGetKey,
+	dnsLookupCache, canonicalDomainCache, redirectsCache cache.SetGetKey,
 ) {
 	// Serve pages from custom domains
 	targetOwner, targetRepo, targetBranch := dns.GetTargetFromDNS(trimmedHost, mainDomainSuffix, firstDefaultBranch, dnsLookupCache)
@@ -64,7 +64,7 @@ func handleCustomDomain(log zerolog.Logger, ctx *context.Context, giteaClient *g
 		}
 
 		log.Debug().Msg("tryBranch, now trying upstream 7")
-		tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache)
+		tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 		return
 	}
 

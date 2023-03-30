@@ -81,6 +81,8 @@ func Serve(ctx *cli.Context) error {
 	canonicalDomainCache := cache.NewKeyValueCache()
 	// dnsLookupCache stores DNS lookups for custom domains
 	dnsLookupCache := cache.NewKeyValueCache()
+	// redirectsCache stores redirects in _redirects files
+	redirectsCache := cache.NewKeyValueCache()
 	// clientResponseCache stores responses from the Gitea server
 	clientResponseCache := cache.NewKeyValueCache()
 
@@ -138,7 +140,7 @@ func Serve(ctx *cli.Context) error {
 		rawInfoPage,
 		BlacklistedPaths, allowedCorsDomains,
 		defaultBranches,
-		dnsLookupCache, canonicalDomainCache)
+		dnsLookupCache, canonicalDomainCache, redirectsCache)
 
 	// Start the ssl listener
 	log.Info().Msgf("Start SSL server using TCP listener on %s", listener.Addr())

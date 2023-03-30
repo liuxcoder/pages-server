@@ -18,6 +18,7 @@ func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 	mainDomainSuffix, trimmedHost string,
 	options *upstream.Options,
 	canonicalDomainCache cache.SetGetKey,
+	redirectsCache cache.SetGetKey,
 ) {
 	// check if a canonical domain exists on a request on MainDomain
 	if strings.HasSuffix(trimmedHost, mainDomainSuffix) && !options.ServeRaw {
@@ -39,7 +40,7 @@ func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 	options.Host = trimmedHost
 
 	// Try to request the file from the Gitea API
-	if !options.Upstream(ctx, giteaClient) {
+	if !options.Upstream(ctx, giteaClient, redirectsCache) {
 		html.ReturnErrorPage(ctx, "", ctx.StatusCode)
 	}
 }

@@ -25,7 +25,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 	rawInfoPage string,
 	blacklistedPaths, allowedCorsDomains []string,
 	defaultPagesBranches []string,
-	dnsLookupCache, canonicalDomainCache cache.SetGetKey,
+	dnsLookupCache, canonicalDomainCache, redirectsCache cache.SetGetKey,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		log := log.With().Strs("Handler", []string{req.Host, req.RequestURI}).Logger()
@@ -93,7 +93,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 				mainDomainSuffix, rawInfoPage,
 				trimmedHost,
 				pathElements,
-				canonicalDomainCache)
+				canonicalDomainCache, redirectsCache)
 		} else if strings.HasSuffix(trimmedHost, mainDomainSuffix) {
 			log.Debug().Msg("subdomain request detecded")
 			handleSubDomain(log, ctx, giteaClient,
@@ -101,7 +101,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 				defaultPagesBranches,
 				trimmedHost,
 				pathElements,
-				canonicalDomainCache)
+				canonicalDomainCache, redirectsCache)
 		} else {
 			log.Debug().Msg("custom domain request detecded")
 			handleCustomDomain(log, ctx, giteaClient,
@@ -109,7 +109,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 				trimmedHost,
 				pathElements,
 				defaultPagesBranches[0],
-				dnsLookupCache, canonicalDomainCache)
+				dnsLookupCache, canonicalDomainCache, redirectsCache)
 		}
 	}
 }
