@@ -49,7 +49,7 @@ func handleCustomDomain(log zerolog.Logger, ctx *context.Context, giteaClient *g
 	}, canonicalLink); works {
 		canonicalDomain, valid := targetOpt.CheckCanonicalDomain(giteaClient, trimmedHost, mainDomainSuffix, canonicalDomainCache)
 		if !valid {
-			html.ReturnErrorPage(ctx, "domain not specified in <code>.domains</code> file", http.StatusMisdirectedRequest)
+			html.ReturnErrorPage(ctx, "", http.StatusMisdirectedRequest)
 			return
 		} else if canonicalDomain != trimmedHost {
 			// only redirect if the target is also a codeberg page!
