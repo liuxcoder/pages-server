@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func TestHandlerPerformance(t *testing.T) {
 
 	testCase := func(uri string, status int) {
 		t.Run(uri, func(t *testing.T) {
-			req := httptest.NewRequest("GET", uri, nil)
+			req := httptest.NewRequest("GET", uri, http.NoBody)
 			w := httptest.NewRecorder()
 
 			log.Printf("Start: %v\n", time.Now())
