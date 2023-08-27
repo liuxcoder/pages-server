@@ -48,11 +48,9 @@ func (c *Context) Redirect(uri string, statusCode int) {
 	http.Redirect(c.RespWriter, c.Req, uri, statusCode)
 }
 
-// Path returns requested path.
-//
-// The returned bytes are valid until your request handler returns.
+// Path returns the cleaned requested path.
 func (c *Context) Path() string {
-	return c.Req.URL.Path
+	return utils.CleanPath(c.Req.URL.Path)
 }
 
 func (c *Context) Host() string {
