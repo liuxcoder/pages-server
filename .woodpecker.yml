@@ -1,4 +1,4 @@
-pipeline:
+steps:
   # use vendor to cache dependencies
   vendor:
     image: golang:1.20
