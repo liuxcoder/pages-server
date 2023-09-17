@@ -74,7 +74,7 @@ and especially have a look at [this section of the haproxy.cfg](https://codeberg
 - `RAW_INFO_PAGE` (default: https://docs.codeberg.org/pages/raw-content/): info page for raw resources, shown if no resource is provided.
 - `ACME_API` (default: https://acme-v02.api.letsencrypt.org/directory): set this to https://acme.mock.director to use invalid certificates without any verification (great for debugging).  
   ZeroSSL might be better in the future as it doesn't have rate limits and doesn't clash with the official Codeberg certificates (which are using Let's Encrypt), but I couldn't get it to work yet.
-- `ACME_EMAIL` (default: `noreply@example.email`): Set this to "true" to accept the Terms of Service of your ACME provider.
+- `ACME_EMAIL` (default: `noreply@example.email`): Set the email sent to the ACME API server to receive, for example, renewal reminders.
 - `ACME_EAB_KID` &  `ACME_EAB_HMAC` (default: don't use EAB): EAB credentials, for example for ZeroSSL.
 - `ACME_ACCEPT_TERMS` (default: use self-signed certificate): Set this to "true" to accept the Terms of Service of your ACME provider.
 - `ACME_USE_RATE_LIMITS` (default: true): Set this to false to disable rate limits, e.g. with ZeroSSL.
