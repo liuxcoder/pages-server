@@ -3,7 +3,7 @@ module codeberg.org/codeberg/pages
 go 1.20
 
 require (
-	code.gitea.io/sdk/gitea v0.15.1-0.20220729105105-cc14c63cccfa
+	code.gitea.io/sdk/gitea v0.16.1-0.20231115014337-e23e8aa3004f
 	github.com/OrlovEvgeny/go-mcache v0.0.0-20200121124330-1a8195b34f3a
 	github.com/go-acme/lego/v4 v4.5.3
 	github.com/go-sql-driver/mysql v1.6.0
