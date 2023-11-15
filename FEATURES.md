@@ -2,13 +2,19 @@
 
 ## Custom domains
 
-...
+Custom domains can be used by creating a `.domains` file with the domain name, e.g.:
+
+```text
+codeberg.page
+```
+
+You also have to set some DNS records, see the [Codeberg Documentation](https://docs.codeberg.org/codeberg-pages/using-custom-domain/).
 
 ## Redirects
 
 Redirects can be created with a `_redirects` file with the following format:
 
-```
+```text
 # Comment
 from  to  [status]
 ```
@@ -30,7 +36,7 @@ from  to  [status]
 
 Redirects all paths to `/index.html` for single-page apps.
 
-```
+```text
 /*  /index.html 200
 ```
 
@@ -38,7 +44,7 @@ Redirects all paths to `/index.html` for single-page apps.
 
 Redirects every path under `/articles` to `/posts` while keeping the path.
 
-```
+```text
 /articles/*  /posts/:splat  302
 ```
 

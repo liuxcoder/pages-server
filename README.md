@@ -14,8 +14,7 @@ It is suitable to be deployed by other Gitea instances, too, to offer static pag
 **End user documentation** can mainly be found at the [Wiki](https://codeberg.org/Codeberg/pages-server/wiki/Overview)
 and the [Codeberg Documentation](https://docs.codeberg.org/codeberg-pages/).
 
-
-<a href="https://codeberg.org/Codeberg/pages-server"> <img src="https://codeberg.org/Codeberg/GetItOnCodeberg/raw/branch/main/get-it-on-blue-on-white.svg" alt="Get It On Codeberg" width="250"/> <a/>
+<a href="https://codeberg.org/Codeberg/pages-server"> <img src="https://codeberg.org/Codeberg/GetItOnCodeberg/raw/branch/main/get-it-on-blue-on-white.svg" alt="Get It On Codeberg" width="250"/> </a>
 
 ## Quickstart
 
@@ -61,18 +60,18 @@ but if you want to run it on a shared IP address (and not a standalone),
 you'll need to configure your reverse proxy not to terminate the TLS connections,
 but forward the requests on the IP level to the Pages Server.
 
-You can check out a proof of concept in the `haproxy-sni` folder,
-and especially have a look at [this section of the haproxy.cfg](https://codeberg.org/Codeberg/pages-server/src/branch/main/haproxy-sni/haproxy.cfg#L38).
+You can check out a proof of concept in the `examples/haproxy-sni` folder,
+and especially have a look at [this section of the haproxy.cfg](https://codeberg.org/Codeberg/pages-server/src/branch/main/examples/haproxy-sni/haproxy.cfg#L38).
 
-### Environment
+### Environment Variables
 
 - `HOST` & `PORT` (default: `[::]` & `443`): listen address.
 - `PAGES_DOMAIN` (default: `codeberg.page`): main domain for pages.
-- `RAW_DOMAIN` (default: `raw.codeberg.page`): domain for raw resources.
+- `RAW_DOMAIN` (default: `raw.codeberg.page`): domain for raw resources (must be subdomain of `PAGES_DOMAIN`).
 - `GITEA_ROOT` (default: `https://codeberg.org`): root of the upstream Gitea instance.
 - `GITEA_API_TOKEN` (default: empty): API token for the Gitea instance to access non-public (e.g. limited) repos.
-- `RAW_INFO_PAGE` (default: https://docs.codeberg.org/pages/raw-content/): info page for raw resources, shown if no resource is provided.
-- `ACME_API` (default: https://acme-v02.api.letsencrypt.org/directory): set this to https://acme.mock.director to use invalid certificates without any verification (great for debugging).  
+- `RAW_INFO_PAGE` (default: <https://docs.codeberg.org/pages/raw-content/>): info page for raw resources, shown if no resource is provided.
+- `ACME_API` (default: <https://acme-v02.api.letsencrypt.org/directory>): set this to <https://acme.mock.director> to use invalid certificates without any verification (great for debugging).  
   ZeroSSL might be better in the future as it doesn't have rate limits and doesn't clash with the official Codeberg certificates (which are using Let's Encrypt), but I couldn't get it to work yet.
 - `ACME_EMAIL` (default: `noreply@example.email`): Set the email sent to the ACME API server to receive, for example, renewal reminders.
 - `ACME_EAB_KID` &  `ACME_EAB_HMAC` (default: don't use EAB): EAB credentials, for example for ZeroSSL.
@@ -80,9 +79,8 @@ and especially have a look at [this section of the haproxy.cfg](https://codeberg
 - `ACME_USE_RATE_LIMITS` (default: true): Set this to false to disable rate limits, e.g. with ZeroSSL.
 - `ENABLE_HTTP_SERVER` (default: false): Set this to true to enable the HTTP-01 challenge and redirect all other HTTP requests to HTTPS. Currently only works with port 80.
 - `DNS_PROVIDER` (default: use self-signed certificate): Code of the ACME DNS provider for the main domain wildcard.  
-  See https://go-acme.github.io/lego/dns/ for available values & additional environment variables.
+  See <https://go-acme.github.io/lego/dns/> for available values & additional environment variables.
 - `LOG_LEVEL` (default: warn): Set this to specify the level of logging.
-
 
 ## Contributing to the development
 
@@ -119,7 +117,8 @@ Make sure you have [golang](https://go.dev) v1.20 or newer and [just](https://ju
 
 run `just dev`  
 now this pages should work:
- - https://cb_pages_tests.localhost.mock.directory:4430/images/827679288a.jpg
- - https://momar.localhost.mock.directory:4430/ci-testing/
- - https://momar.localhost.mock.directory:4430/pag/@master/
- - https://mock-pages.codeberg-test.org:4430/README.md
+
+- <https://cb_pages_tests.localhost.mock.directory:4430/images/827679288a.jpg>
+- <https://momar.localhost.mock.directory:4430/ci-testing/>
+- <https://momar.localhost.mock.directory:4430/pag/@master/>
+- <https://mock-pages.codeberg-test.org:4430/README.md>
