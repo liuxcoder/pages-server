@@ -91,9 +91,13 @@ Since we are working nicely in a team, it might be hard at times to get started
 (still check out the issues, we always aim to have some things to get you started).
 
 If you have any questions, want to work on a feature or could imagine collaborating with us for some time,
-feel free to ping us in an issue or in a general Matrix chatgroup.
+feel free to ping us in an issue or in a general [Matrix chat room](#chat-for-admins--devs).
 
-You can also contact the maintainers of this project:
+You can also contact the maintainer(s) of this project:
+
+- [crapStone](https://codeberg.org/crapStone) [(Matrix)](https://matrix.to/#/@crapstone:obermui.de)
+
+Previous maintainers:
 
 - [momar](https://codeberg.org/momar) [(Matrix)](https://matrix.to/#/@moritz:wuks.space)
 - [6543](https://codeberg.org/6543) [(Matrix)](https://matrix.to/#/@marddl:obermui.de)
