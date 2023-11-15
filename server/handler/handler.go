@@ -10,7 +10,6 @@ import (
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/context"
 	"codeberg.org/codeberg/pages/server/gitea"
-	"codeberg.org/codeberg/pages/server/version"
 )
 
 const (
@@ -31,7 +30,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 		log := log.With().Strs("Handler", []string{req.Host, req.RequestURI}).Logger()
 		ctx := context.New(w, req)
 
-		ctx.RespWriter.Header().Set("Server", "CodebergPages/"+version.Version)
+		ctx.RespWriter.Header().Set("Server", "pages-server")
 
 		// Force new default from specification (since November 2020) - see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy#strict-origin-when-cross-origin
 		ctx.RespWriter.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -88,14 +87,14 @@ func Handler(mainDomainSuffix, rawDomain string,
 		pathElements := strings.Split(strings.Trim(ctx.Path(), "/"), "/")
 
 		if rawDomain != "" && strings.EqualFold(trimmedHost, rawDomain) {
-			log.Debug().Msg("raw domain request detecded")
+			log.Debug().Msg("raw domain request detected")
 			handleRaw(log, ctx, giteaClient,
 				mainDomainSuffix, rawInfoPage,
 				trimmedHost,
 				pathElements,
 				canonicalDomainCache, redirectsCache)
 		} else if strings.HasSuffix(trimmedHost, mainDomainSuffix) {
-			log.Debug().Msg("subdomain request detecded")
+			log.Debug().Msg("subdomain request detected")
 			handleSubDomain(log, ctx, giteaClient,
 				mainDomainSuffix,
 				defaultPagesBranches,
@@ -103,7 +102,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 				pathElements,
 				canonicalDomainCache, redirectsCache)
 		} else {
-			log.Debug().Msg("custom domain request detecded")
+			log.Debug().Msg("custom domain request detected")
 			handleCustomDomain(log, ctx, giteaClient,
 				mainDomainSuffix,
 				trimmedHost,
