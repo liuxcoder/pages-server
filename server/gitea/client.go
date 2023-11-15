@@ -17,12 +17,13 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"codeberg.org/codeberg/pages/server/cache"
+	"codeberg.org/codeberg/pages/server/version"
 )
 
 var ErrorNotFound = errors.New("not found")
 
 const (
-	// cache key prefixe
+	// cache key prefixes
 	branchTimestampCacheKeyPrefix = "branchTime"
 	defaultBranchCacheKeyPrefix   = "defaultBranch"
 	rawContentCacheKeyPrefix      = "rawContent"
@@ -76,7 +77,13 @@ func NewClient(giteaRoot, giteaAPIToken string, respCache cache.SetGetKey, follo
 		defaultMimeType = "application/octet-stream"
 	}
 
-	sdk, err := gitea.NewClient(giteaRoot, gitea.SetHTTPClient(&stdClient), gitea.SetToken(giteaAPIToken))
+	sdk, err := gitea.NewClient(
+		giteaRoot,
+		gitea.SetHTTPClient(&stdClient),
+		gitea.SetToken(giteaAPIToken),
+		gitea.SetUserAgent("pages-server/"+version.Version),
+	)
+
 	return &Client{
 		sdkClient:     sdk,
 		responseCache: respCache,
@@ -172,7 +179,7 @@ func (client *Client) ServeRawContent(targetOwner, targetRepo, ref, resource str
 				return reader, resp.Response.Header, resp.StatusCode, err
 			}
 
-			// now we write to cache and respond at the sime time
+			// now we write to cache and respond at the same time
 			fileResp := FileResponse{
 				Exists:   true,
 				ETag:     resp.Header.Get(ETagHeader),
@@ -278,11 +285,11 @@ func shouldRespBeSavedToCache(resp *http.Response) bool {
 		return false
 	}
 
-	contentLeng, err := strconv.ParseInt(contentLengthRaw, 10, 64)
+	contentLength, err := strconv.ParseInt(contentLengthRaw, 10, 64)
 	if err != nil {
 		log.Error().Err(err).Msg("could not parse content length")
 	}
 
 	// if content to big or could not be determined we not cache it
-	return contentLeng > 0 && contentLeng < fileCacheSizeLimit
+	return contentLength > 0 && contentLength < fileCacheSizeLimit
 }
