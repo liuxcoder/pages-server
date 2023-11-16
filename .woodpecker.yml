@@ -1,7 +1,7 @@
 steps:
   # use vendor to cache dependencies
   vendor:
-    image: golang:1.20
+    image: golang:1.21
     commands:
       - go mod vendor
 

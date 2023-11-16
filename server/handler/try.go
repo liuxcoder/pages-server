@@ -41,7 +41,7 @@ func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 
 	// Try to request the file from the Gitea API
 	if !options.Upstream(ctx, giteaClient, redirectsCache) {
-		html.ReturnErrorPage(ctx, "", ctx.StatusCode)
+		html.ReturnErrorPage(ctx, "gitea client failed", ctx.StatusCode)
 	}
 }
 

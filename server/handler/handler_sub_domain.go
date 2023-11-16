@@ -55,9 +55,11 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 			log.Trace().Msg("tryUpstream: serve with specified repo and branch")
 			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 		} else {
-			html.ReturnErrorPage(ctx,
-				fmt.Sprintf("explizite set branch %q do not exist at '%s/%s'", targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
-				http.StatusFailedDependency)
+			html.ReturnErrorPage(
+				ctx,
+				formatSetBranchNotFoundMessage(targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
+				http.StatusFailedDependency,
+			)
 		}
 		return
 	}
@@ -85,9 +87,11 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 			log.Trace().Msg("tryUpstream: serve default pages repo with specified branch")
 			tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 		} else {
-			html.ReturnErrorPage(ctx,
-				fmt.Sprintf("explizite set branch %q do not exist at '%s/%s'", targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
-				http.StatusFailedDependency)
+			html.ReturnErrorPage(
+				ctx,
+				formatSetBranchNotFoundMessage(targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
+				http.StatusFailedDependency,
+			)
 		}
 		return
 	}
@@ -143,6 +147,10 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 
 	// Couldn't find a valid repo/branch
 	html.ReturnErrorPage(ctx,
-		fmt.Sprintf("could not find a valid repository[%s]", targetRepo),
+		fmt.Sprintf("could not find a valid repository or branch for repository: <code>%s</code>", targetRepo),
 		http.StatusNotFound)
+}
+
+func formatSetBranchNotFoundMessage(branch, owner, repo string) string {
+	return fmt.Sprintf("explicitly set branch <code>%q</code> does not exist at <code>%s/%s</code>", branch, owner, repo)
 }

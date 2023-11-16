@@ -113,7 +113,7 @@ Thank you very much.
 
 ### Test Server
 
-Make sure you have [golang](https://go.dev) v1.20 or newer and [just](https://just.systems/man/en/) installed.
+Make sure you have [golang](https://go.dev) v1.21 or newer and [just](https://just.systems/man/en/) installed.
 
 run `just dev`  
 now this pages should work:

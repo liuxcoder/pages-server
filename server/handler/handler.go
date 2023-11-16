@@ -65,7 +65,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 		// Block blacklisted paths (like ACME challenges)
 		for _, blacklistedPath := range blacklistedPaths {
 			if strings.HasPrefix(ctx.Path(), blacklistedPath) {
-				html.ReturnErrorPage(ctx, "requested blacklisted path", http.StatusForbidden)
+				html.ReturnErrorPage(ctx, "requested path is blacklisted", http.StatusForbidden)
 				return
 			}
 		}

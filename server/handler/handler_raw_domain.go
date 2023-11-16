@@ -61,7 +61,7 @@ func handleRaw(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Clie
 		tryUpstream(ctx, giteaClient, mainDomainSuffix, trimmedHost, targetOpt, canonicalDomainCache, redirectsCache)
 	} else {
 		html.ReturnErrorPage(ctx,
-			fmt.Sprintf("raw domain could not find repo '%s/%s' or repo is empty", targetOpt.TargetOwner, targetOpt.TargetRepo),
+			fmt.Sprintf("raw domain could not find repo <code>%s/%s</code> or repo is empty", targetOpt.TargetOwner, targetOpt.TargetRepo),
 			http.StatusNotFound)
 	}
 }

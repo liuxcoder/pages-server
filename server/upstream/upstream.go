@@ -53,11 +53,11 @@ type Options struct {
 }
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redirectsCache cache.SetGetKey) (final bool) {
+func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redirectsCache cache.SetGetKey) bool {
 	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath}).Logger()
 
 	if o.TargetOwner == "" || o.TargetRepo == "" {
-		html.ReturnErrorPage(ctx, "either repo owner or name info is missing", http.StatusBadRequest)
+		html.ReturnErrorPage(ctx, "gitea client: either repo owner or name info is missing", http.StatusBadRequest)
 		return true
 	}
 
@@ -67,7 +67,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 		// handle 404
 		if err != nil && errors.Is(err, gitea.ErrorNotFound) || !branchExist {
 			html.ReturnErrorPage(ctx,
-				fmt.Sprintf("branch %q for '%s/%s' not found", o.TargetBranch, o.TargetOwner, o.TargetRepo),
+				fmt.Sprintf("branch <code>%q</code> for <code>%s/%s</code> not found", o.TargetBranch, o.TargetOwner, o.TargetRepo),
 				http.StatusNotFound)
 			return true
 		}
@@ -75,7 +75,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 		// handle unexpected errors
 		if err != nil {
 			html.ReturnErrorPage(ctx,
-				fmt.Sprintf("could not get timestamp of branch %q: %v", o.TargetBranch, err),
+				fmt.Sprintf("could not get timestamp of branch <code>%q</code>: '%v'", o.TargetBranch, err),
 				http.StatusFailedDependency)
 			return true
 		}
@@ -153,16 +153,16 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 		var msg string
 
 		if err != nil {
-			msg = "gitea client returned unexpected error"
+			msg = "gitea client: returned unexpected error"
 			log.Error().Err(err).Msg(msg)
-			msg = fmt.Sprintf("%s: %v", msg, err)
+			msg = fmt.Sprintf("%s: '%v'", msg, err)
 		}
 		if reader == nil {
-			msg = "gitea client returned no reader"
+			msg = "gitea client: returned no reader"
 			log.Error().Msg(msg)
 		}
 		if statusCode != http.StatusOK {
-			msg = fmt.Sprintf("Couldn't fetch contents (status code %d)", statusCode)
+			msg = fmt.Sprintf("gitea client: couldn't fetch contents: <code>%d - %s</code>", statusCode, http.StatusText(statusCode))
 			log.Error().Msg(msg)
 		}
 
