@@ -16,7 +16,6 @@ func TestHandlerPerformance(t *testing.T) {
 	testHandler := Handler(
 		"codeberg.page", "raw.codeberg.org",
 		giteaClient,
-		"https://docs.codeberg.org/pages/raw-content/",
 		[]string{"/.well-known/acme-challenge/"},
 		[]string{"raw.codeberg.org", "fonts.codeberg.org", "design.codeberg.org"},
 		[]string{"pages"},

@@ -72,13 +72,6 @@ var (
 			EnvVars: []string{"RAW_DOMAIN"},
 			Value:   "raw.codeberg.page",
 		},
-		// RawInfoPage will be shown (with a redirect) when trying to access RawDomain directly (or without owner/repo/path).
-		&cli.StringFlag{
-			Name:    "raw-info-page",
-			Usage:   "will be shown (with a redirect) when trying to access $RAW_DOMAIN directly (or without owner/repo/path)",
-			EnvVars: []string{"RAW_INFO_PAGE"},
-			Value:   "https://docs.codeberg.org/codeberg-pages/raw-content/",
-		},
 
 		// #########################
 		// ### Page Server Setup ###

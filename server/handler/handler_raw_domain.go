@@ -16,7 +16,7 @@ import (
 )
 
 func handleRaw(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Client,
-	mainDomainSuffix, rawInfoPage string,
+	mainDomainSuffix string,
 	trimmedHost string,
 	pathElements []string,
 	canonicalDomainCache, redirectsCache cache.SetGetKey,
@@ -25,8 +25,12 @@ func handleRaw(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Clie
 	log.Debug().Msg("raw domain")
 
 	if len(pathElements) < 2 {
-		// https://{RawDomain}/{owner}/{repo}[/@{branch}]/{path} is required
-		ctx.Redirect(rawInfoPage, http.StatusTemporaryRedirect)
+		html.ReturnErrorPage(
+			ctx,
+			"a url in the form of <code>https://{domain}/{owner}/{repo}[/@{branch}]/{path}</code> is required",
+			http.StatusBadRequest,
+		)
+
 		return
 	}
 

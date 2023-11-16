@@ -47,7 +47,6 @@ func Serve(ctx *cli.Context) error {
 	rawDomain := ctx.String("raw-domain")
 	defaultBranches := ctx.StringSlice("pages-branch")
 	mainDomainSuffix := ctx.String("pages-domain")
-	rawInfoPage := ctx.String("raw-info-page")
 	listeningHost := ctx.String("host")
 	listeningSSLPort := ctx.Uint("port")
 	listeningSSLAddress := fmt.Sprintf("%s:%d", listeningHost, listeningSSLPort)
@@ -137,7 +136,6 @@ func Serve(ctx *cli.Context) error {
 	// Create ssl handler based on settings
 	sslHandler := handler.Handler(mainDomainSuffix, rawDomain,
 		giteaClient,
-		rawInfoPage,
 		BlacklistedPaths, allowedCorsDomains,
 		defaultBranches,
 		dnsLookupCache, canonicalDomainCache, redirectsCache)

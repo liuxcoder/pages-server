@@ -21,7 +21,6 @@ const (
 // Handler handles a single HTTP request to the web server.
 func Handler(mainDomainSuffix, rawDomain string,
 	giteaClient *gitea.Client,
-	rawInfoPage string,
 	blacklistedPaths, allowedCorsDomains []string,
 	defaultPagesBranches []string,
 	dnsLookupCache, canonicalDomainCache, redirectsCache cache.SetGetKey,
@@ -89,7 +88,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 		if rawDomain != "" && strings.EqualFold(trimmedHost, rawDomain) {
 			log.Debug().Msg("raw domain request detected")
 			handleRaw(log, ctx, giteaClient,
-				mainDomainSuffix, rawInfoPage,
+				mainDomainSuffix,
 				trimmedHost,
 				pathElements,
 				canonicalDomainCache, redirectsCache)
