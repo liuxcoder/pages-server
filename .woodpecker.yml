@@ -1,3 +1,6 @@
+when:
+  branch: main
+
 steps:
   # use vendor to cache dependencies
   vendor:
