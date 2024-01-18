@@ -57,7 +57,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 		} else {
 			html.ReturnErrorPage(
 				ctx,
-				formatSetBranchNotFoundMessage(targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
+				formatSetBranchNotFoundMessage(pathElements[1][1:], targetOwner, pathElements[0]),
 				http.StatusFailedDependency,
 			)
 		}
@@ -89,7 +89,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 		} else {
 			html.ReturnErrorPage(
 				ctx,
-				formatSetBranchNotFoundMessage(targetOpt.TargetBranch, targetOpt.TargetOwner, targetOpt.TargetRepo),
+				formatSetBranchNotFoundMessage(targetBranch, targetOwner, defaultPagesRepo),
 				http.StatusFailedDependency,
 			)
 		}
