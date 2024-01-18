@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Codeberg Pages Usage Support
+    url: https://codeberg.org/Codeberg/Community/issues/
+    about: If you need help with configuring Codeberg Pages on codeberg.org, please go here.
