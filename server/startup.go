@@ -79,7 +79,7 @@ func Serve(ctx *cli.Context) error {
 	// redirectsCache stores redirects in _redirects files
 	redirectsCache := cache.NewInMemoryCache()
 	// clientResponseCache stores responses from the Gitea server
-	clientResponseCache := cache.NewInMemoryCache()
+	clientResponseCache := cache.NewInMemoryCacheWithLimit(ctx.Uint64("memory-limit"))
 
 	giteaClient, err := gitea.NewClient(cfg.Gitea, clientResponseCache)
 	if err != nil {
