@@ -41,7 +41,7 @@ func (o *Options) CheckCanonicalDomain(giteaClient *gitea.Client, actualDomain, 
 		domain = strings.TrimSpace(domain)
 		domain = strings.TrimPrefix(domain, "http://")
 		domain = strings.TrimPrefix(domain, "https://")
-		if len(domain) > 0 && !strings.HasPrefix(domain, "#") && !strings.ContainsAny(domain, "\t /") && strings.ContainsRune(domain, '.') {
+		if domain != "" && !strings.HasPrefix(domain, "#") && !strings.ContainsAny(domain, "\t /") && strings.ContainsRune(domain, '.') {
 			domains = append(domains, domain)
 		}
 		if domain == actualDomain {

@@ -199,7 +199,7 @@ func (c *AcmeClient) retrieveCertFromDB(sni, mainDomainSuffix string, useDnsProv
 
 func (c *AcmeClient) obtainCert(acmeClient *lego.Client, domains []string, renew *certificate.Resource, user string, useDnsProvider bool, mainDomainSuffix string, keyDatabase database.CertDB) (*tls.Certificate, error) {
 	name := strings.TrimPrefix(domains[0], "*")
-	if useDnsProvider && len(domains[0]) > 0 && domains[0][0] == '*' {
+	if useDnsProvider && domains[0] != "" && domains[0][0] == '*' {
 		domains = domains[1:]
 	}
 

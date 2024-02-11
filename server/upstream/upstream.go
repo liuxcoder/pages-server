@@ -57,7 +57,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath}).Logger()
 
 	if o.TargetOwner == "" || o.TargetRepo == "" {
-		html.ReturnErrorPage(ctx, "gitea client: either repo owner or name info is missing", http.StatusBadRequest)
+		html.ReturnErrorPage(ctx, "forge client: either repo owner or name info is missing", http.StatusBadRequest)
 		return true
 	}
 
@@ -153,16 +153,16 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 		var msg string
 
 		if err != nil {
-			msg = "gitea client: returned unexpected error"
+			msg = "forge client: returned unexpected error"
 			log.Error().Err(err).Msg(msg)
 			msg = fmt.Sprintf("%s: '%v'", msg, err)
 		}
 		if reader == nil {
-			msg = "gitea client: returned no reader"
+			msg = "forge client: returned no reader"
 			log.Error().Msg(msg)
 		}
 		if statusCode != http.StatusOK {
-			msg = fmt.Sprintf("gitea client: couldn't fetch contents: <code>%d - %s</code>", statusCode, http.StatusText(statusCode))
+			msg = fmt.Sprintf("forge client: couldn't fetch contents: <code>%d - %s</code>", statusCode, http.StatusText(statusCode))
 			log.Error().Msg(msg)
 		}
 
