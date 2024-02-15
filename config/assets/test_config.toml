@@ -1,0 +1,33 @@
+logLevel = 'trace'
+
+[server]
+host = '127.0.0.1'
+port = 443
+httpPort = 80
+httpServerEnabled = true
+mainDomain = 'codeberg.page'
+rawDomain = 'raw.codeberg.page'
+allowedCorsDomains = ['fonts.codeberg.org', 'design.codeberg.org']
+blacklistedPaths = ['do/not/use']
+
+[gitea]
+root = 'codeberg.org'
+token = 'XXXXXXXX'
+lfsEnabled = true
+followSymlinks = true
+defaultMimeType = "application/wasm"
+forbiddenMimeTypes = ["text/html"]
+
+[database]
+type = 'sqlite'
+conn = 'certs.sqlite'
+
+[ACME]
+email = 'a@b.c'
+apiEndpoint = 'https://example.com'
+acceptTerms = false
+useRateLimits = true
+eab_hmac = 'asdf'
+eab_kid = 'qwer'
+dnsProvider = 'cloudflare.com'
+accountConfigFile = 'nope'

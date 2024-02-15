@@ -6,23 +6,30 @@ import (
 	"testing"
 	"time"
 
+	"codeberg.org/codeberg/pages/config"
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/gitea"
 	"github.com/rs/zerolog/log"
 )
 
 func TestHandlerPerformance(t *testing.T) {
-	giteaClient, _ := gitea.NewClient("https://codeberg.org", "", cache.NewKeyValueCache(), false, false)
-	testHandler := Handler(
-		"codeberg.page", "raw.codeberg.org",
-		giteaClient,
-		[]string{"/.well-known/acme-challenge/"},
-		[]string{"raw.codeberg.org", "fonts.codeberg.org", "design.codeberg.org"},
-		[]string{"pages"},
-		cache.NewKeyValueCache(),
-		cache.NewKeyValueCache(),
-		cache.NewKeyValueCache(),
-	)
+	cfg := config.GiteaConfig{
+		Root:           "https://codeberg.org",
+		Token:          "",
+		LFSEnabled:     false,
+		FollowSymlinks: false,
+	}
+	giteaClient, _ := gitea.NewClient(cfg, cache.NewInMemoryCache())
+	serverCfg := config.ServerConfig{
+		MainDomain: "codeberg.page",
+		RawDomain:  "raw.codeberg.page",
+		BlacklistedPaths: []string{
+			"/.well-known/acme-challenge/",
+		},
+		AllowedCorsDomains: []string{"raw.codeberg.org", "fonts.codeberg.org", "design.codeberg.org"},
+		PagesBranches:      []string{"pages"},
+	}
+	testHandler := Handler(serverCfg, giteaClient, cache.NewInMemoryCache(), cache.NewInMemoryCache(), cache.NewInMemoryCache())
 
 	testCase := func(uri string, status int) {
 		t.Run(uri, func(t *testing.T) {

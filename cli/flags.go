@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"github.com/urfave/cli/v2"
@@ -29,26 +29,35 @@ var (
 			Name:    "gitea-root",
 			Usage:   "specifies the root URL of the Gitea instance, without a trailing slash.",
 			EnvVars: []string{"GITEA_ROOT"},
-			Value:   "https://codeberg.org",
 		},
 		// GiteaApiToken specifies an api token for the Gitea instance
 		&cli.StringFlag{
 			Name:    "gitea-api-token",
 			Usage:   "specifies an api token for the Gitea instance",
 			EnvVars: []string{"GITEA_API_TOKEN"},
-			Value:   "",
 		},
 		&cli.BoolFlag{
 			Name:    "enable-lfs-support",
 			Usage:   "enable lfs support, require gitea >= v1.17.0 as backend",
 			EnvVars: []string{"ENABLE_LFS_SUPPORT"},
-			Value:   true,
+			Value:   false,
 		},
 		&cli.BoolFlag{
 			Name:    "enable-symlink-support",
 			Usage:   "follow symlinks if enabled, require gitea >= v1.18.0 as backend",
 			EnvVars: []string{"ENABLE_SYMLINK_SUPPORT"},
-			Value:   true,
+			Value:   false,
+		},
+		&cli.StringFlag{
+			Name:    "default-mime-type",
+			Usage:   "specifies the default mime type for files that don't have a specific mime type.",
+			EnvVars: []string{"DEFAULT_MIME_TYPE"},
+			Value:   "application/octet-stream",
+		},
+		&cli.StringSliceFlag{
+			Name:    "forbidden-mime-types",
+			Usage:   "specifies the forbidden mime types. Use this flag multiple times for multiple mime types.",
+			EnvVars: []string{"FORBIDDEN_MIME_TYPES"},
 		},
 
 		// ###########################
@@ -61,7 +70,6 @@ var (
 			Name:    "pages-domain",
 			Usage:   "specifies the main domain (starting with a dot) for which subdomains shall be served as static pages",
 			EnvVars: []string{"PAGES_DOMAIN"},
-			Value:   "codeberg.page",
 		},
 		// RawDomain specifies the domain from which raw repository content shall be served in the following format:
 		// https://{RawDomain}/{owner}/{repo}[/{branch|tag|commit}/{version}]/{filepath...}
@@ -70,7 +78,6 @@ var (
 			Name:    "raw-domain",
 			Usage:   "specifies the domain from which raw repository content shall be served, not set disable raw content hosting",
 			EnvVars: []string{"RAW_DOMAIN"},
-			Value:   "raw.codeberg.page",
 		},
 
 		// #########################
@@ -98,19 +105,38 @@ var (
 			Name:    "enable-http-server",
 			Usage:   "start a http server to redirect to https and respond to http acme challenges",
 			EnvVars: []string{"ENABLE_HTTP_SERVER"},
+			Value:   false,
 		},
+		// Default branches to fetch assets from
+		&cli.StringSliceFlag{
+			Name:    "pages-branch",
+			Usage:   "define a branch to fetch assets from. Use this flag multiple times for multiple branches.",
+			EnvVars: []string{"PAGES_BRANCHES"},
+			Value:   cli.NewStringSlice("pages"),
+		},
+
+		&cli.StringSliceFlag{
+			Name:    "allowed-cors-domains",
+			Usage:   "specify allowed CORS domains. Use this flag multiple times for multiple domains.",
+			EnvVars: []string{"ALLOWED_CORS_DOMAINS"},
+		},
+		&cli.StringSliceFlag{
+			Name:    "blacklisted-paths",
+			Usage:   "return an error on these url paths.Use this flag multiple times for multiple paths.",
+			EnvVars: []string{"BLACKLISTED_PATHS"},
+		},
+
 		&cli.StringFlag{
 			Name:    "log-level",
 			Value:   "warn",
 			Usage:   "specify at which log level should be logged. Possible options: info, warn, error, fatal",
 			EnvVars: []string{"LOG_LEVEL"},
 		},
-		// Default branches to fetch assets from
-		&cli.StringSliceFlag{
-			Name:    "pages-branch",
-			Usage:   "define a branch to fetch assets from",
-			EnvVars: []string{"PAGES_BRANCHES"},
-			Value:   cli.NewStringSlice("pages"),
+		&cli.StringFlag{
+			Name:    "config-file",
+			Usage:   "specify the location of the config file",
+			Aliases: []string{"config"},
+			EnvVars: []string{"CONFIG_FILE"},
 		},
 
 		// ############################

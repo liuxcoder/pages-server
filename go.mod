@@ -13,9 +13,10 @@ require (
 	github.com/lib/pq v1.10.7
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/microcosm-cc/bluemonday v1.0.26
+	github.com/pelletier/go-toml/v2 v2.1.0
 	github.com/reugn/equalizer v0.0.0-20210216135016-a959c509d7ad
 	github.com/rs/zerolog v1.27.0
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
 	xorm.io/xorm v1.3.2
@@ -44,6 +45,7 @@ require (
 	github.com/cloudflare/cloudflare-go v0.20.0 // indirect
 	github.com/cpu/goacmedns v0.1.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
+	github.com/creasty/defaults v1.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/deepmap/oapi-codegen v1.6.1 // indirect
@@ -113,7 +115,7 @@ require (
 	github.com/softlayer/softlayer-go v1.0.3 // indirect
 	github.com/softlayer/xmlrpc v0.0.0-20200409220501-5f089df7cb7e // indirect
 	github.com/spf13/cast v1.3.1 // indirect
-	github.com/stretchr/objx v0.3.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/transip/gotransip/v6 v6.6.1 // indirect
 	github.com/vinyldns/go-vinyldns v0.0.0-20200917153823-148a5f6b8f14 // indirect
@@ -135,6 +137,6 @@ require (
 	gopkg.in/ns1/ns1-go.v2 v2.6.2 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	xorm.io/builder v0.3.12 // indirect
 )

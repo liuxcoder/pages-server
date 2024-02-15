@@ -31,7 +31,7 @@ func TLSConfig(mainDomainSuffix string,
 	giteaClient *gitea.Client,
 	acmeClient *AcmeClient,
 	firstDefaultBranch string,
-	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.SetGetKey,
+	keyCache, challengeCache, dnsLookupCache, canonicalDomainCache cache.ICache,
 	certDB database.CertDB,
 ) *tls.Config {
 	return &tls.Config{

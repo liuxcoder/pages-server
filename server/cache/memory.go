@@ -2,6 +2,6 @@ package cache
 
 import "github.com/OrlovEvgeny/go-mcache"
 
-func NewKeyValueCache() SetGetKey {
+func NewInMemoryCache() ICache {
 	return mcache.New()
 }

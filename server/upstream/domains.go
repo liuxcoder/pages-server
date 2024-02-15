@@ -17,7 +17,7 @@ var canonicalDomainCacheTimeout = 15 * time.Minute
 const canonicalDomainConfig = ".domains"
 
 // CheckCanonicalDomain returns the canonical domain specified in the repo (using the `.domains` file).
-func (o *Options) CheckCanonicalDomain(giteaClient *gitea.Client, actualDomain, mainDomainSuffix string, canonicalDomainCache cache.SetGetKey) (domain string, valid bool) {
+func (o *Options) CheckCanonicalDomain(giteaClient *gitea.Client, actualDomain, mainDomainSuffix string, canonicalDomainCache cache.ICache) (domain string, valid bool) {
 	// Check if this request is cached.
 	if cachedValue, ok := canonicalDomainCache.Get(o.TargetOwner + "/" + o.TargetRepo + "/" + o.TargetBranch); ok {
 		domains := cachedValue.([]string)

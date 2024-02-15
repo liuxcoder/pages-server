@@ -10,6 +10,7 @@ import (
 	"github.com/reugn/equalizer"
 	"github.com/rs/zerolog/log"
 
+	"codeberg.org/codeberg/pages/config"
 	"codeberg.org/codeberg/pages/server/cache"
 )
 
@@ -28,8 +29,8 @@ type AcmeClient struct {
 	acmeClientCertificateLimitPerUser map[string]*equalizer.TokenBucket
 }
 
-func NewAcmeClient(acmeAccountConf, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, dnsProvider string, acmeAcceptTerms, enableHTTPServer, acmeUseRateLimits bool, challengeCache cache.SetGetKey) (*AcmeClient, error) {
-	acmeConfig, err := setupAcmeConfig(acmeAccountConf, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, acmeAcceptTerms)
+func NewAcmeClient(cfg config.ACMEConfig, enableHTTPServer bool, challengeCache cache.ICache) (*AcmeClient, error) {
+	acmeConfig, err := setupAcmeConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func NewAcmeClient(acmeAccountConf, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, 
 	if err != nil {
 		log.Error().Err(err).Msg("Can't create ACME client, continuing with mock certs only")
 	} else {
-		if dnsProvider == "" {
+		if cfg.DNSProvider == "" {
 			// using mock server, don't use wildcard certs
 			err := mainDomainAcmeClient.Challenge.SetTLSALPN01Provider(AcmeTLSChallengeProvider{challengeCache})
 			if err != nil {
@@ -62,7 +63,7 @@ func NewAcmeClient(acmeAccountConf, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, 
 			}
 		} else {
 			// use DNS-Challenge https://go-acme.github.io/lego/dns/
-			provider, err := dns.NewDNSChallengeProviderByName(dnsProvider)
+			provider, err := dns.NewDNSChallengeProviderByName(cfg.DNSProvider)
 			if err != nil {
 				return nil, fmt.Errorf("can not create DNS Challenge provider: %w", err)
 			}
@@ -76,7 +77,7 @@ func NewAcmeClient(acmeAccountConf, acmeAPI, acmeMail, acmeEabHmac, acmeEabKID, 
 		legoClient:              acmeClient,
 		dnsChallengerLegoClient: mainDomainAcmeClient,
 
-		acmeUseRateLimits: acmeUseRateLimits,
+		acmeUseRateLimits: cfg.UseRateLimits,
 
 		obtainLocks: sync.Map{},
 

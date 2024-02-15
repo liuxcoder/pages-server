@@ -19,7 +19,7 @@ func handleCustomDomain(log zerolog.Logger, ctx *context.Context, giteaClient *g
 	trimmedHost string,
 	pathElements []string,
 	firstDefaultBranch string,
-	dnsLookupCache, canonicalDomainCache, redirectsCache cache.SetGetKey,
+	dnsLookupCache, canonicalDomainCache, redirectsCache cache.ICache,
 ) {
 	// Serve pages from custom domains
 	targetOwner, targetRepo, targetBranch := dns.GetTargetFromDNS(trimmedHost, mainDomainSuffix, firstDefaultBranch, dnsLookupCache)

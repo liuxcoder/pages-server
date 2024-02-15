@@ -1,0 +1,32 @@
+logLevel = 'debug'
+
+[server]
+host = '[::]'
+port = 443
+httpPort = 80
+httpServerEnabled = true
+mainDomain = 'codeberg.page'
+rawDomain = 'raw.codeberg.page'
+pagesBranches = ["pages"]
+allowedCorsDomains = []
+blacklistedPaths = []
+
+[gitea]
+root = 'https://codeberg.org'
+token = 'ASDF1234'
+lfsEnabled = true
+followSymlinks = true
+
+[database]
+type = 'sqlite'
+conn = 'certs.sqlite'
+
+[ACME]
+email = 'noreply@example.email'
+apiEndpoint = 'https://acme-v02.api.letsencrypt.org/directory'
+acceptTerms = false
+useRateLimits = false
+eab_hmac = ''
+eab_kid = ''
+dnsProvider = ''
+accountConfigFile = 'acme-account.json'

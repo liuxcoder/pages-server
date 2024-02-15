@@ -23,7 +23,7 @@ var redirectsCacheTimeout = 10 * time.Minute
 const redirectsConfig = "_redirects"
 
 // getRedirects returns redirects specified in the _redirects file.
-func (o *Options) getRedirects(giteaClient *gitea.Client, redirectsCache cache.SetGetKey) []Redirect {
+func (o *Options) getRedirects(giteaClient *gitea.Client, redirectsCache cache.ICache) []Redirect {
 	var redirects []Redirect
 	cacheKey := o.TargetOwner + "/" + o.TargetRepo + "/" + o.TargetBranch
 
@@ -63,7 +63,7 @@ func (o *Options) getRedirects(giteaClient *gitea.Client, redirectsCache cache.S
 	return redirects
 }
 
-func (o *Options) matchRedirects(ctx *context.Context, giteaClient *gitea.Client, redirects []Redirect, redirectsCache cache.SetGetKey) (final bool) {
+func (o *Options) matchRedirects(ctx *context.Context, giteaClient *gitea.Client, redirects []Redirect, redirectsCache cache.ICache) (final bool) {
 	if len(redirects) > 0 {
 		for _, redirect := range redirects {
 			reqUrl := ctx.Req.RequestURI

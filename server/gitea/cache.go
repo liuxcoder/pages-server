@@ -74,7 +74,7 @@ type writeCacheReader struct {
 	buffer         *bytes.Buffer
 	rileResponse   *FileResponse
 	cacheKey       string
-	cache          cache.SetGetKey
+	cache          cache.ICache
 	hasError       bool
 }
 
@@ -99,7 +99,7 @@ func (t *writeCacheReader) Close() error {
 	return t.originalReader.Close()
 }
 
-func (f FileResponse) CreateCacheReader(r io.ReadCloser, cache cache.SetGetKey, cacheKey string) io.ReadCloser {
+func (f FileResponse) CreateCacheReader(r io.ReadCloser, cache cache.ICache, cacheKey string) io.ReadCloser {
 	if r == nil || cache == nil || cacheKey == "" {
 		log.Error().Msg("could not create CacheReader")
 		return nil

@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"codeberg.org/codeberg/pages/config"
 	"codeberg.org/codeberg/pages/html"
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/context"
@@ -19,11 +20,10 @@ const (
 )
 
 // Handler handles a single HTTP request to the web server.
-func Handler(mainDomainSuffix, rawDomain string,
+func Handler(
+	cfg config.ServerConfig,
 	giteaClient *gitea.Client,
-	blacklistedPaths, allowedCorsDomains []string,
-	defaultPagesBranches []string,
-	dnsLookupCache, canonicalDomainCache, redirectsCache cache.SetGetKey,
+	dnsLookupCache, canonicalDomainCache, redirectsCache cache.ICache,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		log := log.With().Strs("Handler", []string{req.Host, req.RequestURI}).Logger()
@@ -39,8 +39,8 @@ func Handler(mainDomainSuffix, rawDomain string,
 
 		trimmedHost := ctx.TrimHostPort()
 
-		// Add HSTS for RawDomain and MainDomainSuffix
-		if hsts := getHSTSHeader(trimmedHost, mainDomainSuffix, rawDomain); hsts != "" {
+		// Add HSTS for RawDomain and MainDomain
+		if hsts := getHSTSHeader(trimmedHost, cfg.MainDomain, cfg.RawDomain); hsts != "" {
 			ctx.RespWriter.Header().Set("Strict-Transport-Security", hsts)
 		}
 
@@ -62,7 +62,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 		}
 
 		// Block blacklisted paths (like ACME challenges)
-		for _, blacklistedPath := range blacklistedPaths {
+		for _, blacklistedPath := range cfg.BlacklistedPaths {
 			if strings.HasPrefix(ctx.Path(), blacklistedPath) {
 				html.ReturnErrorPage(ctx, "requested path is blacklisted", http.StatusForbidden)
 				return
@@ -71,7 +71,7 @@ func Handler(mainDomainSuffix, rawDomain string,
 
 		// Allow CORS for specified domains
 		allowCors := false
-		for _, allowedCorsDomain := range allowedCorsDomains {
+		for _, allowedCorsDomain := range cfg.AllowedCorsDomains {
 			if strings.EqualFold(trimmedHost, allowedCorsDomain) {
 				allowCors = true
 				break
@@ -85,28 +85,28 @@ func Handler(mainDomainSuffix, rawDomain string,
 		// Prepare request information to Gitea
 		pathElements := strings.Split(strings.Trim(ctx.Path(), "/"), "/")
 
-		if rawDomain != "" && strings.EqualFold(trimmedHost, rawDomain) {
+		if cfg.RawDomain != "" && strings.EqualFold(trimmedHost, cfg.RawDomain) {
 			log.Debug().Msg("raw domain request detected")
 			handleRaw(log, ctx, giteaClient,
-				mainDomainSuffix,
+				cfg.MainDomain,
 				trimmedHost,
 				pathElements,
 				canonicalDomainCache, redirectsCache)
-		} else if strings.HasSuffix(trimmedHost, mainDomainSuffix) {
+		} else if strings.HasSuffix(trimmedHost, cfg.MainDomain) {
 			log.Debug().Msg("subdomain request detected")
 			handleSubDomain(log, ctx, giteaClient,
-				mainDomainSuffix,
-				defaultPagesBranches,
+				cfg.MainDomain,
+				cfg.PagesBranches,
 				trimmedHost,
 				pathElements,
 				canonicalDomainCache, redirectsCache)
 		} else {
 			log.Debug().Msg("custom domain request detected")
 			handleCustomDomain(log, ctx, giteaClient,
-				mainDomainSuffix,
+				cfg.MainDomain,
 				trimmedHost,
 				pathElements,
-				defaultPagesBranches[0],
+				cfg.PagesBranches[0],
 				dnsLookupCache, canonicalDomainCache, redirectsCache)
 		}
 	}

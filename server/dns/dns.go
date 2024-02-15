@@ -15,7 +15,7 @@ var defaultPagesRepo = "pages"
 
 // GetTargetFromDNS searches for CNAME or TXT entries on the request domain ending with MainDomainSuffix.
 // If everything is fine, it returns the target data.
-func GetTargetFromDNS(domain, mainDomainSuffix, firstDefaultBranch string, dnsLookupCache cache.SetGetKey) (targetOwner, targetRepo, targetBranch string) {
+func GetTargetFromDNS(domain, mainDomainSuffix, firstDefaultBranch string, dnsLookupCache cache.ICache) (targetOwner, targetRepo, targetBranch string) {
 	// Get CNAME or TXT
 	var cname string
 	var err error

@@ -15,7 +15,7 @@ import (
 )
 
 type AcmeTLSChallengeProvider struct {
-	challengeCache cache.SetGetKey
+	challengeCache cache.ICache
 }
 
 // make sure AcmeTLSChallengeProvider match Provider interface
@@ -31,7 +31,7 @@ func (a AcmeTLSChallengeProvider) CleanUp(domain, _, _ string) error {
 }
 
 type AcmeHTTPChallengeProvider struct {
-	challengeCache cache.SetGetKey
+	challengeCache cache.ICache
 }
 
 // make sure AcmeHTTPChallengeProvider match Provider interface
@@ -46,7 +46,7 @@ func (a AcmeHTTPChallengeProvider) CleanUp(domain, token, _ string) error {
 	return nil
 }
 
-func SetupHTTPACMEChallengeServer(challengeCache cache.SetGetKey, sslPort uint) http.HandlerFunc {
+func SetupHTTPACMEChallengeServer(challengeCache cache.ICache, sslPort uint) http.HandlerFunc {
 	// handle custom-ssl-ports to be added on https redirects
 	portPart := ""
 	if sslPort != 443 {

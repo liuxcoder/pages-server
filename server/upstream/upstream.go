@@ -53,7 +53,7 @@ type Options struct {
 }
 
 // Upstream requests a file from the Gitea API at GiteaRoot and writes it to the request context.
-func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redirectsCache cache.SetGetKey) bool {
+func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redirectsCache cache.ICache) bool {
 	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath}).Logger()
 
 	if o.TargetOwner == "" || o.TargetRepo == "" {

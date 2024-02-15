@@ -16,6 +16,7 @@ import (
 	"code.gitea.io/sdk/gitea"
 	"github.com/rs/zerolog/log"
 
+	"codeberg.org/codeberg/pages/config"
 	"codeberg.org/codeberg/pages/server/cache"
 	"codeberg.org/codeberg/pages/server/version"
 )
@@ -44,7 +45,7 @@ const (
 
 type Client struct {
 	sdkClient     *gitea.Client
-	responseCache cache.SetGetKey
+	responseCache cache.ICache
 
 	giteaRoot string
 
@@ -55,24 +56,21 @@ type Client struct {
 	defaultMimeType    string
 }
 
-func NewClient(giteaRoot, giteaAPIToken string, respCache cache.SetGetKey, followSymlinks, supportLFS bool) (*Client, error) {
-	rootURL, err := url.Parse(giteaRoot)
+func NewClient(cfg config.GiteaConfig, respCache cache.ICache) (*Client, error) {
+	rootURL, err := url.Parse(cfg.Root)
 	if err != nil {
 		return nil, err
 	}
-	giteaRoot = strings.Trim(rootURL.String(), "/")
+	giteaRoot := strings.Trim(rootURL.String(), "/")
 
 	stdClient := http.Client{Timeout: 10 * time.Second}
 
-	// TODO: pass down
-	var (
-		forbiddenMimeTypes map[string]bool
-		defaultMimeType    string
-	)
-
-	if forbiddenMimeTypes == nil {
-		forbiddenMimeTypes = make(map[string]bool)
+	forbiddenMimeTypes := make(map[string]bool, len(cfg.ForbiddenMimeTypes))
+	for _, mimeType := range cfg.ForbiddenMimeTypes {
+		forbiddenMimeTypes[mimeType] = true
 	}
+
+	defaultMimeType := cfg.DefaultMimeType
 	if defaultMimeType == "" {
 		defaultMimeType = "application/octet-stream"
 	}
@@ -80,7 +78,7 @@ func NewClient(giteaRoot, giteaAPIToken string, respCache cache.SetGetKey, follo
 	sdk, err := gitea.NewClient(
 		giteaRoot,
 		gitea.SetHTTPClient(&stdClient),
-		gitea.SetToken(giteaAPIToken),
+		gitea.SetToken(cfg.Token),
 		gitea.SetUserAgent("pages-server/"+version.Version),
 	)
 
@@ -90,8 +88,8 @@ func NewClient(giteaRoot, giteaAPIToken string, respCache cache.SetGetKey, follo
 
 		giteaRoot: giteaRoot,
 
-		followSymlinks: followSymlinks,
-		supportLFS:     supportLFS,
+		followSymlinks: cfg.FollowSymlinks,
+		supportLFS:     cfg.LFSEnabled,
 
 		forbiddenMimeTypes: forbiddenMimeTypes,
 		defaultMimeType:    defaultMimeType,

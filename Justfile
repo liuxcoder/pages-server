@@ -4,14 +4,9 @@ TAGS      := 'sqlite sqlite_unlock_notify netgo'
 dev:
     #!/usr/bin/env bash
     set -euxo pipefail
-    export ACME_API=https://acme.mock.directory
-    export ACME_ACCEPT_TERMS=true
-    export PAGES_DOMAIN=localhost.mock.directory
-    export RAW_DOMAIN=raw.localhost.mock.directory
-    export PORT=4430
-    export HTTP_PORT=8880
-    export ENABLE_HTTP_SERVER=true
-    export LOG_LEVEL=trace
+    set -a # automatically export all variables
+    source .env-dev
+    set +a
     go run -tags '{{TAGS}}' .
 
 build:
@@ -42,10 +37,10 @@ tool-gofumpt:
     fi
 
 test:
-    go test -race -cover -tags '{{TAGS}}' codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
+    go test -race -cover -tags '{{TAGS}}' codeberg.org/codeberg/pages/config/ codeberg.org/codeberg/pages/html/ codeberg.org/codeberg/pages/server/...
 
 test-run TEST:
-    go test -race -tags '{{TAGS}}' -run "^{{TEST}}$" codeberg.org/codeberg/pages/server/... codeberg.org/codeberg/pages/html/
+    go test -race -tags '{{TAGS}}' -run "^{{TEST}}$" codeberg.org/codeberg/pages/config/ codeberg.org/codeberg/pages/html/ codeberg.org/codeberg/pages/server/...
 
 integration:
     go test -race -tags 'integration {{TAGS}}' codeberg.org/codeberg/pages/integration/...

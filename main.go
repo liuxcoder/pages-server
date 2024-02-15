@@ -1,29 +1,21 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/urfave/cli/v2"
+	"github.com/rs/zerolog/log"
 
-	"codeberg.org/codeberg/pages/cmd"
-	"codeberg.org/codeberg/pages/server/version"
+	"codeberg.org/codeberg/pages/cli"
+	"codeberg.org/codeberg/pages/server"
 )
 
 func main() {
-	app := cli.NewApp()
-	app.Name = "pages-server"
-	app.Version = version.Version
-	app.Usage = "pages server"
-	app.Action = cmd.Serve
-	app.Flags = cmd.ServerFlags
-	app.Commands = []*cli.Command{
-		cmd.Certs,
-	}
+	app := cli.CreatePagesApp()
+	app.Action = server.Serve
 
 	if err := app.Run(os.Args); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		log.Error().Err(err).Msg("A fatal error occurred")
 		os.Exit(1)
 	}
 }

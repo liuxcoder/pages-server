@@ -21,7 +21,7 @@ func handleSubDomain(log zerolog.Logger, ctx *context.Context, giteaClient *gite
 	defaultPagesBranches []string,
 	trimmedHost string,
 	pathElements []string,
-	canonicalDomainCache, redirectsCache cache.SetGetKey,
+	canonicalDomainCache, redirectsCache cache.ICache,
 ) {
 	// Serve pages from subdomains of MainDomainSuffix
 	log.Debug().Msg("main domain suffix")

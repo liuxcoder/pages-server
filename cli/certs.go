@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ var Certs = &cli.Command{
 }
 
 func listCerts(ctx *cli.Context) error {
-	certDB, closeFn, err := openCertDB(ctx)
+	certDB, closeFn, err := OpenCertDB(ctx)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func removeCert(ctx *cli.Context) error {
 
 	domains := ctx.Args().Slice()
 
-	certDB, closeFn, err := openCertDB(ctx)
+	certDB, closeFn, err := OpenCertDB(ctx)
 	if err != nil {
 		return err
 	}

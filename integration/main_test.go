@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/codeberg/pages/cmd"
-
 	"github.com/urfave/cli/v2"
+
+	cmd "codeberg.org/codeberg/pages/cli"
+	"codeberg.org/codeberg/pages/server"
 )
 
 func TestMain(m *testing.M) {
@@ -32,10 +33,7 @@ func TestMain(m *testing.M) {
 }
 
 func startServer(ctx context.Context) error {
-	args := []string{
-		"--verbose",
-		"--acme-accept-terms", "true",
-	}
+	args := []string{"integration"}
 	setEnvIfNotSet("ACME_API", "https://acme.mock.directory")
 	setEnvIfNotSet("PAGES_DOMAIN", "localhost.mock.directory")
 	setEnvIfNotSet("RAW_DOMAIN", "raw.localhost.mock.directory")
@@ -44,10 +42,15 @@ func startServer(ctx context.Context) error {
 	setEnvIfNotSet("HTTP_PORT", "8880")
 	setEnvIfNotSet("ENABLE_HTTP_SERVER", "true")
 	setEnvIfNotSet("DB_TYPE", "sqlite3")
+	setEnvIfNotSet("GITEA_ROOT", "https://codeberg.org")
+	setEnvIfNotSet("LOG_LEVEL", "trace")
+	setEnvIfNotSet("ENABLE_LFS_SUPPORT", "true")
+	setEnvIfNotSet("ENABLE_SYMLINK_SUPPORT", "true")
+	setEnvIfNotSet("ACME_ACCOUNT_CONFIG", "integration/acme-account.json")
 
 	app := cli.NewApp()
 	app.Name = "pages-server"
-	app.Action = cmd.Serve
+	app.Action = server.Serve
 	app.Flags = cmd.ServerFlags
 
 	go func() {

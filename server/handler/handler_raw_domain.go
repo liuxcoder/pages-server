@@ -19,7 +19,7 @@ func handleRaw(log zerolog.Logger, ctx *context.Context, giteaClient *gitea.Clie
 	mainDomainSuffix string,
 	trimmedHost string,
 	pathElements []string,
-	canonicalDomainCache, redirectsCache cache.SetGetKey,
+	canonicalDomainCache, redirectsCache cache.ICache,
 ) {
 	// Serve raw content from RawDomain
 	log.Debug().Msg("raw domain")

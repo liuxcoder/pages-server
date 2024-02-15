@@ -17,8 +17,8 @@ import (
 func tryUpstream(ctx *context.Context, giteaClient *gitea.Client,
 	mainDomainSuffix, trimmedHost string,
 	options *upstream.Options,
-	canonicalDomainCache cache.SetGetKey,
-	redirectsCache cache.SetGetKey,
+	canonicalDomainCache cache.ICache,
+	redirectsCache cache.ICache,
 ) {
 	// check if a canonical domain exists on a request on MainDomain
 	if strings.HasSuffix(trimmedHost, mainDomainSuffix) && !options.ServeRaw {
