@@ -56,6 +56,8 @@ type Options struct {
 func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redirectsCache cache.ICache) bool {
 	log := log.With().Strs("upstream", []string{o.TargetOwner, o.TargetRepo, o.TargetBranch, o.TargetPath}).Logger()
 
+	log.Debug().Msg("Start")
+
 	if o.TargetOwner == "" || o.TargetRepo == "" {
 		html.ReturnErrorPage(ctx, "forge client: either repo owner or name info is missing", http.StatusBadRequest)
 		return true
@@ -104,13 +106,16 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 
 	// Handle not found error
 	if err != nil && errors.Is(err, gitea.ErrorNotFound) {
+		log.Debug().Msg("Handling not found error")
 		// Get and match redirects
 		redirects := o.getRedirects(giteaClient, redirectsCache)
 		if o.matchRedirects(ctx, giteaClient, redirects, redirectsCache) {
+			log.Trace().Msg("redirect")
 			return true
 		}
 
 		if o.TryIndexPages {
+			log.Trace().Msg("try index page")
 			// copy the o struct & try if an index page exists
 			optionsForIndexPages := *o
 			optionsForIndexPages.TryIndexPages = false
@@ -121,6 +126,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 					return true
 				}
 			}
+			log.Trace().Msg("try html file with path name")
 			// compatibility fix for GitHub Pages (/example → /example.html)
 			optionsForIndexPages.appendTrailingSlash = false
 			optionsForIndexPages.redirectIfExists = strings.TrimSuffix(ctx.Path(), "/") + ".html"
@@ -130,8 +136,11 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 			}
 		}
 
+		log.Trace().Msg("not found")
+
 		ctx.StatusCode = http.StatusNotFound
 		if o.TryIndexPages {
+			log.Trace().Msg("try not found page")
 			// copy the o struct & try if a not found page exists
 			optionsForNotFoundPages := *o
 			optionsForNotFoundPages.TryIndexPages = false
@@ -142,6 +151,7 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 					return true
 				}
 			}
+			log.Trace().Msg("not found page missing")
 		}
 
 		return false
@@ -173,10 +183,12 @@ func (o *Options) Upstream(ctx *context.Context, giteaClient *gitea.Client, redi
 	// Append trailing slash if missing (for index files), and redirect to fix filenames in general
 	// o.appendTrailingSlash is only true when looking for index pages
 	if o.appendTrailingSlash && !strings.HasSuffix(ctx.Path(), "/") {
+		log.Trace().Msg("append trailing slash and redirect")
 		ctx.Redirect(ctx.Path()+"/", http.StatusTemporaryRedirect)
 		return true
 	}
 	if strings.HasSuffix(ctx.Path(), "/index.html") && !o.ServeRaw {
+		log.Trace().Msg("remove index.html from path and redirect")
 		ctx.Redirect(strings.TrimSuffix(ctx.Path(), "index.html"), http.StatusTemporaryRedirect)
 		return true
 	}

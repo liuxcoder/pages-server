@@ -112,26 +112,27 @@ func (client *Client) GiteaRawContent(targetOwner, targetRepo, ref, resource str
 func (client *Client) ServeRawContent(targetOwner, targetRepo, ref, resource string) (io.ReadCloser, http.Header, int, error) {
 	cacheKey := fmt.Sprintf("%s/%s/%s|%s|%s", rawContentCacheKeyPrefix, targetOwner, targetRepo, ref, resource)
 	log := log.With().Str("cache_key", cacheKey).Logger()
-
+	log.Trace().Msg("try file in cache")
 	// handle if cache entry exist
 	if cache, ok := client.responseCache.Get(cacheKey); ok {
 		cache := cache.(FileResponse)
 		cachedHeader, cachedStatusCode := cache.createHttpResponse(cacheKey)
 		// TODO: check against some timestamp mismatch?!?
 		if cache.Exists {
+			log.Debug().Msg("[cache] exists")
 			if cache.IsSymlink {
 				linkDest := string(cache.Body)
 				log.Debug().Msgf("[cache] follow symlink from %q to %q", resource, linkDest)
 				return client.ServeRawContent(targetOwner, targetRepo, ref, linkDest)
-			} else {
-				log.Debug().Msg("[cache] return bytes")
+			} else if !cache.IsEmpty() {
+				log.Debug().Msgf("[cache] return %d bytes", len(cache.Body))
 				return io.NopCloser(bytes.NewReader(cache.Body)), cachedHeader, cachedStatusCode, nil
+			} else if cache.IsEmpty() {
+				log.Debug().Msg("[cache] is empty")
 			}
-		} else {
-			return nil, cachedHeader, cachedStatusCode, ErrorNotFound
 		}
 	}
-
+	log.Trace().Msg("file not in cache")
 	// not in cache, open reader via gitea api
 	reader, resp, err := client.sdkClient.GetFileReader(targetOwner, targetRepo, ref, resource, client.supportLFS)
 	if resp != nil {
@@ -155,12 +156,14 @@ func (client *Client) ServeRawContent(targetOwner, targetRepo, ref, resource str
 					linkDest = path.Join(path.Dir(resource), linkDest)
 
 					// we store symlink not content to reduce duplicates in cache
-					if err := client.responseCache.Set(cacheKey, FileResponse{
+					fileResponse := FileResponse{
 						Exists:    true,
 						IsSymlink: true,
 						Body:      []byte(linkDest),
 						ETag:      resp.Header.Get(ETagHeader),
-					}, fileCacheTimeout); err != nil {
+					}
+					log.Trace().Msgf("file response has %d bytes", len(fileResponse.Body))
+					if err := client.responseCache.Set(cacheKey, fileResponse, fileCacheTimeout); err != nil {
 						log.Error().Err(err).Msg("[cache] error on cache write")
 					}
 

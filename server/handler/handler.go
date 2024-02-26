@@ -26,6 +26,7 @@ func Handler(
 	dnsLookupCache, canonicalDomainCache, redirectsCache cache.ICache,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		log.Debug().Msg("\n----------------------------------------------------------")
 		log := log.With().Strs("Handler", []string{req.Host, req.RequestURI}).Logger()
 		ctx := context.New(w, req)
 

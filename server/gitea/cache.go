@@ -39,7 +39,7 @@ type FileResponse struct {
 }
 
 func (f FileResponse) IsEmpty() bool {
-	return len(f.Body) != 0
+	return len(f.Body) == 0
 }
 
 func (f FileResponse) createHttpResponse(cacheKey string) (header http.Header, statusCode int) {
@@ -72,13 +72,14 @@ type BranchTimestamp struct {
 type writeCacheReader struct {
 	originalReader io.ReadCloser
 	buffer         *bytes.Buffer
-	rileResponse   *FileResponse
+	fileResponse   *FileResponse
 	cacheKey       string
 	cache          cache.ICache
 	hasError       bool
 }
 
 func (t *writeCacheReader) Read(p []byte) (n int, err error) {
+	log.Trace().Msgf("[cache] read %q", t.cacheKey)
 	n, err = t.originalReader.Read(p)
 	if err != nil && err != io.EOF {
 		log.Trace().Err(err).Msgf("[cache] original reader for %q has returned an error", t.cacheKey)
@@ -90,12 +91,20 @@ func (t *writeCacheReader) Read(p []byte) (n int, err error) {
 }
 
 func (t *writeCacheReader) Close() error {
-	if !t.hasError {
-		fc := *t.rileResponse
-		fc.Body = t.buffer.Bytes()
-		_ = t.cache.Set(t.cacheKey, fc, fileCacheTimeout)
+	doWrite := !t.hasError
+	fc := *t.fileResponse
+	fc.Body = t.buffer.Bytes()
+	if fc.IsEmpty() {
+		log.Trace().Msg("[cache] file response is empty")
+		doWrite = false
 	}
-	log.Trace().Msgf("cacheReader for %q saved=%t closed", t.cacheKey, !t.hasError)
+	if doWrite {
+		err := t.cache.Set(t.cacheKey, fc, fileCacheTimeout)
+		if err != nil {
+			log.Trace().Err(err).Msgf("[cache] writer for %q has returned an error", t.cacheKey)
+		}
+	}
+	log.Trace().Msgf("cacheReader for %q saved=%t closed", t.cacheKey, doWrite)
 	return t.originalReader.Close()
 }
 
@@ -108,7 +117,7 @@ func (f FileResponse) CreateCacheReader(r io.ReadCloser, cache cache.ICache, cac
 	return &writeCacheReader{
 		originalReader: r,
 		buffer:         bytes.NewBuffer(make([]byte, 0)),
-		rileResponse:   &f,
+		fileResponse:   &f,
 		cache:          cache,
 		cacheKey:       cacheKey,
 	}
