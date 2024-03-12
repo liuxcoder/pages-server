@@ -116,7 +116,7 @@ Thank you very much.
 Make sure you have [golang](https://go.dev) v1.21 or newer and [just](https://just.systems/man/en/) installed.
 
 run `just dev`  
-now this pages should work:
+now these pages should work:
 
 - <https://cb_pages_tests.localhost.mock.directory:4430/images/827679288a.jpg>
 - <https://momar.localhost.mock.directory:4430/ci-testing/>
