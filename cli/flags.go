@@ -140,8 +140,8 @@ var (
 		},
 		&cli.Uint64Flag{
 			Name:    "memory-limit",
-			Usage:   "maximum size of memory in bytes to use for caching, default: 512MB",
-			Value:   512 * 1024 * 1024,
+			Usage:   "maximum size of memory in KiB to use for caching, default: 512MiB",
+			Value:   512 * 1024,
 			EnvVars: []string{"MAX_MEMORY_SIZE"},
 		},
 
